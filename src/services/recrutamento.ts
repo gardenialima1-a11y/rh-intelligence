@@ -73,13 +73,22 @@ export async function getCostOfVacancy(_filters: ExecutiveFilters): Promise<Vaca
     }
   }
 
+  function positionMidpoint(p: { salaryFloor: number | null; salaryCeil: number | null }): number | null {
+    if (p.salaryFloor === null && p.salaryCeil === null) return null;
+    const floor = p.salaryFloor ?? p.salaryCeil ?? 0;
+    const ceil = p.salaryCeil ?? p.salaryFloor ?? 0;
+    return (floor + ceil) / 2;
+  }
+
   function findPositionMidpoint(vacancyName: string): number {
     const match =
       positions.find((p) => p.name.toLowerCase() === vacancyName.toLowerCase()) ??
       positions.find((p) => vacancyName.toLowerCase().includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(vacancyName.toLowerCase()));
-    if (match) return (match.salaryFloor + match.salaryCeil) / 2;
-    const allMidpoints = positions.map((p) => (p.salaryFloor + p.salaryCeil) / 2);
-    return allMidpoints.reduce((a, b) => a + b, 0) / (allMidpoints.length || 1);
+    const matchMidpoint = match ? positionMidpoint(match) : null;
+    if (matchMidpoint !== null && matchMidpoint !== undefined) return matchMidpoint;
+
+    const allMidpoints = positions.map(positionMidpoint).filter((v): v is number => v !== null);
+    return allMidpoints.length > 0 ? allMidpoints.reduce((a, b) => a + b, 0) / allMidpoints.length : 0;
   }
 
   const rows: VacancyCostRow[] = Array.from(openByVacancy.entries()).map(([vacancy, v]) => {
