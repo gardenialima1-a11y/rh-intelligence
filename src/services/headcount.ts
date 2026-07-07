@@ -1,0 +1,161 @@
+import { prisma } from "@/lib/prisma";
+import { MovementType } from "@prisma/client";
+import { resolvePeriod, previousPeriod, percentDelta, lastNMonthsKeys } from "@/services/period";
+import { linearForecast, trendDirection } from "@/services/forecast";
+import type { ExecutiveFilters } from "@/services/dashboard-executivo";
+
+async function activeCountAt(date: Date, unitId?: string) {
+  return prisma.employee.count({
+    where: {
+      admissionDate: { lte: date },
+      OR: [{ terminationDate: null }, { terminationDate: { gt: date } }],
+      ...(unitId ? { unitId } : {}),
+    },
+  });
+}
+
+export async function getHeadcountKpis(filters: ExecutiveFilters) {
+  const range = resolvePeriod(filters.period);
+  const prev = previousPeriod(range);
+
+  const [current, previous, admissions, terminations] = await Promise.all([
+    activeCountAt(range.end, filters.unitId),
+    activeCountAt(prev.end, filters.unitId),
+    prisma.movement.count({
+      where: {
+        type: MovementType.ADMISSAO,
+        date: { gte: range.start, lte: range.end },
+        ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
+      },
+    }),
+    prisma.movement.count({
+      where: {
+        type: MovementType.DESLIGAMENTO,
+        date: { gte: range.start, lte: range.end },
+        ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
+      },
+    }),
+  ]);
+
+  const months = lastNMonthsKeys(12);
+  const series = await Promise.all(
+    months.map(async (key) => {
+      const [y, m] = key.split("-").map(Number);
+      const refDate = new Date(y, m, 0, 23, 59, 59);
+      return activeCountAt(refDate, filters.unitId);
+    })
+  );
+
+  return {
+    current,
+    previous,
+    delta: percentDelta(current, previous),
+    admissions,
+    terminations,
+    netChange: admissions - terminations,
+    series,
+  };
+}
+
+export async function getHeadcountByCostCenter(unitId?: string) {
+  const costCenters = await prisma.costCenter.findMany({
+    select: {
+      id: true,
+      name: true,
+      _count: {
+        select: {
+          employees: {
+            where: { isActive: true, ...(unitId ? { unitId } : {}) },
+          },
+        },
+      },
+    },
+  });
+  return costCenters.map((c) => ({ name: c.name, headcount: c._count.employees }));
+}
+
+export async function getHeadcountByManager(unitId?: string) {
+  const managers = await prisma.manager.findMany({
+    select: {
+      id: true,
+      name: true,
+      _count: {
+        select: {
+          employees: {
+            where: { isActive: true, ...(unitId ? { unitId } : {}) },
+          },
+        },
+      },
+    },
+  });
+  return managers
+    .map((m) => ({ name: m.name, headcount: m._count.employees }))
+    .filter((m) => m.headcount > 0)
+    .sort((a, b) => b.headcount - a.headcount);
+}
+
+export async function getHeadcountForecast(filters: ExecutiveFilters) {
+  const months = lastNMonthsKeys(6);
+  const series = await Promise.all(
+    months.map(async (key) => {
+      const [y, m] = key.split("-").map(Number);
+      const refDate = new Date(y, m, 0, 23, 59, 59);
+      return activeCountAt(refDate, filters.unitId);
+    })
+  );
+
+  const forecast = linearForecast(series, 3).map((v) => Math.round(v));
+  const direction = trendDirection(series);
+  const projected3Months = forecast[forecast.length - 1] ?? series[series.length - 1] ?? 0;
+
+  return {
+    historicalSeries: series,
+    forecastSeries: forecast,
+    direction,
+    projected3Months,
+  };
+}
+
+export async function getHeadcountPyramid(unitId?: string) {
+  const employees = await prisma.employee.findMany({
+    where: { isActive: true, ...(unitId ? { unitId } : {}) },
+    select: { birthDate: true, gender: true },
+  });
+
+  const buckets = ["18-24", "25-34", "35-44", "45-54", "55+"];
+  const result = buckets.map((label) => ({ label, masculino: 0, feminino: 0 }));
+
+  const now = new Date();
+  for (const emp of employees) {
+    if (!emp.birthDate) continue;
+    const age = now.getFullYear() - emp.birthDate.getFullYear();
+    const idx = age < 25 ? 0 : age < 35 ? 1 : age < 45 ? 2 : age < 55 ? 3 : 4;
+    if (emp.gender === "MASCULINO") result[idx].masculino += 1;
+    else if (emp.gender === "FEMININO") result[idx].feminino += 1;
+  }
+  return result;
+}
+
+export async function getHeadcountTable(filters: ExecutiveFilters) {
+  const employees = await prisma.employee.findMany({
+    where: { isActive: true, ...(filters.unitId ? { unitId: filters.unitId } : {}) },
+    include: { position: true, costCenter: true, manager: true, unit: true },
+    orderBy: { admissionDate: "desc" },
+    take: 50,
+  });
+  return employees;
+}
+
+export async function getAverageTenureMonths(unitId?: string) {
+  const employees = await prisma.employee.findMany({
+    where: { isActive: true, ...(unitId ? { unitId } : {}) },
+    select: { admissionDate: true },
+  });
+  if (employees.length === 0) return 0;
+  const now = new Date();
+  const totalMonths = employees.reduce((acc, e) => {
+    const months = (now.getFullYear() - e.admissionDate.getFullYear()) * 12 + (now.getMonth() - e.admissionDate.getMonth());
+    return acc + months;
+  }, 0);
+  return totalMonths / employees.length;
+}
