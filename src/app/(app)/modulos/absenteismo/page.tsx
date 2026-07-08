@@ -51,7 +51,7 @@ export default async function AbsenteismoPage({
           <CardTitle>Absenteísmo — 12 meses</CardTitle>
         </CardHeader>
         <CardContent>
-          <TrendChart data={kpis.series.map((v) => v * 100)} labels={monthLabels} color="#C9922E" valueFormatter={(v) => `${v.toFixed(1)}%`} />
+          <TrendChart data={kpis.series.map((v) => v * 100)} labels={monthLabels} color="#C9922E" format="percent1" />
         </CardContent>
       </Card>
     </div>
