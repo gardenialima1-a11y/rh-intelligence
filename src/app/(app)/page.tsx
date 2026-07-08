@@ -142,7 +142,7 @@ export default async function HomePage({
               data={narrative.turnover.series.map((v) => v * 100)}
               labels={monthLabels}
               color="#B23A48"
-              valueFormatter={(v) => `${v.toFixed(1)}%`}
+              format="percent1"
             />
           </CardContent>
         </Card>
