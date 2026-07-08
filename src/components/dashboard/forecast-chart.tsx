@@ -1,6 +1,7 @@
 "use client";
 
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { formatChartValue, type ChartFormat } from "@/lib/chart-formatters";
 
 interface ForecastChartProps {
   historicalData: number[];
@@ -8,7 +9,7 @@ interface ForecastChartProps {
   forecastData: number[];
   forecastLabels: string[];
   color?: string;
-  valueFormatter?: (v: number) => string;
+  format?: ChartFormat;
 }
 
 export function ForecastChart({
@@ -17,7 +18,7 @@ export function ForecastChart({
   forecastData,
   forecastLabels,
   color = "#1B2A4A",
-  valueFormatter,
+  format,
 }: ForecastChartProps) {
   // Uma única série "historical" (sólida) e uma série "forecast" (tracejada) que
   // começa exatamente no último ponto histórico, para a linha aparecer contínua.
@@ -37,7 +38,7 @@ export function ForecastChart({
         <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={40} />
         <Tooltip
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={((v: number) => (valueFormatter ? valueFormatter(v) : v)) as any}
+          formatter={((v: number) => formatChartValue(v, format)) as any}
           contentStyle={{
             borderRadius: 10,
             border: "1px solid var(--border)",
