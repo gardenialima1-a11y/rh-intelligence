@@ -51,7 +51,7 @@ export default async function TurnoverPage({
           <CardTitle>Turnover — tendência (12 meses)</CardTitle>
         </CardHeader>
         <CardContent>
-          <TrendChart data={kpis.series.map((v) => v * 100)} labels={monthLabels} color="#B23A48" valueFormatter={(v) => `${v.toFixed(1)}%`} />
+          <TrendChart data={kpis.series.map((v) => v * 100)} labels={monthLabels} color="#B23A48" format="percent1" />
         </CardContent>
       </Card>
     </div>
@@ -167,7 +167,7 @@ export default async function TurnoverPage({
             forecastData={forecast.forecastSeries}
             forecastLabels={forecastLabels}
             color="#B23A48"
-            valueFormatter={(v) => `${v.toFixed(1)}%`}
+            format="percent1"
           />
           <p className="mt-2 text-xs text-muted-foreground">
             Projeção calculada por regressão linear sobre os últimos 6 meses — apoia o planejamento de retenção e
