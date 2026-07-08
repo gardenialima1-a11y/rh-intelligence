@@ -1,17 +1,18 @@
 "use client";
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { formatChartValue, type ChartFormat } from "@/lib/chart-formatters";
 
 export function TrendChart({
   data,
   labels,
   color = "#1B2A4A",
-  valueFormatter,
+  format,
 }: {
   data: number[];
   labels: string[];
   color?: string;
-  valueFormatter?: (v: number) => string;
+  format?: ChartFormat;
 }) {
   const chartData = data.map((v, i) => ({ name: labels[i], value: v }));
   const gradientId = `trendFill-${color.replace("#", "")}`;
@@ -36,7 +37,7 @@ export function TrendChart({
         <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={40} />
         <Tooltip
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={((v: number) => (valueFormatter ? valueFormatter(v) : v)) as any}
+          formatter={((v: number) => formatChartValue(v, format)) as any}
           cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
           contentStyle={{
             borderRadius: 10,
