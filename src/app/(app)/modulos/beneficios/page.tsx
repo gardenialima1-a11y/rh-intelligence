@@ -38,7 +38,7 @@ export default async function BeneficiosPage({
           <CardTitle>Custo de benefícios — 12 meses</CardTitle>
         </CardHeader>
         <CardContent>
-          <TrendChart data={trend} labels={monthLabels} color="#B8935A" valueFormatter={(v) => formatCurrency(v)} />
+          <TrendChart data={trend} labels={monthLabels} color="#B8935A" format="currency" />
         </CardContent>
       </Card>
     </div>
