@@ -40,7 +40,7 @@ export default async function CustosPage({
           <CardTitle>Custo de pessoal — 12 meses</CardTitle>
         </CardHeader>
         <CardContent>
-          <TrendChart data={trend} labels={monthLabels} color="#1B2A4A" valueFormatter={(v) => formatCurrency(v)} />
+          <TrendChart data={trend} labels={monthLabels} color="#1B2A4A" format="currency" />
         </CardContent>
       </Card>
     </div>
