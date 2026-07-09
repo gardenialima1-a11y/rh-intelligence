@@ -36,7 +36,7 @@ model User {
   role          Role      @default(USUARIO)
   unitId        String?
   unit          Unit?     @relation(fields: [unitId], references: [id])
-  managerOfId   String?   @unique // vincula este usuário como o "gestor" de dim_gestor, se aplicável
+  managerOfId   String?   @unique
   managerOf     Manager?  @relation("UserManager", fields: [managerOfId], references: [id])
   accounts      Account[]
   sessions      Session[]
@@ -179,7 +179,8 @@ model CostCenter {
   code      String     @unique
   name      String
   area      String
-  employees Employee[]
+  employees          Employee[] @relation("PrimaryCostCenter")
+  secondaryEmployees Employee[] @relation("SecondaryCostCenter")
 }
 
 model Position {
@@ -189,15 +190,21 @@ model Position {
   salaryFloor  Float?
   salaryCeil   Float?
   employees    Employee[]
+  benchmark    SalaryBenchmark?
 }
 
 model Manager {
-  id        String     @id @default(cuid())
-  name      String
-  area      String
-  level     String?
-  user      User?      @relation("UserManager")
-  employees Employee[]
+  id           String     @id @default(cuid())
+  name         String
+  area         String
+  level        String?
+  reportsToId  String?
+  reportsTo    Manager?   @relation("ManagerHierarchy", fields: [reportsToId], references: [id])
+  directReports Manager[] @relation("ManagerHierarchy")
+  user         User?      @relation("UserManager")
+  employees    Employee[]
+
+  @@index([reportsToId])
 }
 
 enum ContractType {
@@ -221,7 +228,9 @@ model Employee {
   positionId     String?
   position       Position?     @relation(fields: [positionId], references: [id])
   costCenterId   String?
-  costCenter     CostCenter?   @relation(fields: [costCenterId], references: [id])
+  costCenter     CostCenter?   @relation("PrimaryCostCenter", fields: [costCenterId], references: [id])
+  secondaryCostCenterId String?
+  secondaryCostCenter   CostCenter? @relation("SecondaryCostCenter", fields: [secondaryCostCenterId], references: [id])
   managerId      String?
   manager        Manager?      @relation(fields: [managerId], references: [id])
   unitId         String
@@ -255,7 +264,7 @@ model Employee {
 
 model Reason {
   id       String @id @default(cuid())
-  category String // TURNOVER | AFASTAMENTO | ADVERTENCIA
+  category String
   label    String
 
   movements        Movement[]
@@ -274,7 +283,7 @@ model HeadcountDaily {
   date       DateTime
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
-  status     String   // ATIVO | AFASTADO | FERIAS
+  status     String
 
   @@unique([date, employeeId])
   @@index([date])
@@ -337,7 +346,7 @@ model TurnstileEvent {
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
   timestamp   DateTime
-  direction   String   // ENTRADA | SAIDA
+  direction   String
   location    String?
 
   @@index([employeeId, timestamp])
@@ -389,8 +398,8 @@ model PerformanceReview {
   employee    Employee @relation(fields: [employeeId], references: [id])
   cycle       String
   score       Float
-  boxLabel    String?  // matriz 9-box
-  pdiStatus   String?  // PENDENTE | EM_ANDAMENTO | CONCLUIDO
+  boxLabel    String?
+  pdiStatus   String?
   reviewedAt  DateTime
 
   @@index([employeeId, cycle])
@@ -415,7 +424,7 @@ model SafetyIncident {
   employeeId  String?
   employee    Employee? @relation(fields: [employeeId], references: [id])
   date        DateTime
-  type        String   // ACIDENTE | NEAR_MISS
+  type        String
   hasCAT      Boolean  @default(false)
   daysLost    Int      @default(0)
   description String?  @db.Text
@@ -442,7 +451,7 @@ model ComplianceEvent {
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
   date        DateTime
-  type        String   // ADVERTENCIA | SUSPENSAO | PROCESSO
+  type        String
   reasonId    String?
   reason      Reason?  @relation(fields: [reasonId], references: [id])
   estimatedCost Float?
@@ -454,4 +463,18 @@ model RevenueEntry {
   id         String   @id @default(cuid())
   competence DateTime @unique
   amount     Float
+}
+
+model SalaryBenchmark {
+  id             String   @id @default(cuid())
+  positionId     String   @unique
+  position       Position @relation(fields: [positionId], references: [id])
+  region         String   @default("Fortaleza, CE")
+  industry       String   @default("Indústria de Alimentos")
+  marketMinSalary Float
+  marketAvgSalary Float
+  marketMaxSalary Float
+  source         String
+  referenceDate  DateTime
+  updatedAt      DateTime @updatedAt
 }
