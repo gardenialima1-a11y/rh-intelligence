@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   TrendingUp,
   DoorOpen,
   UserX,
@@ -15,6 +16,7 @@ import {
   Wallet,
   Gift,
   Trophy,
+  Network,
   Fingerprint,
   FileText,
   BrainCircuit,
@@ -31,7 +33,7 @@ export interface ModuleDef {
   icon: LucideIcon;
   group: string;
   description: string;
-  minRole?: Role[]; // se vazio/undefined, todos os perfis autenticados podem ver
+  minRole?: Role[];
 }
 
 export const MODULE_GROUPS = [
@@ -51,6 +53,7 @@ export const MODULES: ModuleDef[] = [
   { key: "recrutamento", slug: "recrutamento", name: "Recrutamento & Seleção (ATS)", shortName: "Recrutamento", icon: Target, group: "Ciclo de Vida do Colaborador", description: "Funil de vagas, tempo de contratação e eficiência." },
   { key: "admissoes", slug: "admissoes", name: "Admissões", shortName: "Admissões", icon: DoorOpen, group: "Ciclo de Vida do Colaborador", description: "Volume, custo e qualidade das contratações." },
   { key: "headcount", slug: "headcount", name: "Headcount", shortName: "Headcount", icon: Users, group: "Ciclo de Vida do Colaborador", description: "Quadro ativo, previsto e evolução do headcount." },
+  { key: "colaboradores", slug: "colaboradores", name: "Colaboradores (Cadastro)", shortName: "Colaboradores", icon: UserCog, group: "Ciclo de Vida do Colaborador", description: "Cadastrar, editar e desligar colaboradores.", minRole: ["ADMINISTRADOR", "RH"] },
   { key: "desligamentos", slug: "desligamentos", name: "Desligamentos", shortName: "Desligamentos", icon: UserX, group: "Ciclo de Vida do Colaborador", description: "Saídas, custo rescisório e causas raiz." },
   { key: "turnover", slug: "turnover", name: "Turnover", shortName: "Turnover", icon: TrendingUp, group: "Ciclo de Vida do Colaborador", description: "Rotatividade voluntária e involuntária." },
 
@@ -61,6 +64,7 @@ export const MODULES: ModuleDef[] = [
   { key: "treinamento", slug: "treinamento", name: "Treinamento & Desenvolvimento", shortName: "Treinamento", icon: BookOpen, group: "Desenvolvimento", description: "Horas, custos e eficácia de treinamentos." },
   { key: "desempenho", slug: "desempenho", name: "Avaliação de Desempenho", shortName: "Desempenho", icon: BarChart3, group: "Desenvolvimento", description: "Ciclos de avaliação, PDI e 9-box." },
   { key: "lideranca", slug: "lideranca", name: "Liderança e Gestão", shortName: "Liderança", icon: Trophy, group: "Desenvolvimento", description: "Índice de liderança e plano de sucessão." },
+  { key: "organograma", slug: "organograma", name: "Organograma", shortName: "Organograma", icon: Network, group: "Desenvolvimento", description: "Estrutura hierárquica de gestores e equipes." },
 
   { key: "clima", slug: "clima", name: "Clima Organizacional / eNPS", shortName: "Clima/eNPS", icon: Heart, group: "Clima e Cultura", description: "Favorabilidade, eNPS e pesquisa de clima." },
   { key: "diversidade", slug: "diversidade", name: "Diversidade & Inclusão", shortName: "D&I", icon: Fingerprint, group: "Clima e Cultura", description: "Cotas legais e indicadores de diversidade." },
