@@ -9,6 +9,7 @@ export const employeeFormSchema = z
     name: z.string().trim().min(3, "Informe o nome completo"),
     positionId: z.string().optional().nullable(),
     costCenterId: z.string().optional().nullable(),
+    secondaryCostCenterId: z.string().optional().nullable(),
     managerId: z.string().optional().nullable(),
     unitId: z.string().min(1, "Selecione a unidade"),
     gender: z.enum(GENDER_OPTIONS),
