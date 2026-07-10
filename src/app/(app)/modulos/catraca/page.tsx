@@ -9,8 +9,9 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatNumber } from "@/lib/utils";
 import { TurnstileImportDialog } from "@/components/admin/turnstile-import-dialog";
-import { prisma } from "@/lib/prisma";
+import { CatracaHistoricoTable } from "@/components/dashboard/catraca-historico-table";
 import { getCatracaKpis, getCatracaRanking, getCatracaByUnit, getCatracaTable } from "@/services/catraca";
+import { getCatracaHistorico } from "@/services/catraca-historico";
 
 export default async function CatracaPage({
   searchParams,
@@ -20,15 +21,13 @@ export default async function CatracaPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, ranking, byUnit, table, employees] = await Promise.all([
+  const [kpis, ranking, byUnit, table, historico] = await Promise.all([
     getCatracaKpis(filters),
     getCatracaRanking(filters),
     getCatracaByUnit(filters),
     getCatracaTable(filters),
-    prisma.employee.findMany({ select: { id: true, registration: true } }),
+    getCatracaHistorico(),
   ]);
-
-  const registrationToId = Object.fromEntries(employees.map((e) => [e.registration, e.id]));
 
   const executive = (
     <div className="flex flex-col gap-4">
@@ -50,21 +49,31 @@ export default async function CatracaPage({
   );
 
   const managerial = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Ranking de colaboradores (minutos fora do posto)</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {ranking.length > 0 ? <RankingBarChart data={ranking} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem ocorrências no período.</p>}
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Ranking de colaboradores (minutos fora do posto)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {ranking.length > 0 ? <RankingBarChart data={ranking} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem ocorrências no período.</p>}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Histórico comparativo por dia</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CatracaHistoricoTable data={historico} />
+        </CardContent>
+      </Card>
+    </div>
   );
 
   const operational = (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Detalhamento por colaborador</CardTitle>
-        <TurnstileImportDialog registrationToId={registrationToId} />
+        <TurnstileImportDialog />
       </CardHeader>
       <CardContent>
         {table.length === 0 ? (
