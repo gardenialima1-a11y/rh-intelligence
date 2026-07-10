@@ -13,6 +13,14 @@ export const employeeFormSchema = z
     managerId: z.string().optional().nullable(),
     unitId: z.string().min(1, "Selecione a unidade"),
     gender: z.enum(GENDER_OPTIONS),
+    phone: z.string().trim().optional().nullable(),
+    email: z.string().trim().email("E-mail inválido").optional().nullable().or(z.literal("")),
+    photoUrl: z
+      .string()
+      .optional()
+      .nullable()
+      .refine((v) => !v || v.startsWith("data:image/") || v.startsWith("http"), "Foto inválida")
+      .refine((v) => !v || v.length < 900_000, "Imagem muito grande — escolha uma foto menor"),
     birthDate: z.string().optional().nullable(),
     admissionDate: z.string().min(1, "Informe a data de admissão"),
     contractType: z.enum(CONTRACT_TYPE_OPTIONS),
@@ -44,6 +52,7 @@ export const terminationFormSchema = z.object({
   terminationDate: z.string().min(1, "Informe a data de desligamento"),
   voluntary: z.boolean(),
   reasonId: z.string().optional().nullable(),
+  notes: z.string().trim().max(2000, "Máximo de 2000 caracteres").optional().nullable(),
   costValue: z
     .union([z.string(), z.number()])
     .optional()
