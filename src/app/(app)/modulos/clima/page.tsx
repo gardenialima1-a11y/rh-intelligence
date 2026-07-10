@@ -27,7 +27,12 @@ export default async function ClimaPage({
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <KpiCard label="Favorabilidade geral" value={formatPercent(kpis.favorability)} icon={Smile} accent="success" />
         <KpiCard label="eNPS" value={kpis.enps.toFixed(0)} icon={Heart} accent="gold" />
-        <KpiCard label="Respostas coletadas" value={formatNumber(kpis.totalResponses)} icon={MessageSquare} accent="navy" />
+        <KpiCard
+          label="Respondentes"
+          value={kpis.totalInvited ? `${formatNumber(kpis.totalRespondents)} (${formatPercent(kpis.participationRate ?? 0)})` : formatNumber(kpis.totalRespondents)}
+          icon={MessageSquare}
+          accent="navy"
+        />
       </div>
       <Card>
         <CardHeader>
