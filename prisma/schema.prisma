@@ -161,9 +161,15 @@ model Company {
   units Unit[]
 }
 
+enum UnitType {
+  MATRIZ
+  FILIAL
+}
+
 model Unit {
   id        String   @id @default(cuid())
   name      String
+  type      UnitType @default(FILIAL)
   city      String
   state     String
   companyId String
@@ -236,6 +242,9 @@ model Employee {
   unitId         String
   unit           Unit          @relation(fields: [unitId], references: [id])
   gender         Gender        @default(NAO_INFORMADO)
+  phone          String?
+  email          String?
+  photoUrl       String?
   birthDate      DateTime?
   admissionDate  DateTime
   terminationDate DateTime?
@@ -306,6 +315,7 @@ model Movement {
   reason      Reason?      @relation(fields: [reasonId], references: [id])
   voluntary   Boolean?
   costValue   Float?
+  notes       String?      @db.Text
 
   @@index([date, type])
   @@index([employeeId])
@@ -465,6 +475,12 @@ model RevenueEntry {
   amount     Float
 }
 
+/**
+ * Referência de mercado salarial por cargo (benchmarking). NÃO é uma integração
+ * ao vivo — os valores são inseridos/atualizados manualmente a partir de pesquisas
+ * de mercado (ex.: Glassdoor, Indeed, Catho, Mercer), sempre com fonte e data
+ * de referência visíveis para o usuário.
+ */
 model SalaryBenchmark {
   id             String   @id @default(cuid())
   positionId     String   @unique
