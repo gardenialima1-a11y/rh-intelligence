@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber } from "@/lib/utils";
+import { TurnstileImportDialog } from "@/components/admin/turnstile-import-dialog";
+import { prisma } from "@/lib/prisma";
 import { getCatracaKpis, getCatracaRanking, getCatracaByUnit, getCatracaTable } from "@/services/catraca";
 
 export default async function CatracaPage({
@@ -18,12 +20,15 @@ export default async function CatracaPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, ranking, byUnit, table] = await Promise.all([
+  const [kpis, ranking, byUnit, table, employees] = await Promise.all([
     getCatracaKpis(filters),
     getCatracaRanking(filters),
     getCatracaByUnit(filters),
     getCatracaTable(filters),
+    prisma.employee.findMany({ select: { id: true, registration: true } }),
   ]);
+
+  const registrationToId = Object.fromEntries(employees.map((e) => [e.registration, e.id]));
 
   const executive = (
     <div className="flex flex-col gap-4">
@@ -57,34 +62,41 @@ export default async function CatracaPage({
 
   const operational = (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Detalhamento por colaborador</CardTitle>
+        <TurnstileImportDialog registrationToId={registrationToId} />
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Colaborador</TableHead>
-              <TableHead>Unidade</TableHead>
-              <TableHead>Ocorrências</TableHead>
-              <TableHead>Minutos fora do posto</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {table.map((d) => (
-              <TableRow key={d.employeeId}>
-                <TableCell>{d.name}</TableCell>
-                <TableCell>{d.unit}</TableCell>
-                <TableCell>{d.occurrences}</TableCell>
-                <TableCell>{d.minutesOut} min</TableCell>
-                <TableCell>
-                  {d.minutesOut > 120 ? <Badge variant="danger">Crítico</Badge> : <Badge variant="outline">Normal</Badge>}
-                </TableCell>
+        {table.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Nenhum registro de catraca ainda. Clique em &quot;Importar relatório de catraca&quot; para subir o arquivo.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Colaborador</TableHead>
+                <TableHead>Unidade</TableHead>
+                <TableHead>Ocorrências</TableHead>
+                <TableHead>Minutos fora do posto</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {table.map((d) => (
+                <TableRow key={d.employeeId}>
+                  <TableCell>{d.name}</TableCell>
+                  <TableCell>{d.unit}</TableCell>
+                  <TableCell>{d.occurrences}</TableCell>
+                  <TableCell>{d.minutesOut} min</TableCell>
+                  <TableCell>
+                    {d.minutesOut > 120 ? <Badge variant="danger">Crítico</Badge> : <Badge variant="outline">Normal</Badge>}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );
