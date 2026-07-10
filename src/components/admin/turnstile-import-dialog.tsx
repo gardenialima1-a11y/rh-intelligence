@@ -5,7 +5,6 @@ import Papa from "papaparse";
 import { useRouter } from "next/navigation";
 import { Upload, Loader2, CheckCircle2, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import {
   Dialog,
   DialogTrigger,
@@ -16,36 +15,13 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import {
-  validateTurnstileImportRow,
-  type TurnstileImportRow,
-  type TurnstileRowResult,
-} from "@/lib/validation/turnstile-import";
+import { parseTurnstileReport, type ParsedTurnstileEntry } from "@/lib/validation/turnstile-import";
 import { bulkImportTurnstileEvents, type TurnstileImportSummary } from "@/actions/turnstile";
 
-const HEADER_MAP: Record<string, keyof TurnstileImportRow> = {
-  "matrícula": "matricula",
-  "matricula": "matricula",
-  "data e hora": "dataHora",
-  "data/hora": "dataHora",
-  "data hora": "dataHora",
-  "direção": "direcao",
-  "direcao": "direcao",
-  "local": "local",
-};
-
-function mapCsvRow(raw: Record<string, string>): TurnstileImportRow {
-  const row: TurnstileImportRow = { matricula: "", dataHora: "", direcao: "", local: "" };
-  for (const [key, value] of Object.entries(raw)) {
-    const field = HEADER_MAP[key.trim().toLowerCase()];
-    if (field) row[field] = (value ?? "").toString().trim();
-  }
-  return row;
-}
-
-export function TurnstileImportDialog({ registrationToId }: { registrationToId: Record<string, string> }) {
+export function TurnstileImportDialog() {
   const [open, setOpen] = React.useState(false);
-  const [results, setResults] = React.useState<TurnstileRowResult[] | null>(null);
+  const [entries, setEntries] = React.useState<ParsedTurnstileEntry[] | null>(null);
+  const [parseWarnings, setParseWarnings] = React.useState<string[]>([]);
   const [parsing, setParsing] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [summary, setSummary] = React.useState<TurnstileImportSummary | null>(null);
@@ -54,7 +30,8 @@ export function TurnstileImportDialog({ registrationToId }: { registrationToId: 
   const router = useRouter();
 
   function reset() {
-    setResults(null);
+    setEntries(null);
+    setParseWarnings([]);
     setSummary(null);
     setGlobalError(null);
   }
@@ -66,19 +43,18 @@ export function TurnstileImportDialog({ registrationToId }: { registrationToId: 
     reset();
     setParsing(true);
 
-    const employeeMap = new Map(Object.entries(registrationToId));
-
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
+    Papa.parse<string[]>(file, {
+      header: false,
+      skipEmptyLines: false,
       complete: (parsed) => {
         setParsing(false);
-        if (parsed.data.length === 0) {
-          setGlobalError("A planilha está vazia ou não foi possível lê-la.");
+        const { entries: parsedEntries, warnings } = parseTurnstileReport(parsed.data);
+        if (parsedEntries.length === 0) {
+          setGlobalError("Não encontrei nenhum evento reconhecível nesse arquivo. Confirme que é o relatório de marcações exportado como CSV.");
           return;
         }
-        const rowResults = parsed.data.map((raw, i) => validateTurnstileImportRow(mapCsvRow(raw), i + 2, employeeMap));
-        setResults(rowResults);
+        setEntries(parsedEntries);
+        setParseWarnings(warnings);
       },
       error: () => {
         setParsing(false);
@@ -88,9 +64,9 @@ export function TurnstileImportDialog({ registrationToId }: { registrationToId: 
   }
 
   async function handleImport() {
-    if (!results) return;
+    if (!entries) return;
     setSubmitting(true);
-    const result = await bulkImportTurnstileEvents(results);
+    const result = await bulkImportTurnstileEvents(entries);
     setSubmitting(false);
     if (!result.success) {
       setGlobalError(result.error ?? "Erro ao importar.");
@@ -100,8 +76,7 @@ export function TurnstileImportDialog({ registrationToId }: { registrationToId: 
     router.refresh();
   }
 
-  const validCount = results?.filter((r) => r.data !== null).length ?? 0;
-  const invalidRows = results?.filter((r) => r.data === null) ?? [];
+  const employeeCount = entries ? new Set(entries.map((e) => e.employeeName)).size : 0;
 
   return (
     <Dialog
@@ -120,9 +95,9 @@ export function TurnstileImportDialog({ registrationToId }: { registrationToId: 
         <DialogHeader>
           <DialogTitle>Importar relatório de catraca (CSV)</DialogTitle>
           <DialogDescription>
-            O arquivo precisa ter as colunas: <strong>Matrícula, Data e Hora, Direção</strong> (Entrada/Saída) e{" "}
-            <strong>Local</strong> (opcional). Depois de importado, os indicadores de tempo fora do posto são
-            calculados automaticamente — nada mais precisa ser feito.
+            No Excel, abra o relatório de marcações e salve como <strong>CSV UTF-8</strong> (Arquivo → Salvar Como).
+            O sistema reconhece automaticamente os blocos de &quot;Usuário:&quot; e as marcações de Entrada/Saída —
+            é o mesmo formato exportado pela catraca, sem precisar reorganizar nada.
           </DialogDescription>
         </DialogHeader>
 
@@ -140,39 +115,22 @@ export function TurnstileImportDialog({ registrationToId }: { registrationToId: 
 
             {globalError && <p className="text-sm text-danger">{globalError}</p>}
 
-            {results && (
-              <div className="flex flex-col gap-3">
-                <div className="flex gap-4 text-sm">
-                  <span className="flex items-center gap-1.5 text-success">
-                    <CheckCircle2 className="h-4 w-4" /> {validCount} registro(s) prontos para importar
-                  </span>
-                  {invalidRows.length > 0 && (
-                    <span className="flex items-center gap-1.5 text-danger">
-                      <AlertTriangle className="h-4 w-4" /> {invalidRows.length} linha(s) com erro
-                    </span>
-                  )}
-                </div>
-
-                {invalidRows.length > 0 && (
-                  <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Linha</TableHead>
-                          <TableHead>Erros</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {invalidRows.map((r) => (
-                          <TableRow key={r.rowNumber}>
-                            <TableCell>{r.rowNumber}</TableCell>
-                            <TableCell className="whitespace-normal text-xs text-danger">{r.errors.join(" · ")}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+            {entries && (
+              <div className="flex flex-col gap-2">
+                <p className="flex items-center gap-1.5 text-sm text-success">
+                  <CheckCircle2 className="h-4 w-4" /> {entries.length} evento(s) de {employeeCount} funcionário(s) encontrados no arquivo
+                </p>
+                {parseWarnings.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto rounded-lg border border-border p-2 text-xs text-warning-text">
+                    {parseWarnings.slice(0, 10).map((w, i) => (
+                      <p key={i}>{w}</p>
+                    ))}
                   </div>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  O sistema vai tentar casar cada nome com os colaboradores já cadastrados. Nomes que não baterem
+                  aparecerão no resultado, sem travar a importação dos demais.
+                </p>
               </div>
             )}
           </div>
@@ -183,10 +141,20 @@ export function TurnstileImportDialog({ registrationToId }: { registrationToId: 
             <p className="flex items-center gap-2 text-sm text-success">
               <CheckCircle2 className="h-4 w-4" /> {summary.created} registro(s) de catraca importado(s) com sucesso!
             </p>
-            {summary.skipped > 0 && (
-              <p className="flex items-center gap-2 text-sm text-warning-text">
-                <AlertTriangle className="h-4 w-4" /> {summary.skipped} linha(s) não importadas (veja os erros acima antes de fechar).
-              </p>
+            {summary.unmatchedNames.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <p className="flex items-center gap-2 text-sm text-warning-text">
+                  <AlertTriangle className="h-4 w-4" /> {summary.unmatchedNames.length} nome(s) do relatório não encontrados no cadastro:
+                </p>
+                <div className="max-h-32 overflow-y-auto rounded-lg border border-border p-2 text-xs text-muted-foreground">
+                  {summary.unmatchedNames.map((n) => (
+                    <p key={n}>{n}</p>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Confira se o nome está cadastrado em Colaboradores exatamente (ou bem parecido) com o do relatório.
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -196,9 +164,9 @@ export function TurnstileImportDialog({ registrationToId }: { registrationToId: 
             <Button type="button" variant="outline">{summary ? "Fechar" : "Cancelar"}</Button>
           </DialogClose>
           {!summary && (
-            <Button type="button" variant="gold" onClick={handleImport} disabled={!results || validCount === 0 || submitting}>
+            <Button type="button" variant="gold" onClick={handleImport} disabled={!entries || submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Importar {validCount > 0 ? `(${validCount})` : ""}
+              Importar {entries ? `(${entries.length})` : ""}
             </Button>
           )}
         </DialogFooter>
