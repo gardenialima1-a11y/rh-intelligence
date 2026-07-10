@@ -15,12 +15,13 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import type { ActionResult } from "@/actions/employees";
 
 interface QuickAddDialogProps {
   label: string;
   description: string;
-  extraFields?: { key: string; label: string; placeholder?: string }[];
+  extraFields?: { key: string; label: string; placeholder?: string; type?: "text" | "select"; options?: { value: string; label: string }[] }[];
   onCreate: (name: string, extra: Record<string, string>) => Promise<ActionResult>;
   onCreated: () => void;
 }
@@ -64,17 +65,31 @@ export function QuickAddDialog({ label, description, extraFields = [], onCreate,
             <Label htmlFor="quick-add-name">Nome</Label>
             <Input id="quick-add-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </div>
-          {extraFields.map((f) => (
-            <div key={f.key} className="flex flex-col gap-1.5">
-              <Label htmlFor={`quick-add-${f.key}`}>{f.label}</Label>
-              <Input
-                id={`quick-add-${f.key}`}
-                placeholder={f.placeholder}
-                value={extra[f.key] ?? ""}
-                onChange={(e) => setExtra((prev) => ({ ...prev, [f.key]: e.target.value }))}
-              />
-            </div>
-          ))}
+          {extraFields.map((f) =>
+            f.type === "select" ? (
+              <div key={f.key} className="flex flex-col gap-1.5">
+                <Label htmlFor={`quick-add-${f.key}`}>{f.label}</Label>
+                <Select value={extra[f.key] ?? undefined} onValueChange={(v) => setExtra((prev) => ({ ...prev, [f.key]: v }))}>
+                  <SelectTrigger id={`quick-add-${f.key}`}><SelectValue placeholder={f.placeholder} /></SelectTrigger>
+                  <SelectContent>
+                    {(f.options ?? []).map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div key={f.key} className="flex flex-col gap-1.5">
+                <Label htmlFor={`quick-add-${f.key}`}>{f.label}</Label>
+                <Input
+                  id={`quick-add-${f.key}`}
+                  placeholder={f.placeholder}
+                  value={extra[f.key] ?? ""}
+                  onChange={(e) => setExtra((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                />
+              </div>
+            )
+          )}
           {error && <p className="text-xs text-danger">{error}</p>}
         </div>
         <DialogFooter>
