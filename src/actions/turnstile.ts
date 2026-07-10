@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { TurnstileRowResult } from "@/lib/validation/turnstile-import";
+import { matchEntriesToEmployees, type ParsedTurnstileEntry } from "@/lib/validation/turnstile-import";
 
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RH"];
 
@@ -16,37 +16,40 @@ async function requireHrAccess() {
 
 export interface TurnstileImportSummary {
   created: number;
-  skipped: number;
-}
-
-export async function getEmployeeRegistrationMap(): Promise<Record<string, string>> {
-  await requireHrAccess();
-  const employees = await prisma.employee.findMany({ select: { id: true, registration: true } });
-  return Object.fromEntries(employees.map((e) => [e.registration, e.id]));
+  unmatchedNames: string[];
 }
 
 export async function bulkImportTurnstileEvents(
-  rows: TurnstileRowResult[]
+  entries: ParsedTurnstileEntry[]
 ): Promise<{ success: boolean; summary?: TurnstileImportSummary; error?: string }> {
   try {
     await requireHrAccess();
 
-    const validRows = rows.filter((r) => r.data !== null);
-    if (validRows.length === 0) {
-      return { success: false, error: "Nenhuma linha válida para importar." };
+    if (entries.length === 0) {
+      return { success: false, error: "Nenhum evento encontrado no relatório." };
+    }
+
+    const employees = await prisma.employee.findMany({ select: { id: true, name: true } });
+    const { matched, unmatchedNames } = matchEntriesToEmployees(entries, employees);
+
+    if (matched.length === 0) {
+      return {
+        success: false,
+        error: `Nenhum nome do relatório bateu com o cadastro. Confira: ${unmatchedNames.slice(0, 5).join(", ")}`,
+      };
     }
 
     const result = await prisma.turnstileEvent.createMany({
-      data: validRows.map((r) => ({
-        employeeId: r.data!.employeeId,
-        timestamp: r.data!.timestamp,
-        direction: r.data!.direction,
-        location: r.data!.location,
+      data: matched.map((m) => ({
+        employeeId: m.employeeId,
+        timestamp: m.timestamp,
+        direction: m.direction,
+        location: null,
       })),
     });
 
     revalidatePath("/modulos/catraca");
-    return { success: true, summary: { created: result.count, skipped: rows.length - validRows.length } };
+    return { success: true, summary: { created: result.count, unmatchedNames } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao importar relatório de catraca." };
   }
