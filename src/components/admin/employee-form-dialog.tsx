@@ -21,6 +21,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { QuickAddDialog } from "@/components/admin/quick-add-dialog";
+import { PhotoUploadField } from "@/components/admin/photo-upload-field";
 import { employeeFormSchema, type EmployeeFormValues, GENDER_OPTIONS, CONTRACT_TYPE_OPTIONS } from "@/lib/validation/employee";
 import { createEmployee, updateEmployee } from "@/actions/employees";
 import { createPosition, createCostCenter, createManager, createUnit } from "@/actions/reference-data";
@@ -62,7 +63,15 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
     formState: { errors },
   } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeFormSchema),
-    defaultValues: defaultValues ?? { gender: "NAO_INFORMADO", contractType: "CLT", isPCD: false },
+    defaultValues: defaultValues ?? {
+      gender: "NAO_INFORMADO",
+      contractType: "CLT",
+      isPCD: false,
+      positionId: null,
+      costCenterId: null,
+      secondaryCostCenterId: null,
+      managerId: null,
+    },
   });
 
   async function onSubmit(values: EmployeeFormValues) {
@@ -129,8 +138,12 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
               <QuickAddDialog
                 label="Unidade"
                 description="Cadastre uma nova unidade/filial."
-                extraFields={[{ key: "city", label: "Cidade" }, { key: "state", label: "Estado (UF)", placeholder: "CE" }]}
-                onCreate={(name, extra) => createUnit(name, extra.city, extra.state)}
+                extraFields={[
+                  { key: "type", label: "Tipo", type: "select", placeholder: "Selecione", options: [{ value: "MATRIZ", label: "Matriz" }, { value: "FILIAL", label: "Filial" }] },
+                  { key: "city", label: "Cidade" },
+                  { key: "state", label: "Estado (UF)", placeholder: "CE" },
+                ]}
+                onCreate={(name, extra) => createUnit(name, extra.city, extra.state, (extra.type as "MATRIZ" | "FILIAL") || "FILIAL")}
                 onCreated={() => router.refresh()}
               />
             </div>
@@ -272,6 +285,26 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
                 </Select>
               )}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="phone">Telefone</Label>
+            <Input id="phone" placeholder="(85) 99999-9999" {...register("phone")} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">E-mail</Label>
+            <Input id="email" type="email" placeholder="colaborador@empresa.com.br" {...register("email")} />
+            {errors.email && <p className="text-xs text-danger">{errors.email.message}</p>}
+          </div>
+
+          <div className="sm:col-span-2">
+            <Controller
+              control={control}
+              name="photoUrl"
+              render={({ field }) => <PhotoUploadField value={field.value} onChange={field.onChange} />}
+            />
+            {errors.photoUrl && <p className="text-xs text-danger">{String(errors.photoUrl.message)}</p>}
           </div>
 
           <div className="flex flex-col gap-1.5">
