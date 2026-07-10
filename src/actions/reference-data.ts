@@ -72,17 +72,34 @@ export async function updateManagerHierarchy(managerId: string, reportsToId: str
   }
 }
 
-export async function createUnit(name: string, city: string, state: string): Promise<ActionResult> {
+export async function createUnit(name: string, city: string, state: string, type: "MATRIZ" | "FILIAL" = "FILIAL"): Promise<ActionResult> {
   try {
     await requireHrAccess();
     const parsed = nameSchema.safeParse(name);
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
     const company = await prisma.company.findFirst();
     if (!company) return { success: false, error: "Nenhuma empresa cadastrada ainda." };
-    await prisma.unit.create({ data: { name: parsed.data, city: city || "—", state: state || "—", companyId: company.id } });
+    await prisma.unit.create({ data: { name: parsed.data, city: city || "—", state: state || "—", type, companyId: company.id } });
     revalidatePath("/modulos/colaboradores");
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao criar unidade." };
+  }
+}
+
+export async function deletePosition(positionId: string): Promise<ActionResult> {
+  try {
+    await requireHrAccess();
+    const inUse = await prisma.employee.count({ where: { positionId } });
+    if (inUse > 0) {
+      return { success: false, error: `Não é possível excluir: ${inUse} colaborador(es) usam este cargo.` };
+    }
+    await prisma.salaryBenchmark.deleteMany({ where: { positionId } });
+    await prisma.position.delete({ where: { id: positionId } });
+    revalidatePath("/modulos/custos");
+    revalidatePath("/modulos/colaboradores");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao excluir cargo." };
   }
 }
