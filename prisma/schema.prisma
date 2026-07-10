@@ -36,7 +36,7 @@ model User {
   role          Role      @default(USUARIO)
   unitId        String?
   unit          Unit?     @relation(fields: [unitId], references: [id])
-  managerOfId   String?   @unique
+  managerOfId   String?   @unique // vincula este usuário como o "gestor" de dim_gestor, se aplicável
   managerOf     Manager?  @relation("UserManager", fields: [managerOfId], references: [id])
   accounts      Account[]
   sessions      Session[]
@@ -259,6 +259,7 @@ model Employee {
   timeEntries        TimeEntry[]
   absences           Absence[]
   turnstileEvents    TurnstileEvent[]
+  turnstileDailySummaries TurnstileDailySummary[]
   trainings          TrainingRecord[]
   reviews            PerformanceReview[]
   safetyIncidents    SafetyIncident[]
@@ -275,7 +276,7 @@ model Employee {
 
 model Reason {
   id       String @id @default(cuid())
-  category String
+  category String // TURNOVER | AFASTAMENTO | ADVERTENCIA
   label    String
 
   movements        Movement[]
@@ -294,7 +295,7 @@ model HeadcountDaily {
   date       DateTime
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
-  status     String
+  status     String   // ATIVO | AFASTADO | FERIAS
 
   @@unique([date, employeeId])
   @@index([date])
@@ -358,10 +359,28 @@ model TurnstileEvent {
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
   timestamp   DateTime
-  direction   String
+  direction   String   // ENTRADA | SAIDA
   location    String?
 
   @@index([employeeId, timestamp])
+}
+
+// Resumo diário de tempo fora do posto por colaborador, para importar
+// históricos que já vêm agregados por dia (ex.: relatórios anteriores),
+// em vez de eventos brutos de entrada/saída. employeeId fica nulo quando
+// o nome do relatório não bateu com nenhum colaborador cadastrado — o
+// registro ainda fica salvo, só não aparece nos indicadores por colaborador.
+model TurnstileDailySummary {
+  id           String    @id @default(cuid())
+  date         DateTime
+  employeeName String
+  employeeId   String?
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  minutesAway  Int
+  accessCount  Int
+
+  @@index([date])
+  @@index([employeeId])
 }
 
 enum FunnelStage {
@@ -440,8 +459,8 @@ model PerformanceReview {
   employee    Employee @relation(fields: [employeeId], references: [id])
   cycle       String
   score       Float
-  boxLabel    String?
-  pdiStatus   String?
+  boxLabel    String?  // matriz 9-box
+  pdiStatus   String?  // PENDENTE | EM_ANDAMENTO | CONCLUIDO
   reviewedAt  DateTime
 
   @@index([employeeId, cycle])
@@ -466,7 +485,7 @@ model SafetyIncident {
   employeeId  String?
   employee    Employee? @relation(fields: [employeeId], references: [id])
   date        DateTime
-  type        String
+  type        String   // ACIDENTE | NEAR_MISS
   hasCAT      Boolean  @default(false)
   daysLost    Int      @default(0)
   description String?  @db.Text
@@ -493,7 +512,7 @@ model ComplianceEvent {
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
   date        DateTime
-  type        String
+  type        String   // ADVERTENCIA | SUSPENSAO | PROCESSO
   reasonId    String?
   reason      Reason?  @relation(fields: [reasonId], references: [id])
   estimatedCost Float?
