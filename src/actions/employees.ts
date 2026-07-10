@@ -45,6 +45,9 @@ export async function createEmployee(raw: unknown): Promise<ActionResult> {
         managerId: data.managerId || null,
         unitId: data.unitId,
         gender: data.gender,
+        phone: data.phone || null,
+        email: data.email || null,
+        photoUrl: data.photoUrl || null,
         birthDate: data.birthDate ? new Date(data.birthDate) : null,
         admissionDate: new Date(data.admissionDate),
         contractType: data.contractType,
@@ -111,6 +114,9 @@ export async function updateEmployee(employeeId: string, raw: unknown): Promise<
         unitId: data.unitId,
         gender: data.gender,
         birthDate: data.birthDate ? new Date(data.birthDate) : null,
+        phone: data.phone || null,
+        email: data.email || null,
+        photoUrl: data.photoUrl || null,
         admissionDate: new Date(data.admissionDate),
         contractType: data.contractType,
         isPCD: data.isPCD,
@@ -154,6 +160,7 @@ export async function deactivateEmployee(employeeId: string, raw: unknown): Prom
         voluntary: data.voluntary,
         reasonId: data.reasonId || null,
         costValue: parseSalaryValue(data.costValue),
+        notes: data.notes || null,
       },
     });
 
@@ -164,6 +171,93 @@ export async function deactivateEmployee(employeeId: string, raw: unknown): Prom
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao desligar colaborador." };
+  }
+}
+
+export interface BulkImportSummary {
+  created: number;
+  skipped: { rowNumber: number; registration: string; reason: string }[];
+}
+
+export async function bulkImportEmployees(rows: import("@/lib/validation/bulk-import").RowResult[]): Promise<{ success: boolean; summary?: BulkImportSummary; error?: string }> {
+  try {
+    await requireHrAccess();
+
+    const validRows = rows.filter((r) => r.data !== null);
+    if (validRows.length === 0) {
+      return { success: false, error: "Nenhuma linha válida para importar." };
+    }
+
+    const registrations = validRows.map((r) => r.data!.registration);
+    const existing = await prisma.employee.findMany({
+      where: { registration: { in: registrations } },
+      select: { registration: true },
+    });
+    const existingSet = new Set(existing.map((e) => e.registration));
+
+    const summary: BulkImportSummary = { created: 0, skipped: [] };
+
+    for (const row of validRows) {
+      const data = row.data!;
+      if (existingSet.has(data.registration)) {
+        summary.skipped.push({ rowNumber: row.rowNumber, registration: data.registration, reason: "Matrícula já cadastrada" });
+        continue;
+      }
+      try {
+        const employee = await prisma.employee.create({
+          data: {
+            registration: data.registration,
+            name: data.name,
+            positionId: data.positionId,
+            costCenterId: data.costCenterId,
+            secondaryCostCenterId: data.secondaryCostCenterId,
+            managerId: data.managerId,
+            unitId: data.unitId,
+            gender: data.gender,
+            phone: data.phone,
+            email: data.email,
+            birthDate: data.birthDate ? new Date(data.birthDate) : null,
+            admissionDate: new Date(data.admissionDate),
+            contractType: data.contractType,
+            isPCD: data.isPCD,
+            isActive: true,
+          },
+        });
+        await prisma.movement.create({
+          data: { date: employee.admissionDate, employeeId: employee.id, type: MovementType.ADMISSAO },
+        });
+        if (data.baseSalary !== null) {
+          const competence = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+          const benefitsCost = data.baseSalary * 0.18;
+          const chargesCost = data.baseSalary * 0.42;
+          await prisma.payrollEntry.create({
+            data: {
+              employeeId: employee.id,
+              competence,
+              baseSalary: data.baseSalary,
+              benefitsCost,
+              chargesCost,
+              totalCost: data.baseSalary + benefitsCost + chargesCost,
+            },
+          });
+        }
+        summary.created += 1;
+        existingSet.add(data.registration);
+      } catch (err) {
+        summary.skipped.push({
+          rowNumber: row.rowNumber,
+          registration: data.registration,
+          reason: err instanceof Error ? err.message : "Erro desconhecido ao criar",
+        });
+      }
+    }
+
+    revalidatePath("/modulos/colaboradores");
+    revalidatePath("/modulos/headcount");
+    revalidatePath("/");
+    return { success: true, summary };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao importar planilha." };
   }
 }
 
