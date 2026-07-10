@@ -8,6 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatDate } from "@/lib/utils";
+import { AbsenceFormDialog } from "@/components/admin/absence-form-dialog";
+import { AtestadosTable } from "@/components/admin/atestados-table";
+import { getCertificatedAbsences } from "@/actions/absences";
+import { prisma } from "@/lib/prisma";
 import { getSstKpis, getIncidentsTable, getIncidentsByType } from "@/services/sst";
 
 export default async function SstPage({
@@ -18,10 +22,13 @@ export default async function SstPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byType, table] = await Promise.all([
+  const [kpis, byType, table, atestados, employees, reasons] = await Promise.all([
     getSstKpis(filters),
     getIncidentsByType(filters),
     getIncidentsTable(filters),
+    getCertificatedAbsences(),
+    prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.reason.findMany({ where: { category: "AFASTAMENTO" }, select: { id: true, label: true }, orderBy: { label: "asc" } }),
   ]);
 
   const executive = (
@@ -55,39 +62,60 @@ export default async function SstPage({
   );
 
   const operational = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Ocorrências registradas</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Colaborador</TableHead>
-              <TableHead>Unidade</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>CAT</TableHead>
-              <TableHead>Dias perdidos</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {table.map((i) => (
-              <TableRow key={i.id}>
-                <TableCell>{i.employee?.name ?? "—"}</TableCell>
-                <TableCell>{i.employee?.unit.name ?? "—"}</TableCell>
-                <TableCell>{formatDate(i.date)}</TableCell>
-                <TableCell>
-                  <Badge variant={i.type === "ACIDENTE" ? "danger" : "outline"}>{i.type === "ACIDENTE" ? "Acidente" : "Near Miss"}</Badge>
-                </TableCell>
-                <TableCell>{i.hasCAT ? <Badge variant="warning">Sim</Badge> : "—"}</TableCell>
-                <TableCell>{i.daysLost}</TableCell>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Ocorrências registradas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Colaborador</TableHead>
+                <TableHead>Unidade</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>CAT</TableHead>
+                <TableHead>Dias perdidos</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {table.map((i) => (
+                <TableRow key={i.id}>
+                  <TableCell>{i.employee?.name ?? "—"}</TableCell>
+                  <TableCell>{i.employee?.unit.name ?? "—"}</TableCell>
+                  <TableCell>{formatDate(i.date)}</TableCell>
+                  <TableCell>
+                    <Badge variant={i.type === "ACIDENTE" ? "danger" : "outline"}>{i.type === "ACIDENTE" ? "Acidente" : "Near Miss"}</Badge>
+                  </TableCell>
+                  <TableCell>{i.hasCAT ? <Badge variant="warning">Sim</Badge> : "—"}</TableCell>
+                  <TableCell>{i.daysLost}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <div className="flex flex-col gap-1">
+            <CardTitle>Atestados médicos</CardTitle>
+            <p className="text-xs text-muted-foreground">{atestados.length} atestado(s) registrado(s).</p>
+          </div>
+          <AbsenceFormDialog employees={employees} reasons={reasons} mode="create" />
+        </CardHeader>
+        <CardContent>
+          {atestados.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nenhum atestado registrado ainda. Clique em &quot;Novo atestado&quot; para começar.
+            </p>
+          ) : (
+            <AtestadosTable absences={atestados} employees={employees} reasons={reasons} />
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 
   const analytical = (
