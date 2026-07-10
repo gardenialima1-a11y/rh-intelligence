@@ -4,6 +4,7 @@ import { ModuleHeader } from "@/components/dashboard/module-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmployeeFormDialog } from "@/components/admin/employee-form-dialog";
 import { EmployeesTable } from "@/components/admin/employees-table";
+import { BulkImportDialog } from "@/components/admin/bulk-import-dialog";
 import { getEmployeesForAdmin, getEmployeeFormOptions } from "@/actions/employees";
 
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RH"];
@@ -24,7 +25,17 @@ export default async function ColaboradoresPage() {
           description="Cadastre, edite e desligue colaboradores diretamente na plataforma."
           moduleKey="colaboradores"
         />
-        <EmployeeFormDialog mode="create" options={options} />
+        <div className="flex gap-2">
+          <BulkImportDialog
+            refs={{
+              positions: options.positions,
+              costCenters: options.costCenters,
+              managers: options.managers,
+              units: options.units,
+            }}
+          />
+          <EmployeeFormDialog mode="create" options={options} />
+        </div>
       </div>
 
       <Card>
