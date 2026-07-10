@@ -480,6 +480,17 @@ model ClimateSurveyResponse {
   @@index([cycle, dimension])
 }
 
+// Metadados por ciclo de pesquisa (não por resposta): quantas pessoas foram
+// convidadas e quantas de fato responderam. ClimateSurveyResponse guarda uma
+// linha por PERGUNTA respondida (não por pessoa), então esse é o único lugar
+// onde dá pra saber "quantas pessoas" participaram de cada ciclo.
+model SurveyCycleMeta {
+  id                String @id @default(cuid())
+  cycle             String @unique
+  totalInvited      Int
+  totalRespondents  Int
+}
+
 model SafetyIncident {
   id          String   @id @default(cuid())
   employeeId  String?
