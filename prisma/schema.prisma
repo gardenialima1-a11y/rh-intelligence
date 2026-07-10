@@ -176,6 +176,7 @@ model Unit {
   company   Company  @relation(fields: [companyId], references: [id])
   employees Employee[]
   users     User[]
+  vacancies Vacancy[]
 
   @@unique([companyId, name])
 }
@@ -197,6 +198,7 @@ model Position {
   salaryCeil   Float?
   employees    Employee[]
   benchmark    SalaryBenchmark?
+  vacancies    Vacancy[]
 }
 
 model Manager {
@@ -385,6 +387,36 @@ model Candidate {
 
   @@index([vacancy])
   @@index([stage])
+}
+
+enum VacancyStatus {
+  ABERTA
+  EM_ANDAMENTO
+  PREENCHIDA
+  CANCELADA
+  EM_PAUSA
+}
+
+// Cadastro de vagas com status e meta de SLA (dias). Independente da tabela
+// Candidate (que já existe e alimenta os indicadores de funil/tempo de
+// contratação) — aqui é a gestão da vaga em si, não do candidato.
+model Vacancy {
+  id          String        @id @default(cuid())
+  title       String
+  positionId  String?
+  position    Position?     @relation(fields: [positionId], references: [id])
+  unitId      String?
+  unit        Unit?         @relation(fields: [unitId], references: [id])
+  status      VacancyStatus @default(ABERTA)
+  isCritical  Boolean       @default(false)
+  targetDays  Int           @default(30)
+  openedAt    DateTime      @default(now())
+  closedAt    DateTime?
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
 }
 
 model TrainingRecord {
