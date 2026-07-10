@@ -4,9 +4,12 @@ import type { ExecutiveFilters } from "@/services/dashboard-executivo";
 const CYCLE = "PCO 2026";
 
 export async function getClimaKpis(filters: ExecutiveFilters) {
-  const responses = await prisma.climateSurveyResponse.findMany({
-    where: { cycle: CYCLE, ...(filters.unitId ? { unitId: filters.unitId } : {}) },
-  });
+  const [responses, meta] = await Promise.all([
+    prisma.climateSurveyResponse.findMany({
+      where: { cycle: CYCLE, ...(filters.unitId ? { unitId: filters.unitId } : {}) },
+    }),
+    prisma.surveyCycleMeta.findUnique({ where: { cycle: CYCLE } }),
+  ]);
 
   const total = responses.length || 1;
   const favorable = responses.filter((r) => r.score >= 7).length;
@@ -17,10 +20,17 @@ export async function getClimaKpis(filters: ExecutiveFilters) {
   const detractors = enpsResponses.filter((r) => r.score <= 6).length;
   const enps = enpsResponses.length > 0 ? ((promoters - detractors) / enpsResponses.length) * 100 : 0;
 
+  const totalRespondents = meta?.totalRespondents ?? enpsResponses.length;
+  const totalInvited = meta?.totalInvited ?? null;
+  const participationRate = totalInvited ? totalRespondents / totalInvited : null;
+
   return {
     favorability,
     enps,
     totalResponses: responses.length,
+    totalRespondents,
+    totalInvited,
+    participationRate,
     cycle: CYCLE,
   };
 }
