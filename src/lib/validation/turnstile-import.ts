@@ -1,95 +1,119 @@
-export interface TurnstileImportRow {
-  matricula: string;
-  dataHora: string;
-  direcao: string;
-  local: string;
-}
+/**
+ * Parser para o relatório real de marcações da catraca (formato exportado
+ * pelo sistema de controle de acesso): organizado em blocos por funcionário
+ * ("Usuário: NOME"), com linhas de data/hora e tipo (ex.: "Entrada - Cartão")
+ * dentro de cada bloco — não é uma planilha "linha por linha" tradicional.
+ */
 
-export interface NormalizedTurnstileEvent {
-  employeeId: string;
+export interface ParsedTurnstileEntry {
+  employeeName: string;
   timestamp: Date;
   direction: "ENTRADA" | "SAIDA";
-  location: string | null;
-}
-
-export interface TurnstileRowResult {
   rowNumber: number;
-  data: NormalizedTurnstileEvent | null;
-  errors: string[];
 }
 
-const DIRECTION_MAP: Record<string, "ENTRADA" | "SAIDA"> = {
-  entrada: "ENTRADA",
-  e: "ENTRADA",
-  in: "ENTRADA",
-  saida: "SAIDA",
-  "saída": "SAIDA",
-  s: "SAIDA",
-  out: "SAIDA",
-};
-
-function norm(s: string | undefined | null): string {
-  return (s ?? "").trim();
+export interface ParseReportResult {
+  entries: ParsedTurnstileEntry[];
+  warnings: string[];
 }
 
-/** Aceita "dd/mm/aaaa hh:mm[:ss]" ou "aaaa-mm-ddThh:mm[:ss]" e devolve um Date válido, ou null. */
+const DATE_PATTERN = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/;
+
 function parseDateTime(raw: string): Date | null {
-  const value = raw.trim();
-  if (!value) return null;
+  const match = raw.trim().match(DATE_PATTERN);
+  if (!match) return null;
+  const [, d, m, y, hh, mm, ss] = match;
+  const date = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss ?? 0));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
-  const br = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if (br) {
-    const [, d, m, y, hh, mm, ss] = br;
-    const date = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss ?? 0));
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  const iso = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if (iso) {
-    const [, y, m, d, hh, mm, ss] = iso;
-    const date = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss ?? 0));
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
+function detectDirection(cells: string[]): "ENTRADA" | "SAIDA" | null {
+  const joined = cells.join(" ").toLowerCase();
+  if (joined.includes("entrada")) return "ENTRADA";
+  if (joined.includes("saida") || joined.includes("saída")) return "SAIDA";
   return null;
 }
 
 /**
- * Valida e normaliza uma linha do relatório de catraca. Recebe o mapa de
- * matrícula → id do colaborador (já carregado do banco) para resolver o
- * vínculo — nunca faz consulta ao banco aqui dentro (função pura, testável).
+ * Varre as linhas cruas do relatório (array de arrays, sem cabeçalho único)
+ * e extrai os eventos de catraca, associando cada um ao funcionário do bloco
+ * em que aparece. Função pura — não acessa banco, não conhece IDs de
+ * colaborador — só entende a estrutura do arquivo.
  */
-export function validateTurnstileImportRow(
-  row: TurnstileImportRow,
-  rowNumber: number,
-  employeeIdByRegistration: Map<string, string>
-): TurnstileRowResult {
-  const errors: string[] = [];
+export function parseTurnstileReport(rows: string[][]): ParseReportResult {
+  const entries: ParsedTurnstileEntry[] = [];
+  const warnings: string[] = [];
+  let currentEmployeeName: string | null = null;
 
-  const registration = norm(row.matricula);
-  const employeeId = registration ? employeeIdByRegistration.get(registration) : undefined;
-  if (!registration) errors.push("Matrícula é obrigatória");
-  else if (!employeeId) errors.push(`Matrícula "${registration}" não encontrada no cadastro de colaboradores`);
+  rows.forEach((cells, index) => {
+    const rowNumber = index + 1;
+    const firstCell = (cells[0] ?? "").trim();
 
-  const timestamp = parseDateTime(row.dataHora);
-  if (!norm(row.dataHora)) errors.push("Data e hora são obrigatórias");
-  else if (!timestamp) errors.push(`Data e hora "${row.dataHora}" em formato inválido (use dd/mm/aaaa hh:mm)`);
+    if (firstCell === "Usuário:" || firstCell.toLowerCase() === "usuário:" || firstCell.toLowerCase() === "usuario:") {
+      currentEmployeeName = (cells[1] ?? "").trim();
+      return;
+    }
 
-  const directionRaw = norm(row.direcao).toLowerCase();
-  const direction = DIRECTION_MAP[directionRaw];
-  if (!directionRaw) errors.push("Direção (Entrada/Saída) é obrigatória");
-  else if (!direction) errors.push(`Direção "${row.direcao}" não reconhecida (use Entrada ou Saída)`);
+    if (firstCell === "Cartão:" || firstCell === "Data/Hora") {
+      return;
+    }
 
-  if (errors.length > 0) return { rowNumber, data: null, errors };
+    const timestamp = parseDateTime(firstCell);
+    if (!timestamp) return;
 
-  return {
-    rowNumber,
-    errors: [],
-    data: {
-      employeeId: employeeId!,
-      timestamp: timestamp!,
-      direction: direction!,
-      location: norm(row.local) || null,
-    },
-  };
+    if (!currentEmployeeName) {
+      warnings.push(`Linha ${rowNumber}: data encontrada antes de qualquer "Usuário:" — ignorada.`);
+      return;
+    }
+
+    const direction = detectDirection(cells);
+    if (!direction) {
+      warnings.push(`Linha ${rowNumber} (${currentEmployeeName}): não reconheci Entrada/Saída em "${cells.join(" | ")}".`);
+      return;
+    }
+
+    entries.push({ employeeName: currentEmployeeName, timestamp, direction, rowNumber });
+  });
+
+  return { entries, warnings };
+}
+
+export interface MatchedTurnstileEvent {
+  employeeId: string;
+  timestamp: Date;
+  direction: "ENTRADA" | "SAIDA";
+}
+
+export interface MatchResult {
+  matched: MatchedTurnstileEvent[];
+  unmatchedNames: string[];
+}
+
+/** Casa os nomes extraídos do relatório com os colaboradores cadastrados (comparação sem acento/maiúsculas). */
+function normalizeName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+export function matchEntriesToEmployees(
+  entries: ParsedTurnstileEntry[],
+  employees: { id: string; name: string }[]
+): MatchResult {
+  const byName = new Map(employees.map((e) => [normalizeName(e.name), e.id]));
+  const matched: MatchedTurnstileEvent[] = [];
+  const unmatchedSet = new Set<string>();
+
+  for (const entry of entries) {
+    const employeeId = byName.get(normalizeName(entry.employeeName));
+    if (!employeeId) {
+      unmatchedSet.add(entry.employeeName);
+      continue;
+    }
+    matched.push({ employeeId, timestamp: entry.timestamp, direction: entry.direction });
+  }
+
+  return { matched, unmatchedNames: Array.from(unmatchedSet) };
 }
