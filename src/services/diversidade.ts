@@ -39,7 +39,10 @@ export async function getGenderByArea(filters: ExecutiveFilters) {
       },
     },
   });
-  return costCenters.map((c) => ({ name: c.name, value: c.employees.length }));
+  return costCenters
+    .map((c) => ({ name: c.name, value: c.employees.length }))
+    .filter((c) => c.value > 0)
+    .sort((a, b) => b.value - a.value);
 }
 
 export interface PayEquityRow {
