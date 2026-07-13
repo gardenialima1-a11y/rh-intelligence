@@ -24,6 +24,7 @@ export const employeeFormSchema = z
     birthDate: z.string().optional().nullable(),
     admissionDate: z.string().min(1, "Informe a data de admissão"),
     contractType: z.enum(CONTRACT_TYPE_OPTIONS),
+    contractEndDate: z.string().optional().nullable(),
     isPCD: z.boolean(),
     baseSalary: z
       .union([z.string(), z.number()])
