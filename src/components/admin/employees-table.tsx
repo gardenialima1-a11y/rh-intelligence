@@ -19,6 +19,7 @@ interface EmployeeRow {
   admissionDate: Date;
   terminationDate: Date | null;
   contractType: string;
+  contractEndDate: Date | null;
   isActive: boolean;
   isPCD: boolean;
   birthDate: Date | null;
@@ -110,6 +111,7 @@ export function EmployeesTable({
                     birthDate: e.birthDate ? e.birthDate.toISOString().slice(0, 10) : null,
                     admissionDate: e.admissionDate.toISOString().slice(0, 10),
                     contractType: e.contractType as "CLT" | "PJ" | "APRENDIZ" | "ESTAGIO" | "TEMPORARIO",
+                    contractEndDate: e.contractEndDate ? e.contractEndDate.toISOString().slice(0, 10) : null,
                     isPCD: e.isPCD,
                   }}
                   trigger={
