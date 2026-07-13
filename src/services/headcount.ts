@@ -71,7 +71,10 @@ export async function getHeadcountByCostCenter(unitId?: string) {
       },
     },
   });
-  return costCenters.map((c) => ({ name: c.name, headcount: c._count.employees }));
+  return costCenters
+    .map((c) => ({ name: c.name, headcount: c._count.employees }))
+    .filter((c) => c.headcount > 0)
+    .sort((a, b) => b.headcount - a.headcount);
 }
 
 export async function getHeadcountByManager(unitId?: string) {
