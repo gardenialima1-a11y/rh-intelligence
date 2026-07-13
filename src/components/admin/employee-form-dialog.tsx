@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Loader2, UserPlus } from "lucide-react";
@@ -73,6 +73,9 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
       managerId: null,
     },
   });
+
+  const watchedContractType = useWatch({ control, name: "contractType" });
+  const isFixedTermContract = watchedContractType === "APRENDIZ" || watchedContractType === "ESTAGIO" || watchedContractType === "TEMPORARIO";
 
   async function onSubmit(values: EmployeeFormValues) {
     setServerError(null);
@@ -286,6 +289,14 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
               )}
             />
           </div>
+
+          {isFixedTermContract && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contractEndDate">Data de término do contrato</Label>
+              <Input id="contractEndDate" type="date" {...register("contractEndDate")} />
+              <p className="text-[11px] text-muted-foreground">O sistema avisa quando faltar 1 mês pra vencer.</p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="phone">Telefone</Label>
