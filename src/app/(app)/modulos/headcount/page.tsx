@@ -17,6 +17,7 @@ import { TableCardHeader } from "@/components/dashboard/table-card-header";
 import {
   getHeadcountKpis,
   getHeadcountByCostCenter,
+  getHeadcountBySecondaryCostCenter,
   getHeadcountByManager,
   getHeadcountForecast,
   getHeadcountPyramid,
@@ -32,9 +33,10 @@ export default async function HeadcountPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byCostCenter, byManager, forecast, pyramid, table, avgTenure] = await Promise.all([
+  const [kpis, byCostCenter, bySecondaryCostCenter, byManager, forecast, pyramid, table, avgTenure] = await Promise.all([
     getHeadcountKpis(filters),
     getHeadcountByCostCenter(filters.unitId),
+    getHeadcountBySecondaryCostCenter(filters.unitId),
     getHeadcountByManager(filters.unitId),
     getHeadcountForecast(filters),
     getHeadcountPyramid(filters.unitId),
@@ -75,6 +77,18 @@ export default async function HeadcountPage({
         </CardHeader>
         <CardContent>
           <RankingBarChart data={byCostCenter} dataKey="headcount" />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Headcount por centro de custo secundário</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {bySecondaryCostCenter.length > 0 ? (
+            <RankingBarChart data={bySecondaryCostCenter} dataKey="headcount" color="#4C8B5B" />
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhum colaborador com setor secundário preenchido.</p>
+          )}
         </CardContent>
       </Card>
       <Card>
