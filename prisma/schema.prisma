@@ -251,6 +251,7 @@ model Employee {
   admissionDate  DateTime
   terminationDate DateTime?
   contractType   ContractType  @default(CLT)
+  contractEndDate DateTime?
   isPCD          Boolean       @default(false)
   isActive       Boolean       @default(true)
 
@@ -260,6 +261,7 @@ model Employee {
   absences           Absence[]
   turnstileEvents    TurnstileEvent[]
   turnstileDailySummaries TurnstileDailySummary[]
+  probationTracking      ProbationTracking?
   trainings          TrainingRecord[]
   reviews            PerformanceReview[]
   safetyIncidents    SafetyIncident[]
@@ -535,6 +537,24 @@ model RevenueEntry {
   id         String   @id @default(cuid())
   competence DateTime @unique
   amount     Float
+}
+
+// Acompanhamento do período de experiência (30/60 dias). employeeId fica nulo
+// quando o nome do histórico importado não bateu com o cadastro — o registro
+// ainda fica salvo, só não aparece vinculado a um colaborador específico.
+model ProbationTracking {
+  id            String    @id @default(cuid())
+  employeeName  String
+  employeeId    String?   @unique
+  employee      Employee? @relation(fields: [employeeId], references: [id])
+  evaluatorName String?
+  day30Date     DateTime?
+  day30Status   String?
+  day60Date     DateTime?
+  day60Status   String?
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 // Referência de mercado salarial por cargo (benchmarking). NÃO é uma integração
