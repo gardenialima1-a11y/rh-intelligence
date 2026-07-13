@@ -77,6 +77,26 @@ export async function getHeadcountByCostCenter(unitId?: string) {
     .sort((a, b) => b.headcount - a.headcount);
 }
 
+export async function getHeadcountBySecondaryCostCenter(unitId?: string) {
+  const costCenters = await prisma.costCenter.findMany({
+    select: {
+      id: true,
+      name: true,
+      _count: {
+        select: {
+          secondaryEmployees: {
+            where: { isActive: true, ...(unitId ? { unitId } : {}) },
+          },
+        },
+      },
+    },
+  });
+  return costCenters
+    .map((c) => ({ name: c.name, headcount: c._count.secondaryEmployees }))
+    .filter((c) => c.headcount > 0)
+    .sort((a, b) => b.headcount - a.headcount);
+}
+
 export async function getHeadcountByManager(unitId?: string) {
   const managers = await prisma.manager.findMany({
     select: {
