@@ -51,6 +51,7 @@ export async function createEmployee(raw: unknown): Promise<ActionResult> {
         birthDate: data.birthDate ? new Date(data.birthDate) : null,
         admissionDate: new Date(data.admissionDate),
         contractType: data.contractType,
+        contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null,
         isPCD: data.isPCD,
         isActive: true,
       },
@@ -119,6 +120,7 @@ export async function updateEmployee(employeeId: string, raw: unknown): Promise<
         photoUrl: data.photoUrl || null,
         admissionDate: new Date(data.admissionDate),
         contractType: data.contractType,
+        contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null,
         isPCD: data.isPCD,
       },
     });
