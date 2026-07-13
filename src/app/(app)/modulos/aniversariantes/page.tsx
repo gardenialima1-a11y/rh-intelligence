@@ -58,6 +58,12 @@ export default async function AniversariantesPage({
     getWorkAnniversariesThisMonth(month),
   ]);
 
+  const monthLabel = MONTH_LABELS[month];
+  const birthdaysTitle = "🎂 Aniversário de vida — " + monthLabel;
+  const birthdaysFilename = "aniversarios-vida-" + monthLabel.toLowerCase();
+  const anniversariesTitle = "🎉 Aniversário de empresa — " + monthLabel;
+  const anniversariesFilename = "aniversarios-empresa-" + monthLabel.toLowerCase();
+
   return (
     <div className="flex flex-col gap-6">
       <ModuleHeader
@@ -67,23 +73,25 @@ export default async function AniversariantesPage({
       />
 
       <div className="flex flex-wrap gap-2">
-        {MONTH_LABELS.map((label, i) => (
-          
-            key={label}
-            href={`?mes=${i + 1}`}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-              i === month ? "bg-navy text-cream dark:bg-gold dark:text-navy-dark" : "bg-muted text-muted-foreground hover:bg-muted/70"
-            }`}
-          >
-            {label}
-          </a>
-        ))}
+        {MONTH_LABELS.map((label, i) => {
+          const isActive = i === month;
+          const activeClass = "bg-navy text-cream dark:bg-gold dark:text-navy-dark";
+          const inactiveClass = "bg-muted text-muted-foreground hover:bg-muted/70";
+          const pillClass = "rounded-full px-3 py-1.5 text-xs font-medium transition-colors " + (isActive ? activeClass : inactiveClass);
+          const monthNumber = i + 1;
+          const linkHref = "?mes=" + monthNumber;
+          return (
+            <a key={label} href={linkHref} className={pillClass}>
+              {label}
+            </a>
+          );
+        })}
       </div>
 
       <Card>
         <TableCardHeader
-          title={`🎂 Aniversário de vida — ${MONTH_LABELS[month]}`}
-          filename={`aniversarios-vida-${MONTH_LABELS[month].toLowerCase()}`}
+          title={birthdaysTitle}
+          filename={birthdaysFilename}
           data={birthdays.map((r) => ({
             dia: r.day,
             nome: r.name,
@@ -110,8 +118,8 @@ export default async function AniversariantesPage({
 
       <Card>
         <TableCardHeader
-          title={`🎉 Aniversário de empresa — ${MONTH_LABELS[month]}`}
-          filename={`aniversarios-empresa-${MONTH_LABELS[month].toLowerCase()}`}
+          title={anniversariesTitle}
+          filename={anniversariesFilename}
           data={anniversaries.map((r) => ({
             dia: r.day,
             nome: r.name,
