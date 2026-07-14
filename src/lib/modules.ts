@@ -4,6 +4,7 @@ import {
   UserCog,
   Cake,
   Clock3,
+  HeartPulse,
   TrendingUp,
   DoorOpen,
   UserX,
@@ -63,6 +64,7 @@ export const MODULES: ModuleDef[] = [
 
   { key: "jornada", slug: "jornada", name: "Jornada, Ponto e Horas Extras", shortName: "Jornada/HE", icon: Clock, group: "Rotina e Jornada", description: "Banco de horas, HE e conformidade de jornada." },
   { key: "absenteismo", slug: "absenteismo", name: "Absenteísmo e Afastamentos", shortName: "Absenteísmo", icon: AlertTriangle, group: "Rotina e Jornada", description: "Faltas, atestados e afastamentos." },
+  { key: "afastamentos-inss", slug: "afastamentos-inss", name: "Afastamentos INSS", shortName: "Afastamentos INSS", icon: HeartPulse, group: "Rotina e Jornada", description: "CID, dias afastado e observações dos afastamentos pelo INSS." },
   { key: "catraca", slug: "catraca", name: "Catraca e Permanência Fora do Posto", shortName: "Catraca", icon: ScanFace, group: "Rotina e Jornada", description: "Tempo fora do posto a partir da catraca." },
 
   { key: "treinamento", slug: "treinamento", name: "Treinamento & Desenvolvimento", shortName: "Treinamento", icon: BookOpen, group: "Desenvolvimento", description: "Horas, custos e eficácia de treinamentos." },
