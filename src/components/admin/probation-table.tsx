@@ -68,13 +68,14 @@ export function ProbationTable({ rows }: { rows: ProbationRow[] }) {
                   <StatusBadge status={status60} />
                 </div>
               </TableCell>
-              <TableCell>{r.probationTracking?.avaliador ?? "—"}</TableCell>
+              <TableCell>{r.probationTracking?.avaliador ?? r.manager?.name ?? "—"}</TableCell>
               <TableCell>
                 <ProbationFormDialog
                   employeeId={r.id}
                   employeeName={r.name}
+                  managerName={r.manager?.name ?? null}
                   defaultValues={{
-                    avaliador: r.probationTracking?.avaliador ?? null,
+                    avaliador: r.probationTracking?.avaliador ?? r.manager?.name ?? null,
                     status30: (r.probationTracking?.status30 as "EM_AVALIACAO" | "APROVADO" | "REPROVADO") ?? "EM_AVALIACAO",
                     status60: (r.probationTracking?.status60 as "EM_AVALIACAO" | "APROVADO" | "REPROVADO") ?? "EM_AVALIACAO",
                     notes: r.probationTracking?.notes ?? null,
