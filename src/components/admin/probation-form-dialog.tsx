@@ -32,10 +32,11 @@ const STATUS_LABEL: Record<string, string> = {
 interface ProbationFormDialogProps {
   employeeId: string;
   employeeName: string;
+  managerName?: string | null;
   defaultValues?: Partial<ProbationFormValues>;
 }
 
-export function ProbationFormDialog({ employeeId, employeeName, defaultValues }: ProbationFormDialogProps) {
+export function ProbationFormDialog({ employeeId, employeeName, managerName, defaultValues }: ProbationFormDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -48,7 +49,7 @@ export function ProbationFormDialog({ employeeId, employeeName, defaultValues }:
     formState: { errors },
   } = useForm<ProbationFormValues>({
     resolver: zodResolver(probationFormSchema),
-    defaultValues: defaultValues ?? { status30: "EM_AVALIACAO", status60: "EM_AVALIACAO" },
+    defaultValues: defaultValues ?? { status30: "EM_AVALIACAO", status60: "EM_AVALIACAO", avaliador: managerName ?? null },
   });
 
   async function onSubmit(values: ProbationFormValues) {
@@ -81,6 +82,9 @@ export function ProbationFormDialog({ employeeId, employeeName, defaultValues }:
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="avaliador">Avaliador</Label>
             <Input id="avaliador" placeholder="Nome de quem está avaliando" {...register("avaliador")} />
+            <p className="text-[11px] text-muted-foreground">
+              Já vem preenchido com o gestor imediato do colaborador — troque se outra pessoa for avaliar.
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
