@@ -50,7 +50,7 @@ export default async function PeriodoExperienciaPage() {
             status_30d: c.status30,
             checkpoint_90d: c.dates.checkpoint2,
             status_90d: c.status60,
-            avaliador: c.probationTracking?.avaliador ?? "",
+            avaliador: c.probationTracking?.avaliador ?? c.manager?.name ?? "",
           }))}
           columns={[
             { key: "nome", label: "Nome" },
