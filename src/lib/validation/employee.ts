@@ -26,6 +26,7 @@ export const employeeFormSchema = z
     contractType: z.enum(CONTRACT_TYPE_OPTIONS),
     contractEndDate: z.string().optional().nullable(),
     isPCD: z.boolean(),
+    isTrustPosition: z.boolean(),
     baseSalary: z
       .union([z.string(), z.number()])
       .optional()
