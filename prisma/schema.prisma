@@ -253,6 +253,7 @@ model Employee {
   terminationDate DateTime?
   contractType   ContractType  @default(CLT)
   contractEndDate DateTime?
+  isTrustPosition Boolean       @default(false)
   isPCD          Boolean       @default(false)
   isActive       Boolean       @default(true)
 
@@ -263,6 +264,7 @@ model Employee {
   turnstileEvents    TurnstileEvent[]
   turnstileDailySummaries TurnstileDailySummary[]
   inssLeaves         InssLeave[]
+  attendanceRecords  AttendanceRecord[]
   probationTracking  ProbationTracking?
   trainings          TrainingRecord[]
   reviews            PerformanceReview[]
@@ -364,6 +366,35 @@ model ProbationTracking {
   status60   ProbationStatus @default(EM_AVALIACAO)
   notes      String?         @db.Text
   updatedAt  DateTime        @updatedAt
+}
+
+enum AttendanceStatus {
+  PRESENTE
+  FALTOU
+  FERIAS
+  FOLGA
+  DISPENSADO
+  LICENCA
+  CARGO_CONFIANCA
+  OUTRO
+}
+
+// Um registro por colaborador por dia, vindo da importação do relatório de
+// ponto. "rawRotina" guarda o texto original da coluna "Rotina Esperada" pra
+// você conferir depois, caso o sistema tenha classificado como OUTRO.
+model AttendanceRecord {
+  id           String           @id @default(cuid())
+  employeeId   String
+  employee     Employee         @relation(fields: [employeeId], references: [id])
+  date         DateTime
+  status       AttendanceStatus
+  rawRotina    String?
+  setorNoDia   String?
+  atrasoMinutos Int?
+  createdAt    DateTime         @default(now())
+
+  @@unique([employeeId, date])
+  @@index([date])
 }
 
 // CID, data de início, retorno (quando houver) e observações que vão sendo
