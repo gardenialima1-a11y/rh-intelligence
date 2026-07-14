@@ -186,6 +186,7 @@ model CostCenter {
   code      String     @unique
   name      String
   area      String
+  targetHeadcount    Int?
   employees          Employee[] @relation("PrimaryCostCenter")
   secondaryEmployees Employee[] @relation("SecondaryCostCenter")
 }
