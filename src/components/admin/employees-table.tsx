@@ -27,6 +27,7 @@ interface EmployeeRow {
   contractEndDate: Date | null;
   isActive: boolean;
   isPCD: boolean;
+  isTrustPosition: boolean;
   birthDate: Date | null;
   position: { id: string; name: string } | null;
   costCenter: { id: string; name: string } | null;
@@ -167,6 +168,7 @@ export function EmployeesTable({
                       contractType: e.contractType as "CLT" | "PJ" | "APRENDIZ" | "ESTAGIO" | "TEMPORARIO",
                       contractEndDate: e.contractEndDate ? e.contractEndDate.toISOString().slice(0, 10) : null,
                       isPCD: e.isPCD,
+                      isTrustPosition: e.isTrustPosition,
                     }}
                     trigger={
                       <Button variant="outline" size="sm">
