@@ -67,6 +67,7 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
       gender: "NAO_INFORMADO",
       contractType: "CLT",
       isPCD: false,
+      isTrustPosition: false,
       positionId: null,
       costCenterId: null,
       secondaryCostCenterId: null,
@@ -345,6 +346,17 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
               )}
             />
             <Label htmlFor="isPCD" className="cursor-pointer">Pessoa com deficiência (PCD)</Label>
+          </div>
+
+          <div className="flex items-center gap-2 pt-6">
+            <Controller
+              control={control}
+              name="isTrustPosition"
+              render={({ field }) => (
+                <Checkbox id="isTrustPosition" checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+              )}
+            />
+            <Label htmlFor="isTrustPosition" className="cursor-pointer">Cargo de confiança (não bate ponto)</Label>
           </div>
 
           {serverError && <p className="sm:col-span-2 text-sm text-danger">{serverError}</p>}
