@@ -61,39 +61,41 @@ export default async function DesempenhoPage({
   );
 
   const operational = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Avaliações do ciclo 2026-S1</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Colaborador</TableHead>
-              <TableHead>Cargo</TableHead>
-              <TableHead>Unidade</TableHead>
-              <TableHead>Nota</TableHead>
-              <TableHead>9-box</TableHead>
-              <TableHead>PDI</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {table.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell>{r.employee.name}</TableCell>
-                <TableCell>{r.employee.position?.name ?? "—"}</TableCell>
-                <TableCell>{r.employee.unit.name}</TableCell>
-                <TableCell>{r.score.toFixed(1)}</TableCell>
-                <TableCell>{r.boxLabel ?? "—"}</TableCell>
-                <TableCell>
-                  <Badge variant={PDI_VARIANT[r.pdiStatus ?? ""] ?? "outline"}>{r.pdiStatus ?? "—"}</Badge>
-                </TableCell>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Avaliações do ciclo 2026-S1</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Colaborador</TableHead>
+                <TableHead>Cargo</TableHead>
+                <TableHead>Unidade</TableHead>
+                <TableHead>Nota</TableHead>
+                <TableHead>9-box</TableHead>
+                <TableHead>PDI</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {table.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>{r.employee.name}</TableCell>
+                  <TableCell>{r.employee.position?.name ?? "—"}</TableCell>
+                  <TableCell>{r.employee.unit.name}</TableCell>
+                  <TableCell>{r.score.toFixed(1)}</TableCell>
+                  <TableCell>{r.boxLabel ?? "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant={PDI_VARIANT[r.pdiStatus ?? ""] ?? "outline"}>{r.pdiStatus ?? "—"}</Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 
   const analytical = (
