@@ -11,7 +11,17 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatPercent, formatCurrency, formatDate } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { TableCardHeader } from "@/components/dashboard/table-card-header";
-import { getAbsenteismoKpis, getAbsenceByReason, getAbsenceByCostCenter, getAbsenceTable, getBradfordFactorRanking } from "@/services/absenteismo";
+import { AttendanceImportDialog } from "@/components/admin/attendance-import-dialog";
+import {
+  getAbsenteismoKpis,
+  getAbsenceByReason,
+  getAbsenceByCostCenter,
+  getAbsenceTable,
+  getBradfordFactorRanking,
+  getFaltasComCruzamento,
+  getFaltasPorSetorPrincipal,
+  getFaltasPorSetorSecundario,
+} from "@/services/absenteismo";
 
 const BRADFORD_VARIANT: Record<string, "danger" | "warning" | "outline"> = {
   Crítico: "danger",
@@ -27,12 +37,15 @@ export default async function AbsenteismoPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byReason, byCostCenter, table, bradford] = await Promise.all([
+  const [kpis, byReason, byCostCenter, table, bradford, faltas, faltasPorPrincipal, faltasPorSecundario] = await Promise.all([
     getAbsenteismoKpis(filters),
     getAbsenceByReason(filters),
     getAbsenceByCostCenter(filters),
     getAbsenceTable(filters),
     getBradfordFactorRanking(filters),
+    getFaltasComCruzamento(),
+    getFaltasPorSetorPrincipal(),
+    getFaltasPorSetorSecundario(),
   ]);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
@@ -79,7 +92,108 @@ export default async function AbsenteismoPage({
   );
 
   const operational = (
-    <Card>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <div className="flex flex-col gap-1">
+            <CardTitle>Faltas detectadas pelo ponto (automático)</CardTitle>
+            <p className="text-xs text-muted-foreground">{faltas.length} falta(s) registrada(s), já cruzadas com atestados.</p>
+          </div>
+          <AttendanceImportDialog />
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div>
+              <h4 className="mb-2 text-sm font-semibold text-navy dark:text-cream">Faltas por setor principal</h4>
+              {faltasPorPrincipal.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma falta importada ainda.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Setor</TableHead>
+                      <TableHead>Faltas</TableHead>
+                      <TableHead>Com atestado</TableHead>
+                      <TableHead>Sem atestado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {faltasPorPrincipal.map((r) => (
+                      <TableRow key={r.setor}>
+                        <TableCell>{r.setor}</TableCell>
+                        <TableCell>{r.faltas}</TableCell>
+                        <TableCell><Badge variant="success">{r.comAtestado}</Badge></TableCell>
+                        <TableCell><Badge variant="danger">{r.semAtestado}</Badge></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+            <div>
+              <h4 className="mb-2 text-sm font-semibold text-navy dark:text-cream">Faltas por setor secundário</h4>
+              {faltasPorSecundario.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma falta com setor secundário identificado.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Setor</TableHead>
+                      <TableHead>Faltas</TableHead>
+                      <TableHead>Com atestado</TableHead>
+                      <TableHead>Sem atestado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {faltasPorSecundario.map((r) => (
+                      <TableRow key={r.setor}>
+                        <TableCell>{r.setor}</TableCell>
+                        <TableCell>{r.faltas}</TableCell>
+                        <TableCell><Badge variant="success">{r.comAtestado}</Badge></TableCell>
+                        <TableCell><Badge variant="danger">{r.semAtestado}</Badge></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-sm font-semibold text-navy dark:text-cream">Detalhamento das faltas</h4>
+            {faltas.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma falta importada ainda.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Colaborador</TableHead>
+                    <TableHead>Setor principal</TableHead>
+                    <TableHead>Setor secundário</TableHead>
+                    <TableHead>Atestado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {faltas.slice(0, 50).map((f, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{formatDate(f.date)}</TableCell>
+                      <TableCell>{f.employeeName}</TableCell>
+                      <TableCell>{f.setorPrincipal ?? "—"}</TableCell>
+                      <TableCell>{f.setorSecundario ?? "—"}</TableCell>
+                      <TableCell>
+                        {f.temAtestado ? <Badge variant="success">Sim</Badge> : <Badge variant="danger">Não</Badge>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
       <TableCardHeader
         title="Ocorrências de afastamento"
         filename="absenteismo-ocorrencias"
@@ -130,7 +244,8 @@ export default async function AbsenteismoPage({
           </TableBody>
         </Table>
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 
   const analytical = (
