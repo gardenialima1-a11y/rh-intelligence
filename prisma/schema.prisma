@@ -262,6 +262,7 @@ model Employee {
   turnstileEvents    TurnstileEvent[]
   turnstileDailySummaries TurnstileDailySummary[]
   inssLeaves         InssLeave[]
+  probationTracking  ProbationTracking?
   probationTracking      ProbationTracking?
   trainings          TrainingRecord[]
   reviews            PerformanceReview[]
@@ -344,6 +345,27 @@ model TimeEntry {
 
 // Afastamento pelo INSS (licença médica de longa duração) — diferente de
 // Absence (que é falta pontual, dia a dia). Aqui é um período contínuo, com
+enum ProbationStatus {
+  EM_AVALIACAO
+  APROVADO
+  REPROVADO
+}
+
+// Acompanhamento do período de experiência (30 + 60 dias). As datas dos
+// checkpoints são calculadas a partir de Employee.admissionDate (dado real,
+// não duplicado aqui) — só a decisão de cada avaliação e as observações
+// ficam guardadas nesta tabela, uma linha por colaborador.
+model ProbationTracking {
+  id         String          @id @default(cuid())
+  employeeId String          @unique
+  employee   Employee        @relation(fields: [employeeId], references: [id])
+  avaliador  String?
+  status30   ProbationStatus @default(EM_AVALIACAO)
+  status60   ProbationStatus @default(EM_AVALIACAO)
+  notes      String?         @db.Text
+  updatedAt  DateTime        @updatedAt
+}
+
 // CID, data de início, retorno (quando houver) e observações que vão sendo
 // atualizadas ao longo do afastamento.
 model InssLeave {
