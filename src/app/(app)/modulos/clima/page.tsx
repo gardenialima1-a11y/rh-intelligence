@@ -6,7 +6,9 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RankingBarChart } from "@/components/dashboard/ranking-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPercent, formatNumber } from "@/lib/utils";
-import { getClimaKpis, getFavorabilityByDimension, getFavorabilityByArea } from "@/services/clima";
+import { SurveyImportDialog } from "@/components/admin/survey-import-dialog";
+import { CycleComparisonTable } from "@/components/dashboard/cycle-comparison-table";
+import { getClimaKpis, getFavorabilityByDimension, getFavorabilityByArea, getCycleComparison } from "@/services/clima";
 
 export default async function ClimaPage({
   searchParams,
@@ -16,10 +18,11 @@ export default async function ClimaPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byDimension, byArea] = await Promise.all([
+  const [kpis, byDimension, byArea, comparison] = await Promise.all([
     getClimaKpis(filters),
     getFavorabilityByDimension(filters),
     getFavorabilityByArea(filters),
+    getCycleComparison(),
   ]);
 
   const executive = (
@@ -29,7 +32,7 @@ export default async function ClimaPage({
         <KpiCard label="eNPS" value={kpis.enps.toFixed(0)} icon={Heart} accent="gold" />
         <KpiCard
           label="Respondentes"
-          value={kpis.totalInvited ? `${formatNumber(kpis.totalRespondents)} (${formatPercent(kpis.participationRate ?? 0)})` : formatNumber(kpis.totalRespondents)}
+          value={kpis.totalInvited ? formatNumber(kpis.totalRespondents) + " (" + formatPercent(kpis.participationRate ?? 0) + ")" : formatNumber(kpis.totalRespondents)}
           icon={MessageSquare}
           accent="navy"
         />
@@ -68,16 +71,22 @@ export default async function ClimaPage({
   );
 
   const analytical = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Indicadores analíticos</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <KpiCard label="Favorabilidade" value={formatPercent(kpis.favorability)} icon={Smile} accent="success" />
         <KpiCard label="eNPS" value={kpis.enps.toFixed(0)} icon={Heart} accent="gold" />
         <KpiCard label="Ciclo atual" value={kpis.cycle} icon={MessageSquare} accent="navy" />
-      </CardContent>
-    </Card>
+      </div>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle>Comparação entre ciclos</CardTitle>
+          <SurveyImportDialog />
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <CycleComparisonTable data={comparison} />
+        </CardContent>
+      </Card>
+    </div>
   );
 
   return (
