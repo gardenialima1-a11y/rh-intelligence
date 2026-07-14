@@ -261,6 +261,7 @@ model Employee {
   absences           Absence[]
   turnstileEvents    TurnstileEvent[]
   turnstileDailySummaries TurnstileDailySummary[]
+  inssLeaves         InssLeave[]
   probationTracking      ProbationTracking?
   trainings          TrainingRecord[]
   reviews            PerformanceReview[]
@@ -339,6 +340,25 @@ model TimeEntry {
   @@unique([date, employeeId])
   @@index([date])
   @@index([employeeId, date])
+}
+
+// Afastamento pelo INSS (licença médica de longa duração) — diferente de
+// Absence (que é falta pontual, dia a dia). Aqui é um período contínuo, com
+// CID, data de início, retorno (quando houver) e observações que vão sendo
+// atualizadas ao longo do afastamento.
+model InssLeave {
+  id                 String    @id @default(cuid())
+  employeeId         String
+  employee           Employee  @relation(fields: [employeeId], references: [id])
+  cid                String
+  startDate          DateTime
+  expectedReturnDate DateTime?
+  actualReturnDate   DateTime?
+  notes              String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([employeeId])
 }
 
 model Absence {
