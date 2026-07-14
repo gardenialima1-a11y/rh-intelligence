@@ -53,6 +53,7 @@ export async function createEmployee(raw: unknown): Promise<ActionResult> {
         contractType: data.contractType,
         contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null,
         isPCD: data.isPCD,
+        isTrustPosition: data.isTrustPosition,
         isActive: true,
       },
     });
@@ -122,6 +123,7 @@ export async function updateEmployee(employeeId: string, raw: unknown): Promise<
         contractType: data.contractType,
         contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null,
         isPCD: data.isPCD,
+        isTrustPosition: data.isTrustPosition,
       },
     });
 
