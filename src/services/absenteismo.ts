@@ -147,3 +147,97 @@ export async function getAbsenceTable(filters: ExecutiveFilters) {
     take: 50,
   });
 }
+
+export interface FaltaRow {
+  date: Date;
+  employeeName: string;
+  registration: string;
+  setorPrincipal: string | null;
+  setorSecundario: string | null;
+  temAtestado: boolean;
+  atrasoMinutos: number | null;
+}
+
+/**
+ * Faltas detectadas automaticamente pela importação do relatório de ponto,
+ * já cruzadas com os atestados médicos cadastrados (SST → Atestados) pela
+ * mesma data. Sempre exclui quem está marcado como Cargo de Confiança.
+ */
+export async function getFaltasComCruzamento(limit = 200) {
+  const faltas = await prisma.attendanceRecord.findMany({
+    where: { status: "FALTOU" },
+    orderBy: { date: "desc" },
+    take: limit,
+    include: {
+      employee: {
+        select: {
+          name: true,
+          registration: true,
+          costCenter: { select: { name: true } },
+          secondaryCostCenter: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  if (faltas.length === 0) return [];
+
+  const employeeIds = Array.from(new Set(faltas.map((f) => f.employeeId)));
+  const dates = faltas.map((f) => f.date);
+  const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+  const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
+
+  const absences = await prisma.absence.findMany({
+    where: { employeeId: { in: employeeIds }, date: { gte: minDate, lte: maxDate }, hasCertificate: true },
+    select: { employeeId: true, date: true },
+  });
+  const certificateKeys = new Set(absences.map((a) => `${a.employeeId}_${a.date.toISOString().slice(0, 10)}`));
+
+  const rows: FaltaRow[] = faltas.map((f) => ({
+    date: f.date,
+    employeeName: f.employee.name,
+    registration: f.employee.registration,
+    setorPrincipal: f.employee.costCenter?.name ?? null,
+    setorSecundario: f.employee.secondaryCostCenter?.name ?? null,
+    temAtestado: certificateKeys.has(`${f.employeeId}_${f.date.toISOString().slice(0, 10)}`),
+    atrasoMinutos: f.atrasoMinutos,
+  }));
+
+  return rows;
+}
+
+export interface FaltasBySetorRow {
+  setor: string;
+  faltas: number;
+  comAtestado: number;
+  semAtestado: number;
+}
+
+export async function getFaltasPorSetorPrincipal(): Promise<FaltasBySetorRow[]> {
+  const rows = await getFaltasComCruzamento(1000);
+  const map = new Map<string, FaltasBySetorRow>();
+  for (const r of rows) {
+    const setor = r.setorPrincipal ?? "Não informado";
+    const cur = map.get(setor) ?? { setor, faltas: 0, comAtestado: 0, semAtestado: 0 };
+    cur.faltas += 1;
+    if (r.temAtestado) cur.comAtestado += 1;
+    else cur.semAtestado += 1;
+    map.set(setor, cur);
+  }
+  return Array.from(map.values()).sort((a, b) => b.faltas - a.faltas);
+}
+
+export async function getFaltasPorSetorSecundario(): Promise<FaltasBySetorRow[]> {
+  const rows = await getFaltasComCruzamento(1000);
+  const map = new Map<string, FaltasBySetorRow>();
+  for (const r of rows) {
+    if (!r.setorSecundario) continue;
+    const setor = r.setorSecundario;
+    const cur = map.get(setor) ?? { setor, faltas: 0, comAtestado: 0, semAtestado: 0 };
+    cur.faltas += 1;
+    if (r.temAtestado) cur.comAtestado += 1;
+    else cur.semAtestado += 1;
+    map.set(setor, cur);
+  }
+  return Array.from(map.values()).sort((a, b) => b.faltas - a.faltas);
+}
