@@ -103,6 +103,7 @@ export async function getIdealVsRealHeadcount() {
     select: {
       id: true,
       name: true,
+      area: true,
       targetHeadcount: true,
       _count: { select: { secondaryEmployees: { where: { isActive: true } } } },
     },
@@ -110,7 +111,9 @@ export async function getIdealVsRealHeadcount() {
 
   return costCenters
     .map((c) => ({
+      id: c.id,
       name: c.name,
+      area: c.area,
       ideal: c.targetHeadcount,
       real: c._count.secondaryEmployees,
       diff: c.targetHeadcount !== null ? c._count.secondaryEmployees - c.targetHeadcount : null,
