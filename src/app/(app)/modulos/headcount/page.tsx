@@ -14,8 +14,10 @@ import { formatNumber, formatPercent, formatDate } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { nextMonthLabelsPtBR } from "@/services/forecast";
 import { TableCardHeader } from "@/components/dashboard/table-card-header";
+import { IdealVsRealTable } from "@/components/dashboard/ideal-vs-real-table";
 import {
   getHeadcountKpis,
+  getIdealVsRealHeadcount,
   getHeadcountByCostCenter,
   getHeadcountBySecondaryCostCenter,
   getHeadcountByManager,
@@ -33,7 +35,7 @@ export default async function HeadcountPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byCostCenter, bySecondaryCostCenter, byManager, forecast, pyramid, table, avgTenure] = await Promise.all([
+  const [kpis, byCostCenter, bySecondaryCostCenter, byManager, forecast, pyramid, table, avgTenure, idealVsReal] = await Promise.all([
     getHeadcountKpis(filters),
     getHeadcountByCostCenter(filters.unitId),
     getHeadcountBySecondaryCostCenter(filters.unitId),
@@ -42,6 +44,7 @@ export default async function HeadcountPage({
     getHeadcountPyramid(filters.unitId),
     getHeadcountTable(filters),
     getAverageTenureMonths(filters.unitId),
+    getIdealVsRealHeadcount(),
   ]);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
@@ -70,7 +73,16 @@ export default async function HeadcountPage({
   );
 
   const managerial = (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Quadro Ideal x Real — por setor secundário</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <IdealVsRealTable rows={idealVsReal} />
+        </CardContent>
+      </Card>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Headcount por centro de custo</CardTitle>
@@ -103,6 +115,7 @@ export default async function HeadcountPage({
           )}
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 
