@@ -31,6 +31,25 @@ const benchmarkSchema = z
     path: ["marketAvgSalary"],
   });
 
+export async function deleteSalaryBenchmark(positionId: string): Promise<ActionResult> {
+  try {
+    await requireHrAccess();
+    await prisma.salaryBenchmark.delete({ where: { positionId } });
+    revalidatePath("/modulos/custos");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao excluir cargo do benchmarking." };
+  }
+}
+
+export async function getPositionsWithoutBenchmark() {
+  return prisma.position.findMany({
+    where: { benchmark: null },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
 export async function upsertSalaryBenchmark(raw: unknown): Promise<ActionResult> {
   try {
     await requireHrAccess();
