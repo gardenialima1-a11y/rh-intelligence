@@ -7,12 +7,14 @@ import { RankingBarChart } from "@/components/dashboard/ranking-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
+import { formatNumber, formatCurrency } from "@/lib/utils";
 import { FUNNEL_STAGE_LABEL } from "@/lib/labels";
-import { TableCardHeader } from "@/components/dashboard/table-card-header";
 import { VacancyFormDialog } from "@/components/admin/vacancy-form-dialog";
 import { VacanciesTable } from "@/components/admin/vacancies-table";
+import { CandidateFormDialog } from "@/components/admin/candidate-form-dialog";
+import { CandidatesTable } from "@/components/admin/candidates-table";
 import { getVacancies } from "@/actions/vacancies";
+import { getCandidatesForAdmin } from "@/actions/candidates";
 import { prisma } from "@/lib/prisma";
 import {
   getRecrutamentoKpis,
@@ -31,7 +33,7 @@ export default async function RecrutamentoPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, funnel, bySource, byEfficiency, table, vacancyCost, vacancies, positions, units] = await Promise.all([
+  const [kpis, funnel, bySource, byEfficiency, , vacancyCost, vacancies, positions, units, candidatesAdmin] = await Promise.all([
     getRecrutamentoKpis(filters),
     getFunnelByStage(filters),
     getCandidatesBySource(filters),
@@ -41,6 +43,7 @@ export default async function RecrutamentoPage({
     getVacancies(),
     prisma.position.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.unit.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    getCandidatesForAdmin(),
   ]);
 
   const funnelData = funnel.map((f) => ({ name: FUNNEL_STAGE_LABEL[f.name as string] ?? f.name, value: f.value }));
@@ -112,55 +115,21 @@ export default async function RecrutamentoPage({
       </Card>
 
       <Card>
-        <TableCardHeader
-          title="Candidatos no período"
-          filename="recrutamento-candidatos"
-          data={table.map((c) => ({
-            candidato: c.name,
-            vaga: c.vacancy,
-            origem: c.source,
-            etapa: FUNNEL_STAGE_LABEL[c.stage] ?? c.stage,
-            abertura: c.openedAt,
-            critica: c.isCritical ? "Sim" : "Não",
-          }))}
-          columns={[
-            { key: "candidato", label: "Candidato" },
-            { key: "vaga", label: "Vaga" },
-            { key: "origem", label: "Origem" },
-            { key: "etapa", label: "Etapa" },
-            { key: "abertura", label: "Abertura" },
-            { key: "critica", label: "Crítica" },
-          ]}
-        />
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <div className="flex flex-col gap-1">
+            <CardTitle>Candidatos</CardTitle>
+            <p className="text-xs text-muted-foreground">{candidatesAdmin.length} candidato(s) cadastrado(s).</p>
+          </div>
+          <CandidateFormDialog vacancies={vacancies.map((v) => ({ id: v.id, title: v.title }))} mode="create" />
+        </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Candidato</TableHead>
-                <TableHead>Vaga</TableHead>
-                <TableHead>Origem</TableHead>
-                <TableHead>Etapa</TableHead>
-                <TableHead>Abertura</TableHead>
-                <TableHead>Crítica</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {table.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>{c.name}</TableCell>
-                  <TableCell>{c.vacancy}</TableCell>
-                  <TableCell>{c.source}</TableCell>
-                  <TableCell>
-                    <Badge variant={c.stage === "CONTRATADO" ? "success" : c.stage === "REPROVADO" ? "danger" : "outline"}>
-                      {FUNNEL_STAGE_LABEL[c.stage] ?? c.stage}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(c.openedAt)}</TableCell>
-                  <TableCell>{c.isCritical ? <Badge variant="danger">Sim</Badge> : "—"}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {candidatesAdmin.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nenhum candidato cadastrado ainda. Clique em &quot;Novo candidato&quot; para começar.
+            </p>
+          ) : (
+            <CandidatesTable candidates={candidatesAdmin} vacancies={vacancies.map((v) => ({ id: v.id, title: v.title }))} />
+          )}
         </CardContent>
       </Card>
     </div>
