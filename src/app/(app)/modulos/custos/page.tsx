@@ -9,10 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EditBenchmarkDialog } from "@/components/admin/edit-benchmark-dialog";
+import { AddBenchmarkDialog } from "@/components/admin/add-benchmark-dialog";
+import { DeleteBenchmarkButton } from "@/components/admin/delete-benchmark-button";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { getCustosKpis, getCostTrend, getCostByCostCenter, getAverageSalaryByPosition } from "@/services/custos";
 import { getSalaryBenchmarkComparison, getBenchmarkSummary } from "@/services/salary-benchmark";
+import { getPositionsWithoutBenchmark } from "@/actions/salary-benchmark";
 
 export default async function CustosPage({
   searchParams,
@@ -22,13 +25,14 @@ export default async function CustosPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, trend, byCostCenter, avgSalaryByPosition, benchmarkRows, benchmarkSummary] = await Promise.all([
+  const [kpis, trend, byCostCenter, avgSalaryByPosition, benchmarkRows, benchmarkSummary, positionsWithoutBenchmark] = await Promise.all([
     getCustosKpis(filters),
     getCostTrend(filters),
     getCostByCostCenter(filters),
     getAverageSalaryByPosition(filters),
     getSalaryBenchmarkComparison(),
     getBenchmarkSummary(),
+    getPositionsWithoutBenchmark(),
   ]);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
@@ -106,8 +110,9 @@ export default async function CustosPage({
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle>Benchmarking Salarial — {benchmarkRows[0]?.marketAvgSalary ? "Fortaleza, CE" : "cadastre a referência de mercado"}</CardTitle>
+          <AddBenchmarkDialog positions={positionsWithoutBenchmark} />
         </CardHeader>
         <CardContent>
           <p className="mb-3 text-xs text-muted-foreground">
@@ -154,17 +159,20 @@ export default async function CustosPage({
                       {r.referenceDate ? ` · ${formatDate(r.referenceDate)}` : ""}
                     </TableCell>
                     <TableCell>
-                      <EditBenchmarkDialog
-                        positionId={r.positionId}
-                        positionName={r.positionName}
-                        defaultValues={{
-                          marketMinSalary: r.marketMinSalary ?? undefined,
-                          marketAvgSalary: r.marketAvgSalary ?? undefined,
-                          marketMaxSalary: r.marketMaxSalary ?? undefined,
-                          source: r.source ?? undefined,
-                          referenceDate: r.referenceDate ? r.referenceDate.toISOString().slice(0, 10) : undefined,
-                        }}
-                      />
+                      <div className="flex gap-2">
+                        <EditBenchmarkDialog
+                          positionId={r.positionId}
+                          positionName={r.positionName}
+                          defaultValues={{
+                            marketMinSalary: r.marketMinSalary ?? undefined,
+                            marketAvgSalary: r.marketAvgSalary ?? undefined,
+                            marketMaxSalary: r.marketMaxSalary ?? undefined,
+                            source: r.source ?? undefined,
+                            referenceDate: r.referenceDate ? r.referenceDate.toISOString().slice(0, 10) : undefined,
+                          }}
+                        />
+                        {r.marketAvgSalary !== null && <DeleteBenchmarkButton positionId={r.positionId} />}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
