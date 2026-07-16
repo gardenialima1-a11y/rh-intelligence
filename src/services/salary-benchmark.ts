@@ -8,7 +8,7 @@ export interface BenchmarkRow {
   marketMinSalary: number | null;
   marketAvgSalary: number | null;
   marketMaxSalary: number | null;
-  gapPercent: number | null;
+  gapPercent: number | null; // positivo = empresa paga ACIMA do mercado; negativo = ABAIXO
   source: string | null;
   referenceDate: Date | null;
 }
@@ -53,7 +53,7 @@ export async function getSalaryBenchmarkComparison(): Promise<BenchmarkRow[]> {
       };
     })
     .filter((r) => r.employeeCount > 0 || r.marketAvgSalary !== null)
-    .sort((a, b) => (a.gapPercent ?? 999) - (b.gapPercent ?? 999));
+    .sort((a, b) => a.positionName.localeCompare(b.positionName, "pt-BR"));
 }
 
 export async function getBenchmarkSummary() {
