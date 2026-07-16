@@ -4,16 +4,61 @@ export interface TurnstileEventLike {
   direction: string;
 }
 
+// Almoço: qualquer volta ("Saída" — reentrada na fábrica) dentro dessa janela
+// não conta como tempo fora do posto, seja qual for a duração.
+const LUNCH_START_MIN = 11 * 60; // 11:00
+const LUNCH_END_MIN = 12 * 60 + 42; // 12:42
+
+function minutesOfDay(d: Date): number {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function isReturnDuringLunch(d: Date): boolean {
+  const m = minutesOfDay(d);
+  return m >= LUNCH_START_MIN && m <= LUNCH_END_MIN;
+}
+
 /**
- * Calcula o tempo fora do posto por colaborador a partir de eventos de catraca.
- * Regra: só considera pares SAÍDA → ENTRADA dentro do MESMO DIA (evita contar a
- * janela noturna entre o fim de um expediente e o início do próximo como "tempo
- * fora do posto"). Função pura — sem I/O — para permitir teste unitário isolado.
+ * IMPORTANTE — sentido da catraca desta empresa (confirmado pela cliente):
+ * "Saída" = entrando na fábrica/posto de trabalho (chegada, volta do almoço,
+ * volta de qualquer pausa). "Entrada" = saindo do posto em direção ao
+ * vestiário (início de pausa, almoço, ida embora no fim do dia).
+ * Ou seja, o tempo fora do posto é o intervalo "Entrada" (saiu) → "Saída"
+ * (voltou) — o contrário do que os nomes sugerem à primeira vista.
+ *
+ * Regras aplicadas:
+ * - Só pares Entrada → Saída no MESMO DIA contam.
+ * - Se a "Saída" (volta) cair na janela de almoço (11h00–12h42), o par
+ *   inteiro é ignorado — não entra no cálculo, mesmo que a pausa tenha
+ *   durado mais que o normal.
+ * - Fora da janela de almoço, só conta o que passar de 70min, descontando
+ *   60min de tolerância (mesma regra de antes para pausas fora do horário
+ *   de almoço).
+ * - A primeira "Saída" do dia (chegada) nunca fecha um par sozinha — não
+ *   tem "Entrada" antes dela no mesmo dia, então fica de fora naturalmente.
  */
 export interface DailyMinutesOut {
   employeeId: string;
   date: Date;
   minutesOut: number;
+}
+
+function computeDayMinutesOut(sorted: TurnstileEventLike[]): { minutesOut: number; occurrences: number } {
+  let minutesOut = 0;
+  let occurrences = 0;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i].direction === "ENTRADA" && sorted[i + 1].direction === "SAIDA") {
+      const returnEvent = sorted[i + 1];
+      if (isReturnDuringLunch(returnEvent.timestamp)) continue;
+
+      const diffMin = (returnEvent.timestamp.getTime() - sorted[i].timestamp.getTime()) / 60000;
+      if (diffMin > 70) {
+        minutesOut += diffMin - 60;
+        occurrences += 1;
+      }
+    }
+  }
+  return { minutesOut, occurrences };
 }
 
 /**
@@ -36,13 +81,7 @@ export function pairTurnstileGapsByDay(events: TurnstileEventLike[]): DailyMinut
     const [employeeId] = key.split("__");
     const sorted = [...list].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-    let minutesOut = 0;
-    for (let i = 0; i < sorted.length - 1; i++) {
-      if (sorted[i].direction === "SAIDA" && sorted[i + 1].direction === "ENTRADA") {
-        const diffMin = (sorted[i + 1].timestamp.getTime() - sorted[i].timestamp.getTime()) / 60000;
-        if (diffMin > 70) minutesOut += diffMin - 60;
-      }
-    }
+    const { minutesOut } = computeDayMinutesOut(sorted);
 
     if (minutesOut > 0) {
       const d = sorted[0].timestamp;
@@ -69,17 +108,7 @@ export function pairTurnstileGaps(events: TurnstileEventLike[]): Map<string, { m
     const employeeId = key.split("__")[0];
     const sorted = [...list].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-    let minutesOut = 0;
-    let occurrences = 0;
-    for (let i = 0; i < sorted.length - 1; i++) {
-      if (sorted[i].direction === "SAIDA" && sorted[i + 1].direction === "ENTRADA") {
-        const diffMin = (sorted[i + 1].timestamp.getTime() - sorted[i].timestamp.getTime()) / 60000;
-        if (diffMin > 70) {
-          minutesOut += diffMin - 60;
-          occurrences += 1;
-        }
-      }
-    }
+    const { minutesOut, occurrences } = computeDayMinutesOut(sorted);
 
     if (minutesOut > 0) {
       const cur = totals.get(employeeId) ?? { minutesOut: 0, occurrences: 0 };
