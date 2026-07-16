@@ -92,6 +92,59 @@ export function pairTurnstileGapsByDay(events: TurnstileEventLike[]): DailyMinut
   return results;
 }
 
+export interface PairExplanation {
+  entrada: Date | null;
+  saida: Date | null;
+  rawMinutes: number | null;
+  countedMinutes: number;
+  status: "contado" | "almoco_ignorado" | "abaixo_do_limite" | "sem_par";
+}
+
+/**
+ * Mesma lógica de computeDayMinutesOut, mas devolve o passo a passo de cada
+ * par Entrada→Saída (contado, ignorado por almoço, abaixo do limite de
+ * 70min, ou evento avulso sem par) — usado pra investigar um dia específico
+ * de um colaborador quando o número parecer estranho.
+ */
+export function explainDayPairs(events: TurnstileEventLike[]): PairExplanation[] {
+  const sorted = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  const explanations: PairExplanation[] = [];
+  const usedIndexes = new Set<number>();
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i].direction === "ENTRADA" && sorted[i + 1].direction === "SAIDA") {
+      usedIndexes.add(i);
+      usedIndexes.add(i + 1);
+      const entrada = sorted[i].timestamp;
+      const saida = sorted[i + 1].timestamp;
+      const diffMin = (saida.getTime() - entrada.getTime()) / 60000;
+
+      if (isReturnDuringLunch(saida)) {
+        explanations.push({ entrada, saida, rawMinutes: Math.round(diffMin), countedMinutes: 0, status: "almoco_ignorado" });
+      } else if (diffMin > 70) {
+        explanations.push({ entrada, saida, rawMinutes: Math.round(diffMin), countedMinutes: Math.round(diffMin - 60), status: "contado" });
+      } else {
+        explanations.push({ entrada, saida, rawMinutes: Math.round(diffMin), countedMinutes: 0, status: "abaixo_do_limite" });
+      }
+    }
+  }
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (!usedIndexes.has(i)) {
+      const isEntrada = sorted[i].direction === "ENTRADA";
+      explanations.push({
+        entrada: isEntrada ? sorted[i].timestamp : null,
+        saida: isEntrada ? null : sorted[i].timestamp,
+        rawMinutes: null,
+        countedMinutes: 0,
+        status: "sem_par",
+      });
+    }
+  }
+
+  return explanations.sort((a, b) => (a.entrada ?? a.saida ?? new Date(0)).getTime() - (b.entrada ?? b.saida ?? new Date(0)).getTime());
+}
+
 export function pairTurnstileGaps(events: TurnstileEventLike[]): Map<string, { minutesOut: number; occurrences: number }> {
   const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
