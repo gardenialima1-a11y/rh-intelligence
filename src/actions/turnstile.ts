@@ -17,6 +17,7 @@ async function requireHrAccess() {
 export interface TurnstileImportSummary {
   created: number;
   unmatchedNames: string[];
+  exemptSkipped: number;
 }
 
 export async function bulkImportTurnstileEvents(
@@ -29,27 +30,32 @@ export async function bulkImportTurnstileEvents(
       return { success: false, error: "Nenhum evento encontrado no relatório." };
     }
 
-    const employees = await prisma.employee.findMany({ select: { id: true, name: true } });
-    const { matched, unmatchedNames } = matchEntriesToEmployees(entries, employees);
+    const employees = await prisma.employee.findMany({ select: { id: true, name: true, isExemptFromCatraca: true } });
+    const { matched: allMatched, unmatchedNames } = matchEntriesToEmployees(entries, employees);
+    const exemptIds = new Set(employees.filter((e) => e.isExemptFromCatraca).map((e) => e.id));
+    const matched = allMatched.filter((m) => !exemptIds.has(m.employeeId));
+    const exemptSkipped = allMatched.length - matched.length;
 
-    if (matched.length === 0) {
+    if (matched.length === 0 && exemptSkipped === 0) {
       return {
         success: false,
         error: `Nenhum nome do relatório bateu com o cadastro. Confira: ${unmatchedNames.slice(0, 5).join(", ")}`,
       };
     }
 
-    const result = await prisma.turnstileEvent.createMany({
-      data: matched.map((m) => ({
-        employeeId: m.employeeId,
-        timestamp: m.timestamp,
-        direction: m.direction,
-        location: null,
-      })),
-    });
+    const result = matched.length > 0
+      ? await prisma.turnstileEvent.createMany({
+          data: matched.map((m) => ({
+            employeeId: m.employeeId,
+            timestamp: m.timestamp,
+            direction: m.direction,
+            location: null,
+          })),
+        })
+      : { count: 0 };
 
     revalidatePath("/modulos/catraca");
-    return { success: true, summary: { created: result.count, unmatchedNames } };
+    return { success: true, summary: { created: result.count, unmatchedNames, exemptSkipped } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao importar relatório de catraca." };
   }
