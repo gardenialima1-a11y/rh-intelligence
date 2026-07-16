@@ -51,7 +51,14 @@ export async function getAreaOrgTree(area: string): Promise<AreaOrgNode[]> {
     prisma.manager.findMany({ select: { id: true, name: true, area: true, level: true, reportsToId: true } }),
     prisma.employee.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, managerId: true, position: { select: { name: true } }, costCenter: { select: { area: true } } },
+      select: {
+        id: true,
+        name: true,
+        managerId: true,
+        photoUrl: true,
+        position: { select: { name: true } },
+        costCenter: { select: { area: true } },
+      },
     }),
   ]);
 
@@ -64,6 +71,7 @@ export async function getAreaOrgTree(area: string): Promise<AreaOrgNode[]> {
       position: e.position?.name ?? null,
       managerId: e.managerId,
       area: e.costCenter?.area ?? null,
+      photoUrl: e.photoUrl,
     }))
   );
 }
