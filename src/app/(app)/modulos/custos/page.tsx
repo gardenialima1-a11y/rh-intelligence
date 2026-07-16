@@ -1,17 +1,14 @@
 import { resolveScopedFilters } from "@/lib/scope";
-import { Wallet, TrendingUp, Percent, Users, Scale, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { Wallet, TrendingUp, Percent, Users, Scale, ArrowDownRight } from "lucide-react";
 import { ModuleHeader } from "@/components/dashboard/module-header";
 import { ModuleViewTabs } from "@/components/dashboard/module-view-tabs";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { RankingBarChart } from "@/components/dashboard/ranking-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { EditBenchmarkDialog } from "@/components/admin/edit-benchmark-dialog";
 import { AddBenchmarkDialog } from "@/components/admin/add-benchmark-dialog";
-import { DeleteBenchmarkButton } from "@/components/admin/delete-benchmark-button";
-import { formatCurrency, formatPercent, formatDate } from "@/lib/utils";
+import { BenchmarkTable } from "@/components/admin/benchmark-table";
+import { formatCurrency, formatPercent } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { getCustosKpis, getCostTrend, getCostByCostCenter, getAverageSalaryByPosition } from "@/services/custos";
 import { getSalaryBenchmarkComparison, getBenchmarkSummary } from "@/services/salary-benchmark";
@@ -123,61 +120,7 @@ export default async function CustosPage({
           {benchmarkRows.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Nenhum cargo com dados suficientes ainda.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cargo</TableHead>
-                  <TableHead>Salário médio (empresa)</TableHead>
-                  <TableHead>Mercado (mín–méd–máx)</TableHead>
-                  <TableHead>Gap</TableHead>
-                  <TableHead>Fonte / Data</TableHead>
-                  <TableHead>Ação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {benchmarkRows.map((r) => (
-                  <TableRow key={r.positionId}>
-                    <TableCell>{r.positionName}</TableCell>
-                    <TableCell>{r.companyAvgSalary ? formatCurrency(r.companyAvgSalary) : "—"}</TableCell>
-                    <TableCell>
-                      {r.marketAvgSalary
-                        ? `${formatCurrency(r.marketMinSalary ?? 0)} – ${formatCurrency(r.marketAvgSalary)} – ${formatCurrency(r.marketMaxSalary ?? 0)}`
-                        : "não cadastrado"}
-                    </TableCell>
-                    <TableCell>
-                      {r.gapPercent === null ? (
-                        <Badge variant="outline">Sem comparação</Badge>
-                      ) : (
-                        <Badge variant={Math.abs(r.gapPercent) <= 5 ? "success" : r.gapPercent < 0 ? "danger" : "warning"}>
-                          {r.gapPercent > 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                          {Math.abs(r.gapPercent).toFixed(1)}% {r.gapPercent >= 0 ? "acima" : "abaixo"}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-[220px] whitespace-normal text-xs text-muted-foreground">
-                      {r.source ?? "—"}
-                      {r.referenceDate ? ` · ${formatDate(r.referenceDate)}` : ""}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <EditBenchmarkDialog
-                          positionId={r.positionId}
-                          positionName={r.positionName}
-                          defaultValues={{
-                            marketMinSalary: r.marketMinSalary ?? undefined,
-                            marketAvgSalary: r.marketAvgSalary ?? undefined,
-                            marketMaxSalary: r.marketMaxSalary ?? undefined,
-                            source: r.source ?? undefined,
-                            referenceDate: r.referenceDate ? r.referenceDate.toISOString().slice(0, 10) : undefined,
-                          }}
-                        />
-                        {r.marketAvgSalary !== null && <DeleteBenchmarkButton positionId={r.positionId} />}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <BenchmarkTable rows={benchmarkRows} />
           )}
         </CardContent>
       </Card>
