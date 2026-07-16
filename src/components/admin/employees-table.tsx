@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -67,15 +68,17 @@ function Avatar({ name, photoUrl }: { name: string; photoUrl: string | null }) {
           <User className="h-5 w-5" />
         </div>
       )}
-      {photoUrl && hoverPos && (
-        <div
-          className="pointer-events-none fixed z-50 overflow-hidden rounded-lg border-2 border-card shadow-[var(--shadow-popover)]"
-          style={{ top: hoverPos.top, left: hoverPos.left, width: 120, height: 160 }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photoUrl} alt={name} className="h-full w-full object-cover" />
-        </div>
-      )}
+      {photoUrl && hoverPos &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-[9999] overflow-hidden rounded-lg border-2 border-card shadow-[var(--shadow-popover)]"
+            style={{ top: hoverPos.top, left: hoverPos.left, width: 120, height: 160 }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoUrl} alt={name} className="h-full w-full object-cover" />
+          </div>,
+          document.body
+        )}
     </>
   );
 }
