@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { buildOrgTree, type OrgChartNode } from "@/lib/analytics/org-tree";
+import { buildAreaOrgTree, type AreaOrgNode } from "@/lib/analytics/area-org-tree";
+
+export type { AreaOrgNode };
 
 export type OrgNode = OrgChartNode;
 
@@ -34,4 +37,33 @@ export async function getOrgChartTree(): Promise<OrgNode[]> {
 
 export async function getManagersFlat() {
   return prisma.manager.findMany({ select: { id: true, name: true, area: true }, orderBy: { name: "asc" } });
+}
+
+export const MAIN_AREAS = ["Administrativo", "Comercial", "Logística", "Produção"] as const;
+
+/**
+ * Organograma de UM setor principal, com gestores no topo e colaboradores
+ * reais como folhas embaixo do seu gestor direto (não é só a contagem —
+ * são as pessoas mesmo).
+ */
+export async function getAreaOrgTree(area: string): Promise<AreaOrgNode[]> {
+  const [managers, employees] = await Promise.all([
+    prisma.manager.findMany({ select: { id: true, name: true, area: true, level: true, reportsToId: true } }),
+    prisma.employee.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, managerId: true, position: { select: { name: true } }, costCenter: { select: { area: true } } },
+    }),
+  ]);
+
+  return buildAreaOrgTree(
+    area,
+    managers,
+    employees.map((e) => ({
+      id: e.id,
+      name: e.name,
+      position: e.position?.name ?? null,
+      managerId: e.managerId,
+      area: e.costCenter?.area ?? null,
+    }))
+  );
 }
