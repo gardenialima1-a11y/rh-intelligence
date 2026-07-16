@@ -19,11 +19,18 @@ function NodeCard({ node, allManagers }: { node: AreaOrgNode; allManagers: { id:
     >
       <div
         className={
-          "flex shrink-0 items-center justify-center rounded-full text-sm font-semibold " +
+          "flex shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold " +
           (node.isManager ? "h-10 w-10 bg-navy text-gold" : "h-8 w-8 bg-navy/10 text-navy dark:bg-cream/10 dark:text-cream")
         }
       >
-        {node.isManager ? initials : <User className="h-4 w-4" />}
+        {node.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={node.photoUrl} alt={node.name} className="h-full w-full object-cover" />
+        ) : node.isManager ? (
+          initials
+        ) : (
+          <User className="h-4 w-4" />
+        )}
       </div>
       <div className="flex flex-col">
         <span className={"leading-tight text-navy dark:text-cream " + (node.isManager ? "text-[13px] font-semibold" : "text-[12px] font-medium")}>
