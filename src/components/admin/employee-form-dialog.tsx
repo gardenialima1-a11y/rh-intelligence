@@ -68,6 +68,7 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
       contractType: "CLT",
       isPCD: false,
       isTrustPosition: false,
+      isExemptFromCatraca: false,
       positionId: null,
       costCenterId: null,
       secondaryCostCenterId: null,
@@ -357,6 +358,17 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
               )}
             />
             <Label htmlFor="isTrustPosition" className="cursor-pointer">Cargo de confiança (não bate ponto)</Label>
+          </div>
+
+          <div className="flex items-center gap-2 pt-6">
+            <Controller
+              control={control}
+              name="isExemptFromCatraca"
+              render={({ field }) => (
+                <Checkbox id="isExemptFromCatraca" checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+              )}
+            />
+            <Label htmlFor="isExemptFromCatraca" className="cursor-pointer">Isento de catraca</Label>
           </div>
 
           {serverError && <p className="sm:col-span-2 text-sm text-danger">{serverError}</p>}
