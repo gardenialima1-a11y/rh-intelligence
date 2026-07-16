@@ -1,22 +1,44 @@
 import { Network } from "lucide-react";
 import { ModuleHeader } from "@/components/dashboard/module-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { OrgChartNode } from "@/components/dashboard/org-chart-node";
+import { AreaOrgChartNode } from "@/components/dashboard/area-org-chart-node";
 import { AddManagerDialog } from "@/components/admin/add-manager-dialog";
-import { getOrgChartTree, getManagersFlat } from "@/services/organograma";
+import { getAreaOrgTree, getManagersFlat, MAIN_AREAS } from "@/services/organograma";
 
-export default async function OrganogramaPage() {
-  const [tree, allManagers] = await Promise.all([getOrgChartTree(), getManagersFlat()]);
+export default async function OrganogramaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ setor?: string }>;
+}) {
+  const params = await searchParams;
+  const selectedArea = MAIN_AREAS.includes(params.setor as (typeof MAIN_AREAS)[number]) ? (params.setor as string) : MAIN_AREAS[0];
+
+  const [tree, allManagers] = await Promise.all([getAreaOrgTree(selectedArea), getManagersFlat()]);
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <ModuleHeader
           title="Organograma"
-          description="Estrutura hierárquica de gestores e o tamanho das equipes sob cada um."
+          description="Estrutura hierárquica por setor principal — gestores no topo, colaboradores reais embaixo."
           moduleKey="organograma"
         />
         <AddManagerDialog managers={allManagers} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {MAIN_AREAS.map((area) => {
+          const isActive = area === selectedArea;
+          const activeClass = "bg-navy text-cream dark:bg-gold dark:text-navy-dark";
+          const inactiveClass = "bg-muted text-muted-foreground hover:bg-muted/70";
+          const pillClass = "rounded-full px-4 py-1.5 text-sm font-medium transition-colors " + (isActive ? activeClass : inactiveClass);
+          const href = "?setor=" + encodeURIComponent(area);
+          return (
+            <a key={area} href={href} className={pillClass}>
+              {area}
+            </a>
+          );
+        })}
       </div>
 
       <Card>
@@ -27,13 +49,13 @@ export default async function OrganogramaPage() {
                 <Network className="h-6 w-6" />
               </div>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Nenhum gestor cadastrado ainda. Clique em &quot;Adicionar gestor&quot; para começar a montar o organograma.
+                Nenhum gestor cadastrado nesse setor ainda. Clique em &quot;Adicionar gestor&quot; para começar.
               </p>
             </div>
           ) : (
             <ul className="flex w-fit min-w-full justify-center gap-8">
               {tree.map((root) => (
-                <OrgChartNode key={root.id} node={root} allManagers={allManagers} isRoot />
+                <AreaOrgChartNode key={root.id} node={root} allManagers={allManagers} isRoot />
               ))}
             </ul>
           )}
