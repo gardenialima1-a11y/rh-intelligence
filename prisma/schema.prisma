@@ -254,6 +254,7 @@ model Employee {
   contractType   ContractType  @default(CLT)
   contractEndDate DateTime?
   isTrustPosition Boolean       @default(false)
+  isExemptFromCatraca Boolean   @default(false)
   isPCD          Boolean       @default(false)
   isActive       Boolean       @default(true)
 
