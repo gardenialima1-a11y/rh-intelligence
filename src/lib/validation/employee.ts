@@ -27,6 +27,7 @@ export const employeeFormSchema = z
     contractEndDate: z.string().optional().nullable(),
     isPCD: z.boolean(),
     isTrustPosition: z.boolean(),
+    isExemptFromCatraca: z.boolean(),
     baseSalary: z
       .union([z.string(), z.number()])
       .optional()
