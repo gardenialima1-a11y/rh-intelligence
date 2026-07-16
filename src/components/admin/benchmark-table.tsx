@@ -5,7 +5,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { EditBenchmarkDialog } from "@/components/admin/edit-benchmark-dialog";
 import { DeleteBenchmarkButton } from "@/components/admin/delete-benchmark-button";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -54,10 +54,20 @@ export function BenchmarkTable({ rows }: { rows: BenchmarkRow[] }) {
                 <TableCell>
                   {r.gapPercent === null ? (
                     <Badge variant="outline">Sem comparação</Badge>
+                  ) : Math.abs(r.gapPercent) <= 5 ? (
+                    <Badge variant="gold">
+                      <Minus className="h-3 w-3" />
+                      Na média
+                    </Badge>
+                  ) : r.gapPercent > 5 ? (
+                    <Badge variant="success">
+                      <ArrowUpRight className="h-3 w-3" />
+                      {r.gapPercent.toFixed(1)}% acima
+                    </Badge>
                   ) : (
-                    <Badge variant={Math.abs(r.gapPercent) <= 5 ? "success" : r.gapPercent < 0 ? "danger" : "warning"}>
-                      {r.gapPercent > 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                      {Math.abs(r.gapPercent).toFixed(1)}% {r.gapPercent >= 0 ? "acima" : "abaixo"}
+                    <Badge variant="danger">
+                      <ArrowDownRight className="h-3 w-3" />
+                      {Math.abs(r.gapPercent).toFixed(1)}% abaixo
                     </Badge>
                   )}
                 </TableCell>
