@@ -20,7 +20,7 @@ export default async function OrganogramaPage() {
       </div>
 
       <Card>
-        <CardContent className="overflow-x-auto p-6">
+        <CardContent className="overflow-x-auto p-8">
           {tree.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/12 text-gold-text">
@@ -31,11 +31,11 @@ export default async function OrganogramaPage() {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <ul className="flex w-fit min-w-full justify-center gap-8">
               {tree.map((root) => (
                 <OrgChartNode key={root.id} node={root} allManagers={allManagers} isRoot />
               ))}
-            </div>
+            </ul>
           )}
         </CardContent>
       </Card>
