@@ -38,14 +38,45 @@ interface EmployeeRow {
 }
 
 function Avatar({ name, photoUrl }: { name: string; photoUrl: string | null }) {
-  if (photoUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={photoUrl} alt={name} className="h-11 w-11 shrink-0 rounded-full object-cover" />;
+  const [hoverPos, setHoverPos] = React.useState<{ top: number; left: number } | null>(null);
+
+  function handleEnter(e: React.MouseEvent<HTMLElement>) {
+    if (!photoUrl) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const PREVIEW_HEIGHT = 160;
+    const PREVIEW_WIDTH = 120;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= PREVIEW_HEIGHT + 8 ? rect.bottom + 8 : rect.top - PREVIEW_HEIGHT - 8;
+    const left = Math.min(rect.left, window.innerWidth - PREVIEW_WIDTH - 8);
+    setHoverPos({ top, left });
   }
+
   return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy dark:bg-cream/10 dark:text-cream">
-      <User className="h-5 w-5" />
-    </div>
+    <>
+      {photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photoUrl}
+          alt={name}
+          onMouseEnter={handleEnter}
+          onMouseLeave={() => setHoverPos(null)}
+          className="h-11 w-11 shrink-0 rounded-full object-cover"
+        />
+      ) : (
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy dark:bg-cream/10 dark:text-cream">
+          <User className="h-5 w-5" />
+        </div>
+      )}
+      {photoUrl && hoverPos && (
+        <div
+          className="pointer-events-none fixed z-50 overflow-hidden rounded-lg border-2 border-card shadow-[var(--shadow-popover)]"
+          style={{ top: hoverPos.top, left: hoverPos.left, width: 120, height: 160 }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photoUrl} alt={name} className="h-full w-full object-cover" />
+        </div>
+      )}
+    </>
   );
 }
 
