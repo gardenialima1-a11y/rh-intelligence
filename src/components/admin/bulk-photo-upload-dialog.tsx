@@ -18,7 +18,7 @@ import {
 import { matchPhotoFileName, type EmployeeForMatch, type PhotoMatchResult } from "@/lib/validation/bulk-photo-match";
 import { bulkUpdatePhotos, getEmployeesForPhotoMatch, type BulkPhotoSummary } from "@/actions/bulk-photos";
 
-const MAX_DIMENSION = 256;
+const MAX_DIMENSION = 320;
 const JPEG_QUALITY = 0.8;
 const VALID_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
