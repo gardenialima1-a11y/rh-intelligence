@@ -54,6 +54,7 @@ export async function createEmployee(raw: unknown): Promise<ActionResult> {
         contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null,
         isPCD: data.isPCD,
         isTrustPosition: data.isTrustPosition,
+        isExemptFromCatraca: data.isExemptFromCatraca,
         isActive: true,
       },
     });
@@ -124,6 +125,7 @@ export async function updateEmployee(employeeId: string, raw: unknown): Promise<
         contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null,
         isPCD: data.isPCD,
         isTrustPosition: data.isTrustPosition,
+        isExemptFromCatraca: data.isExemptFromCatraca,
       },
     });
 
@@ -275,12 +277,4 @@ export async function getEmployeesForAdmin() {
 
 export async function getEmployeeFormOptions() {
   await requireHrAccess();
-  const [positions, costCenters, managers, units, reasons] = await Promise.all([
-    prisma.position.findMany({ orderBy: { name: "asc" } }),
-    prisma.costCenter.findMany({ orderBy: { name: "asc" } }),
-    prisma.manager.findMany({ orderBy: { name: "asc" } }),
-    prisma.unit.findMany({ orderBy: { name: "asc" } }),
-    prisma.reason.findMany({ where: { category: "TURNOVER" }, orderBy: { label: "asc" } }),
-  ]);
-  return { positions, costCenters, managers, units, reasons };
-}
+  const
