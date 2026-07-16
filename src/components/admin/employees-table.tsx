@@ -39,11 +39,11 @@ interface EmployeeRow {
 function Avatar({ name, photoUrl }: { name: string; photoUrl: string | null }) {
   if (photoUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={photoUrl} alt={name} className="h-8 w-8 shrink-0 rounded-full object-cover" />;
+    return <img src={photoUrl} alt={name} className="h-11 w-11 shrink-0 rounded-full object-cover" />;
   }
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy dark:bg-cream/10 dark:text-cream">
-      <User className="h-4 w-4" />
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy dark:bg-cream/10 dark:text-cream">
+      <User className="h-5 w-5" />
     </div>
   );
 }
@@ -103,7 +103,7 @@ export function EmployeesTable({
         <span className="text-xs text-muted-foreground">{filtered.length} de {employees.length}</span>
       </div>
 
-      <Table>
+      <Table containerClassName="max-h-[65vh]">
         <TableHeader>
           <TableRow>
             <TableHead className={STICKY_HEAD}>Colaborador</TableHead>
