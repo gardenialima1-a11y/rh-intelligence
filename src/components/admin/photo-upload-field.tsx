@@ -4,7 +4,7 @@ import * as React from "react";
 import { Camera, Loader2, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
-const MAX_DIMENSION = 256;
+const MAX_DIMENSION = 320;
 const JPEG_QUALITY = 0.8;
 
 function resizeImageToDataUrl(file: File): Promise<string> {
