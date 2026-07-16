@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmployeeFormDialog } from "@/components/admin/employee-form-dialog";
 import { EmployeesTable } from "@/components/admin/employees-table";
 import { BulkImportDialog } from "@/components/admin/bulk-import-dialog";
+import { BulkPhotoUploadDialog } from "@/components/admin/bulk-photo-upload-dialog";
 import { getEmployeesForAdmin, getEmployeeFormOptions } from "@/actions/employees";
 
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RH"];
@@ -34,6 +35,7 @@ export default async function ColaboradoresPage() {
               units: options.units,
             }}
           />
+          <BulkPhotoUploadDialog />
           <EmployeeFormDialog mode="create" options={options} />
         </div>
       </div>
