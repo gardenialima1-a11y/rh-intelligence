@@ -141,6 +141,11 @@ export function TurnstileImportDialog() {
             <p className="flex items-center gap-2 text-sm text-success">
               <CheckCircle2 className="h-4 w-4" /> {summary.created} registro(s) de catraca importado(s) com sucesso!
             </p>
+            {summary.exemptSkipped > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {summary.exemptSkipped} registro(s) ignorados de colaborador(es) marcados como isentos de catraca.
+              </p>
+            )}
             {summary.unmatchedNames.length > 0 && (
               <div className="flex flex-col gap-1">
                 <p className="flex items-center gap-2 text-sm text-warning-text">
