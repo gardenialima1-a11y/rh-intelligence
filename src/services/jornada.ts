@@ -2,6 +2,23 @@ import { prisma } from "@/lib/prisma";
 import { resolvePeriod, previousPeriod, percentDelta, lastNMonthsKeys } from "@/services/period";
 import type { ExecutiveFilters } from "@/services/dashboard-executivo";
 
+/**
+ * Monta o filtro de colaborador (Employee) a partir de unidade, setor
+ * principal e setor secundário. Reaproveitado em todas as consultas do
+ * módulo de Jornada para que os três filtros funcionem juntos.
+ */
+function employeeFilter(filters: ExecutiveFilters) {
+  return {
+    ...(filters.unitId ? { unitId: filters.unitId } : {}),
+    ...(filters.costCenterId ? { costCenterId: filters.costCenterId } : {}),
+    ...(filters.secondaryCostCenterId ? { secondaryCostCenterId: filters.secondaryCostCenterId } : {}),
+  };
+}
+
+function hasEmployeeFilter(filters: ExecutiveFilters) {
+  return Boolean(filters.unitId || filters.costCenterId || filters.secondaryCostCenterId);
+}
+
 export async function getJornadaKpis(filters: ExecutiveFilters) {
   const range = resolvePeriod(filters.period);
   const prev = previousPeriod(range);
@@ -11,7 +28,7 @@ export async function getJornadaKpis(filters: ExecutiveFilters) {
       _sum: { overtimeHours: true, scheduledHours: true, bankHoursDelta: true, overtimeCost: true },
       where: {
         date: { gte: start, lte: end },
-        ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
+        ...(hasEmployeeFilter(filters) ? { employee: employeeFilter(filters) } : {}),
       },
     });
     return {
@@ -51,7 +68,7 @@ export async function getOvertimeByCostCenter(filters: ExecutiveFilters) {
   const range = resolvePeriod(filters.period);
 
   const employees = await prisma.employee.findMany({
-    where: filters.unitId ? { unitId: filters.unitId } : {},
+    where: employeeFilter(filters),
     select: { id: true, costCenter: { select: { name: true } } },
   });
   const costCenterByEmployee = new Map(employees.map((e) => [e.id, e.costCenter?.name ?? "Sem centro de custo"]));
@@ -82,7 +99,7 @@ export async function getOvertimeRanking(filters: ExecutiveFilters) {
   const range = resolvePeriod(filters.period);
 
   const employees = await prisma.employee.findMany({
-    where: { isActive: true, ...(filters.unitId ? { unitId: filters.unitId } : {}) },
+    where: { isActive: true, ...employeeFilter(filters) },
     select: { id: true, name: true },
   });
   const nameByEmployee = new Map(employees.map((e) => [e.id, e.name]));
@@ -109,7 +126,7 @@ export async function getJornadaTable(filters: ExecutiveFilters) {
     where: {
       date: { gte: range.start, lte: range.end },
       overtimeHours: { gt: 0 },
-      ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
+      ...(hasEmployeeFilter(filters) ? { employee: employeeFilter(filters) } : {}),
     },
     include: { employee: { include: { position: true, unit: true } } },
     orderBy: { date: "desc" },
@@ -127,7 +144,7 @@ export async function getOvertimeBySecondaryCostCenter(filters: ExecutiveFilters
   const range = resolvePeriod(filters.period);
 
   const employees = await prisma.employee.findMany({
-    where: filters.unitId ? { unitId: filters.unitId } : {},
+    where: employeeFilter(filters),
     select: { id: true, secondaryCostCenter: { select: { name: true } } },
   });
   const sectorByEmployee = new Map(employees.map((e) => [e.id, e.secondaryCostCenter?.name ?? null]));
