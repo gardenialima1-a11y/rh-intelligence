@@ -1,8 +1,10 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { explainDayPairs, type PairExplanation } from "@/lib/analytics/turnstile";
+import type { ActionResult } from "@/actions/employees";
 
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RH"];
 
@@ -15,7 +17,7 @@ async function requireHrAccess() {
 
 export interface CatracaDayDetail {
   employeeName: string;
-  events: { timestamp: string; direction: string }[];
+  events: { id: string; timestamp: string; direction: string }[];
   pairs: PairExplanation[];
   totalMinutes: number;
 }
@@ -42,7 +44,7 @@ export async function getCatracaDayDetail(
     const events = await prisma.turnstileEvent.findMany({
       where: { employeeId: employee.id, timestamp: { gte: day, lt: nextDay } },
       orderBy: { timestamp: "asc" },
-      select: { timestamp: true, direction: true },
+      select: { id: true, timestamp: true, direction: true },
     });
 
     if (events.length === 0) {
@@ -56,12 +58,23 @@ export async function getCatracaDayDetail(
       success: true,
       detail: {
         employeeName: employee.name,
-        events: events.map((e) => ({ timestamp: e.timestamp.toISOString(), direction: e.direction })),
+        events: events.map((e) => ({ id: e.id, timestamp: e.timestamp.toISOString(), direction: e.direction })),
         pairs,
         totalMinutes,
       },
     };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao consultar." };
+  }
+}
+
+export async function deleteTurnstileEvent(eventId: string): Promise<ActionResult> {
+  try {
+    await requireHrAccess();
+    await prisma.turnstileEvent.delete({ where: { id: eventId } });
+    revalidatePath("/modulos/catraca");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao excluir a batida." };
   }
 }
