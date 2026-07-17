@@ -123,16 +123,16 @@ export function CatracaDayDetailDialog() {
               <h4 className="mb-2 text-sm font-semibold text-navy dark:text-cream">Batidas registradas ({detail.events.length})</h4>
               <div className="flex flex-wrap gap-2">
                 {detail.events.map((e) => (
-                  <Badge key={e.id} variant={e.direction === "SAIDA" ? "success" : "gold"} className="gap-1.5 pr-1.5">
+                  <Badge key={e.id} variant={e.direction === "SAIDA" ? "success" : "gold"} className="gap-1.5 py-1 pr-2">
                     {formatTime(e.timestamp)} · {e.direction === "SAIDA" ? "Saída (voltou)" : "Entrada (saiu)"}
                     <button
                       type="button"
                       onClick={() => handleDelete(e.id)}
                       disabled={deletingId === e.id}
-                      className="rounded-full p-0.5 hover:bg-black/10 disabled:opacity-50"
+                      className="flex h-5 w-5 items-center justify-center rounded-full border border-current/30 hover:bg-black/15 disabled:opacity-50"
                       title="Excluir essa batida"
                     >
-                      {deletingId === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      {deletingId === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                     </button>
                   </Badge>
                 ))}
