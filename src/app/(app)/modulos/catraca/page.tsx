@@ -9,6 +9,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatNumber } from "@/lib/utils";
 import { TurnstileImportDialog } from "@/components/admin/turnstile-import-dialog";
+import { CatracaDayDetailDialog } from "@/components/admin/catraca-day-detail-dialog";
 import { CatracaHistoricoTable } from "@/components/dashboard/catraca-historico-table";
 import { getCatracaKpis, getCatracaRanking, getCatracaByUnit, getCatracaTable } from "@/services/catraca";
 import { getCatracaHistorico } from "@/services/catraca-historico";
@@ -73,7 +74,10 @@ export default async function CatracaPage({
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Detalhamento por colaborador</CardTitle>
-        <TurnstileImportDialog />
+        <div className="flex gap-2">
+          <CatracaDayDetailDialog />
+          <TurnstileImportDialog />
+        </div>
       </CardHeader>
       <CardContent>
         {table.length === 0 ? (
