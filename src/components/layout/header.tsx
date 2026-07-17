@@ -11,7 +11,10 @@ import { CORPORATE_ROLES } from "@/lib/scope";
 import type { Session } from "next-auth";
 
 export async function Header({ session, favoriteKeys }: { session: Session; favoriteKeys: string[] }) {
-  const units = await prisma.unit.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
+  const [units, sectors] = await Promise.all([
+    prisma.unit.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.costCenter.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
   const canPickUnit = CORPORATE_ROLES.has(session.user.role);
 
   return (
@@ -20,7 +23,7 @@ export async function Header({ session, favoriteKeys }: { session: Session; favo
       <GlobalSearch />
       <div className="flex-1" />
       <Suspense fallback={<div className="h-8 w-64" />}>
-        <GlobalFilterBar units={units} canPickUnit={canPickUnit} />
+        <GlobalFilterBar units={units} sectors={sectors} canPickUnit={canPickUnit} />
       </Suspense>
       <Separator orientation="vertical" className="hidden h-6 md:block" />
       <NotificationsMenu />
