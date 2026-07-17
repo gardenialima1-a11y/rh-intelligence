@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { formatNumber, formatPercent, formatCurrency, formatDate } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
-import { getJornadaKpis, getOvertimeByCostCenter, getOvertimeRanking, getJornadaTable } from "@/services/jornada";
+import { getJornadaKpis, getOvertimeByCostCenter, getOvertimeBySecondaryCostCenter, getOvertimeRanking, getJornadaTable } from "@/services/jornada";
+import { OvertimeBySectorTable } from "@/components/dashboard/overtime-by-sector-table";
 
 export default async function JornadaPage({
   searchParams,
@@ -19,9 +20,10 @@ export default async function JornadaPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byCostCenter, ranking, table] = await Promise.all([
+  const [kpis, byCostCenter, bySecondarySector, ranking, table] = await Promise.all([
     getJornadaKpis(filters),
     getOvertimeByCostCenter(filters),
+    getOvertimeBySecondaryCostCenter(filters),
     getOvertimeRanking(filters),
     getJornadaTable(filters),
   ]);
@@ -48,7 +50,16 @@ export default async function JornadaPage({
   );
 
   const managerial = (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Horas extras por setor secundário — horas e custo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <OvertimeBySectorTable rows={bySecondarySector} />
+        </CardContent>
+      </Card>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Horas extras por centro de custo</CardTitle>
@@ -65,6 +76,7 @@ export default async function JornadaPage({
           {ranking.length > 0 ? <RankingBarChart data={ranking} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem HE no período.</p>}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 
