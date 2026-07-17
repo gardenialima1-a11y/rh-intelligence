@@ -11,11 +11,12 @@ import { formatNumber, formatPercent, formatCurrency, formatDate } from "@/lib/u
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { getJornadaKpis, getOvertimeByCostCenter, getOvertimeBySecondaryCostCenter, getOvertimeRanking, getJornadaTable } from "@/services/jornada";
 import { OvertimeBySectorTable } from "@/components/dashboard/overtime-by-sector-table";
+import { OvertimeImportDialog } from "@/components/admin/overtime-import-dialog";
 
 export default async function JornadaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ unidade?: string; periodo?: string }>;
+  searchParams: Promise<{ unidade?: string; periodo?: string; setorPrincipal?: string; setorSecundario?: string }>;
 }) {
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
@@ -82,8 +83,9 @@ export default async function JornadaPage({
 
   const operational = (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Lançamentos com horas extras</CardTitle>
+        <OvertimeImportDialog />
       </CardHeader>
       <CardContent>
         <Table>
