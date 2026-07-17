@@ -140,6 +140,64 @@ export interface OvertimeBySectorRow {
   cost: number;
 }
 
+export interface OvertimeSectorBreakdownRow {
+  principal: string;
+  secundario: string;
+  hours: number;
+  cost: number;
+}
+
+/**
+ * Horas extras agrupadas por Setor principal + Setor secundário ao mesmo
+ * tempo, para a tabela "Horas extras por setor" da visão Gerencial.
+ */
+export async function getOvertimeBySectorBreakdown(filters: ExecutiveFilters): Promise<OvertimeSectorBreakdownRow[]> {
+  const range = resolvePeriod(filters.period);
+
+  const employees = await prisma.employee.findMany({
+    where: employeeFilter(filters),
+    select: {
+      id: true,
+      costCenter: { select: { name: true } },
+      secondaryCostCenter: { select: { name: true } },
+    },
+  });
+  const sectorByEmployee = new Map(
+    employees.map((e) => [
+      e.id,
+      {
+        principal: e.costCenter?.name ?? "Sem setor principal",
+        secundario: e.secondaryCostCenter?.name ?? "Sem setor secundário",
+      },
+    ])
+  );
+
+  const grouped = await prisma.timeEntry.groupBy({
+    by: ["employeeId"],
+    _sum: { overtimeHours: true, overtimeCost: true },
+    where: {
+      date: { gte: range.start, lte: range.end },
+      employeeId: { in: employees.map((e) => e.id) },
+    },
+  });
+
+  const totals = new Map<string, OvertimeSectorBreakdownRow>();
+  for (const row of grouped) {
+    const sector = sectorByEmployee.get(row.employeeId);
+    if (!sector) continue;
+    const key = `${sector.principal}::${sector.secundario}`;
+    const cur = totals.get(key) ?? { ...sector, hours: 0, cost: 0 };
+    cur.hours += row._sum.overtimeHours ?? 0;
+    cur.cost += row._sum.overtimeCost ?? 0;
+    totals.set(key, cur);
+  }
+
+  return Array.from(totals.values())
+    .map((v) => ({ ...v, hours: Math.round(v.hours * 10) / 10, cost: Math.round(v.cost * 100) / 100 }))
+    .filter((r) => r.hours > 0)
+    .sort((a, b) => b.cost - a.cost);
+}
+
 export async function getOvertimeBySecondaryCostCenter(filters: ExecutiveFilters): Promise<OvertimeBySectorRow[]> {
   const range = resolvePeriod(filters.period);
 
