@@ -339,6 +339,7 @@ model TimeEntry {
   scheduledHours Float
   workedHours    Float
   overtimeHours  Float    @default(0)
+  overtimeCost   Float    @default(0)
   bankHoursDelta Float    @default(0)
 
   @@unique([date, employeeId])
