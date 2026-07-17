@@ -8,7 +8,7 @@ export async function getJornadaKpis(filters: ExecutiveFilters) {
 
   async function stats(start: Date, end: Date) {
     const agg = await prisma.timeEntry.aggregate({
-      _sum: { overtimeHours: true, scheduledHours: true, bankHoursDelta: true },
+      _sum: { overtimeHours: true, scheduledHours: true, bankHoursDelta: true, overtimeCost: true },
       where: {
         date: { gte: start, lte: end },
         ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
@@ -18,6 +18,7 @@ export async function getJornadaKpis(filters: ExecutiveFilters) {
       overtime: agg._sum.overtimeHours ?? 0,
       scheduled: agg._sum.scheduledHours ?? 0,
       bankDelta: agg._sum.bankHoursDelta ?? 0,
+      overtimeCost: agg._sum.overtimeCost ?? 0,
     };
   }
 
@@ -34,7 +35,7 @@ export async function getJornadaKpis(filters: ExecutiveFilters) {
     })
   );
 
-  const overtimeCost = current.overtime * 22; // custo/hora médio ilustrativo (R$)
+  const overtimeCost = current.overtimeCost;
 
   return {
     overtimeHours: current.overtime,
@@ -114,4 +115,44 @@ export async function getJornadaTable(filters: ExecutiveFilters) {
     orderBy: { date: "desc" },
     take: 50,
   });
+}
+
+export interface OvertimeBySectorRow {
+  name: string;
+  hours: number;
+  cost: number;
+}
+
+export async function getOvertimeBySecondaryCostCenter(filters: ExecutiveFilters): Promise<OvertimeBySectorRow[]> {
+  const range = resolvePeriod(filters.period);
+
+  const employees = await prisma.employee.findMany({
+    where: filters.unitId ? { unitId: filters.unitId } : {},
+    select: { id: true, secondaryCostCenter: { select: { name: true } } },
+  });
+  const sectorByEmployee = new Map(employees.map((e) => [e.id, e.secondaryCostCenter?.name ?? null]));
+
+  const grouped = await prisma.timeEntry.groupBy({
+    by: ["employeeId"],
+    _sum: { overtimeHours: true, overtimeCost: true },
+    where: {
+      date: { gte: range.start, lte: range.end },
+      employeeId: { in: employees.map((e) => e.id) },
+    },
+  });
+
+  const totals = new Map<string, { hours: number; cost: number }>();
+  for (const row of grouped) {
+    const sector = sectorByEmployee.get(row.employeeId);
+    if (!sector) continue;
+    const cur = totals.get(sector) ?? { hours: 0, cost: 0 };
+    cur.hours += row._sum.overtimeHours ?? 0;
+    cur.cost += row._sum.overtimeCost ?? 0;
+    totals.set(sector, cur);
+  }
+
+  return Array.from(totals.entries())
+    .map(([name, v]) => ({ name, hours: Math.round(v.hours * 10) / 10, cost: Math.round(v.cost * 100) / 100 }))
+    .filter((r) => r.hours > 0)
+    .sort((a, b) => b.cost - a.cost);
 }
