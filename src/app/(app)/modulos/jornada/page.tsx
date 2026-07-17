@@ -9,9 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { formatNumber, formatPercent, formatCurrency, formatDate } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
-import { getJornadaKpis, getOvertimeByCostCenter, getOvertimeBySecondaryCostCenter, getOvertimeRanking, getJornadaTable } from "@/services/jornada";
+import { getJornadaKpis, getOvertimeByCostCenter, getOvertimeBySectorBreakdown, getOvertimeRanking, getJornadaTable } from "@/services/jornada";
 import { OvertimeBySectorTable } from "@/components/dashboard/overtime-by-sector-table";
+import { SectorFilterInline } from "@/components/dashboard/sector-filter-inline";
 import { OvertimeImportDialog } from "@/components/admin/overtime-import-dialog";
+import { prisma } from "@/lib/prisma";
 
 export default async function JornadaPage({
   searchParams,
@@ -21,12 +23,13 @@ export default async function JornadaPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byCostCenter, bySecondarySector, ranking, table] = await Promise.all([
+  const [kpis, byCostCenter, sectorBreakdown, ranking, table, sectors] = await Promise.all([
     getJornadaKpis(filters),
     getOvertimeByCostCenter(filters),
-    getOvertimeBySecondaryCostCenter(filters),
+    getOvertimeBySectorBreakdown(filters),
     getOvertimeRanking(filters),
     getJornadaTable(filters),
+    prisma.costCenter.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
@@ -53,11 +56,12 @@ export default async function JornadaPage({
   const managerial = (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader>
-          <CardTitle>Horas extras por setor secundário — horas e custo</CardTitle>
+        <CardHeader className="flex-col items-start gap-3 space-y-0 md:flex-row md:items-center md:justify-between">
+          <CardTitle>Horas extras por setor — horas e custo</CardTitle>
+          <SectorFilterInline sectors={sectors} />
         </CardHeader>
         <CardContent>
-          <OvertimeBySectorTable rows={bySecondarySector} />
+          <OvertimeBySectorTable rows={sectorBreakdown} />
         </CardContent>
       </Card>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
