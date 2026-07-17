@@ -7,11 +7,17 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { getFixedTermContracts } from "@/services/contratos-temporarios";
+import { TerminationDialog } from "@/components/admin/termination-dialog";
+import { PromoteToCltButton } from "@/components/admin/promote-to-clt-button";
+import { prisma } from "@/lib/prisma";
 
 const CONTRACT_LABEL: Record<string, string> = { APRENDIZ: "Jovem Aprendiz", ESTAGIO: "Estágio", TEMPORARIO: "Temporário" };
 
 export default async function ContratosTemporariosPage() {
-  const contracts = await getFixedTermContracts();
+  const [contracts, reasons] = await Promise.all([
+    getFixedTermContracts(),
+    prisma.reason.findMany({ where: { category: "TURNOVER" }, orderBy: { label: "asc" } }),
+  ]);
 
   const vencidos = contracts.filter((c) => c.expiry.status === "vencido").length;
   const venceEm30 = contracts.filter((c) => c.expiry.status === "vence_em_30_dias").length;
@@ -75,6 +81,7 @@ export default async function ContratosTemporariosPage() {
                   <TableHead>Admissão</TableHead>
                   <TableHead>Término do contrato</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -93,6 +100,12 @@ export default async function ContratosTemporariosPage() {
                       {c.expiry.status === "vence_em_30_dias" && <Badge variant="warning">Vence em {c.expiry.daysRemaining}d</Badge>}
                       {c.expiry.status === "no_prazo" && <Badge variant="success">No prazo</Badge>}
                       {c.expiry.status === "sem_data" && <Badge variant="outline">Sem data</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <PromoteToCltButton employeeId={c.id} employeeName={c.name} />
+                        <TerminationDialog employeeId={c.id} employeeName={c.name} reasons={reasons} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
