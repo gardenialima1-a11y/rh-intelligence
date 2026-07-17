@@ -5,6 +5,10 @@ import { resolvePeriod, previousPeriod, percentDelta, lastNMonthsKeys, type Date
 export interface ExecutiveFilters {
   unitId?: string;
   period?: string;
+  /** Setor principal (CostCenter) do colaborador. */
+  costCenterId?: string;
+  /** Setor secundário (CostCenter) do colaborador. */
+  secondaryCostCenterId?: string;
 }
 
 async function activeHeadcountAt(date: Date, unitId?: string) {
