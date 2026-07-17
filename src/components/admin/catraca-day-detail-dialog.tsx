@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search, Loader2, AlertTriangle } from "lucide-react";
+import { Search, Loader2, AlertTriangle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { getCatracaDayDetail, type CatracaDayDetail } from "@/actions/catraca-diagnostico";
+import { getCatracaDayDetail, deleteTurnstileEvent, type CatracaDayDetail } from "@/actions/catraca-diagnostico";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "success" | "warning" | "outline" | "danger" }> = {
   contado: { label: "Contado", variant: "success" },
@@ -37,6 +37,7 @@ export function CatracaDayDetailDialog() {
   const [name, setName] = React.useState("");
   const [date, setDate] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [detail, setDetail] = React.useState<CatracaDayDetail | null>(null);
 
@@ -55,6 +56,14 @@ export function CatracaDayDetailDialog() {
       return;
     }
     setDetail(result.detail ?? null);
+  }
+
+  async function handleDelete(eventId: string) {
+    if (!confirm("Excluir essa batida? Isso recalcula o tempo fora do posto desse dia imediatamente.")) return;
+    setDeletingId(eventId);
+    await deleteTurnstileEvent(eventId);
+    setDeletingId(null);
+    await handleSearch();
   }
 
   return (
@@ -113,12 +122,24 @@ export function CatracaDayDetailDialog() {
             <div>
               <h4 className="mb-2 text-sm font-semibold text-navy dark:text-cream">Batidas registradas ({detail.events.length})</h4>
               <div className="flex flex-wrap gap-2">
-                {detail.events.map((e, i) => (
-                  <Badge key={i} variant={e.direction === "SAIDA" ? "success" : "gold"}>
+                {detail.events.map((e) => (
+                  <Badge key={e.id} variant={e.direction === "SAIDA" ? "success" : "gold"} className="gap-1.5 pr-1.5">
                     {formatTime(e.timestamp)} · {e.direction === "SAIDA" ? "Saída (voltou)" : "Entrada (saiu)"}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(e.id)}
+                      disabled={deletingId === e.id}
+                      className="rounded-full p-0.5 hover:bg-black/10 disabled:opacity-50"
+                      title="Excluir essa batida"
+                    >
+                      {deletingId === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                    </button>
                   </Badge>
                 ))}
               </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Clique no ícone de lixeira numa batida errada (duplicada, fora de hora) pra excluir e recalcular na hora.
+              </p>
             </div>
 
             <div>
