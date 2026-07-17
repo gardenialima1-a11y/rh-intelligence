@@ -11,6 +11,8 @@ export const CORPORATE_ROLES = new Set(["ADMINISTRADOR", "RH", "DIRETORIA"]);
 export async function resolveScopedFilters(params: {
   unidade?: string;
   periodo?: string;
+  setorPrincipal?: string;
+  setorSecundario?: string;
 }): Promise<ExecutiveFilters> {
   const session = await auth();
   const role = session?.user.role;
@@ -21,5 +23,10 @@ export async function resolveScopedFilters(params: {
       ? requestedUnitId
       : (session?.user.unitId ?? undefined);
 
-  return { unitId, period: params.periodo };
+  return {
+    unitId,
+    period: params.periodo,
+    costCenterId: params.setorPrincipal || undefined,
+    secondaryCostCenterId: params.setorSecundario || undefined,
+  };
 }
