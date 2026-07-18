@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AreaOrgChartNode } from "@/components/dashboard/area-org-chart-node";
 import { AddManagerDialog } from "@/components/admin/add-manager-dialog";
 import { getAreaOrgTree, getManagersFlat, MAIN_AREAS } from "@/services/organograma";
+import { prisma } from "@/lib/prisma";
 
 export default async function OrganogramaPage({
   searchParams,
@@ -13,7 +14,11 @@ export default async function OrganogramaPage({
   const params = await searchParams;
   const selectedArea = MAIN_AREAS.includes(params.setor as (typeof MAIN_AREAS)[number]) ? (params.setor as string) : MAIN_AREAS[0];
 
-  const [tree, allManagers] = await Promise.all([getAreaOrgTree(selectedArea), getManagersFlat()]);
+  const [tree, allManagers, employees] = await Promise.all([
+    getAreaOrgTree(selectedArea),
+    getManagersFlat(),
+    prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -23,7 +28,7 @@ export default async function OrganogramaPage({
           description="Estrutura hierárquica por setor principal — gestores no topo, colaboradores reais embaixo."
           moduleKey="organograma"
         />
-        <AddManagerDialog managers={allManagers} />
+        <AddManagerDialog managers={allManagers} employees={employees} />
       </div>
 
       <div className="flex flex-wrap gap-2">
