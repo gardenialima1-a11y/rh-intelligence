@@ -30,7 +30,15 @@ interface EmployeeOption {
   name: string;
 }
 
-export function AddManagerDialog({ managers, employees }: { managers: ManagerOption[]; employees: EmployeeOption[] }) {
+export function AddManagerDialog({
+  managers,
+  employees,
+  trigger,
+}: {
+  managers: ManagerOption[];
+  employees: EmployeeOption[];
+  trigger?: React.ReactNode;
+}) {
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [area, setArea] = React.useState("");
@@ -58,9 +66,11 @@ export function AddManagerDialog({ managers, employees }: { managers: ManagerOpt
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="gold">
-          <UserPlus2 className="h-4 w-4" /> Adicionar gestor
-        </Button>
+        {trigger ?? (
+          <Button variant="gold">
+            <UserPlus2 className="h-4 w-4" /> Adicionar gestor
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
