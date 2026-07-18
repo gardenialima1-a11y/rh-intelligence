@@ -120,14 +120,54 @@ export async function getSpanOfControlRanking(filters: ExecutiveFilters) {
 }
 
 export async function getSuccessionTable(filters: ExecutiveFilters) {
-  return prisma.manager.findMany({
-    where: filters.unitId ? { employees: { some: { unitId: filters.unitId } } } : {},
-    include: {
-      employees: {
-        where: { isActive: true },
-        include: { position: true, reviews: { where: { cycle: "2026-S1" }, take: 1 } },
+  const [managers, allEmployees] = await Promise.all([
+    prisma.manager.findMany({
+      where: filters.unitId ? { employees: { some: { unitId: filters.unitId } } } : {},
+      select: { id: true, name: true, area: true, reportsToId: true },
+      take: 20,
+    }),
+    // Busca TODOS os gestores (pra montar a árvore completa) e todos os
+    // colaboradores ativos, pra poder somar a equipe de cada gestor
+    // incluindo quem está por baixo dos gestores que reportam a ele —
+    // não só quem reporta diretamente.
+    prisma.employee.findMany({
+      where: { isActive: true, ...(filters.unitId ? { unitId: filters.unitId } : {}) },
+      select: {
+        id: true,
+        name: true,
+        managerId: true,
+        position: { select: { name: true } },
+        reviews: { where: { cycle: "2026-S1" }, take: 1, select: { boxLabel: true } },
       },
-    },
-    take: 20,
-  });
-}
+    }),
+  ]);
+
+  const allManagers = await prisma.manager.findMany({ select: { id: true, reportsToId: true } });
+  const childrenByManager = new Map<string, string[]>();
+  for (const m of allManagers) {
+    if (!m.reportsToId) continue;
+    const list = childrenByManager.get(m.reportsToId) ?? [];
+    list.push(m.id);
+    childrenByManager.set(m.reportsToId, list);
+  }
+
+  const employeesByManager = new Map<string, typeof allEmployees>();
+  for (const e of allEmployees) {
+    if (!e.managerId) continue;
+    const list = employeesByManager.get(e.managerId) ?? [];
+    list.push(e);
+    employeesByManager.set(e.managerId, list);
+  }
+
+  /** Soma a equipe do gestor com toda a cadeia de gestores abaixo dele. */
+  function collectTeam(managerId: string, seen = new Set<string>()): typeof allEmployees {
+    if (seen.has(managerId)) return [];
+    seen.add(managerId);
+    const direct = employeesByManager.get(managerId) ?? [];
+    const childManagerIds = childrenByManager.get(managerId) ?? [];
+    const indirect = childManagerIds.flatMap((childId) => collectTeam(childId, seen));
+    return [...direct, ...indirect];
+  }
+
+  return managers.map((m) => {
+    const team =
