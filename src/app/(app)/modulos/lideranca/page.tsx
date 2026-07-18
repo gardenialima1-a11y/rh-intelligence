@@ -75,24 +75,21 @@ export default async function LiderancaPage({
             <TableRow>
               <TableHead>Gestor</TableHead>
               <TableHead>Área</TableHead>
-              <TableHead>Equipe ativa</TableHead>
+              <TableHead>Equipe ativa (direta + indireta)</TableHead>
               <TableHead>Sucessores potenciais</TableHead>
               <TableHead className="w-24">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {succession.map((m) => {
-              const potentialSuccessors = m.employees.filter((e) =>
-                e.reviews[0]?.boxLabel?.includes("Alto Potencial")
-              ).length;
               return (
                 <TableRow key={m.id}>
                   <TableCell>{m.name}</TableCell>
                   <TableCell>{m.area}</TableCell>
-                  <TableCell>{m.employees.length}</TableCell>
+                  <TableCell>{m.teamSize}</TableCell>
                   <TableCell>
-                    {potentialSuccessors > 0 ? (
-                      <Badge variant="success">{potentialSuccessors} identificado(s)</Badge>
+                    {m.potentialSuccessors > 0 ? (
+                      <Badge variant="success">{m.potentialSuccessors} identificado(s)</Badge>
                     ) : (
                       <Badge variant="danger">Nenhum</Badge>
                     )}
