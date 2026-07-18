@@ -103,3 +103,30 @@ export async function deletePosition(positionId: string): Promise<ActionResult> 
     return { success: false, error: err instanceof Error ? err.message : "Erro ao excluir cargo." };
   }
 }
+
+/**
+ * Exclui um gestor (ex.: registro fictício de exemplo). Antes de apagar,
+ * "religa" quem dependia dele: colaboradores que reportavam a ele ficam
+ * sem gestor direto, e outros gestores que reportavam a ele passam a
+ * reportar para o superior dele (a hierarquia não quebra).
+ */
+export async function deleteManager(managerId: string): Promise<ActionResult> {
+  try {
+    await requireHrAccess();
+    const manager = await prisma.manager.findUnique({ where: { id: managerId }, select: { reportsToId: true } });
+    if (!manager) return { success: false, error: "Gestor não encontrado." };
+
+    await prisma.$transaction([
+      prisma.manager.updateMany({ where: { reportsToId: managerId }, data: { reportsToId: manager.reportsToId } }),
+      prisma.employee.updateMany({ where: { managerId }, data: { managerId: null } }),
+      prisma.user.updateMany({ where: { managerOfId: managerId }, data: { managerOfId: null } }),
+      prisma.manager.delete({ where: { id: managerId } }),
+    ]);
+
+    revalidatePath("/modulos/organograma");
+    revalidatePath("/modulos/lideranca");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao excluir gestor." };
+  }
+}
