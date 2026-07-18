@@ -4,7 +4,6 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, UserPlus2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import {
@@ -26,7 +25,12 @@ interface ManagerOption {
   area: string;
 }
 
-export function AddManagerDialog({ managers }: { managers: ManagerOption[] }) {
+interface EmployeeOption {
+  id: string;
+  name: string;
+}
+
+export function AddManagerDialog({ managers, employees }: { managers: ManagerOption[]; employees: EmployeeOption[] }) {
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [area, setArea] = React.useState("");
@@ -67,7 +71,14 @@ export function AddManagerDialog({ managers }: { managers: ManagerOption[] }) {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="manager-name">Nome</Label>
-            <Input id="manager-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            <Select value={name || undefined} onValueChange={setName}>
+              <SelectTrigger id="manager-name"><SelectValue placeholder="Selecione o colaborador" /></SelectTrigger>
+              <SelectContent>
+                {employees.map((e) => (
+                  <SelectItem key={e.id} value={e.name}>{e.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="manager-area">Área</Label>
