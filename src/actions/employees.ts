@@ -277,12 +277,13 @@ export async function getEmployeesForAdmin() {
 
 export async function getEmployeeFormOptions() {
   await requireHrAccess();
-  const [positions, costCenters, managers, units, reasons] = await Promise.all([
+  const [positions, costCenters, managers, units, reasons, employeeOptions] = await Promise.all([
     prisma.position.findMany({ orderBy: { name: "asc" } }),
     prisma.costCenter.findMany({ orderBy: { name: "asc" } }),
     prisma.manager.findMany({ orderBy: { name: "asc" } }),
     prisma.unit.findMany({ orderBy: { name: "asc" } }),
     prisma.reason.findMany({ where: { category: "TURNOVER" }, orderBy: { label: "asc" } }),
+    prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
-  return { positions, costCenters, managers, units, reasons };
+  return { positions, costCenters, managers, units, reasons, employeeOptions };
 }
