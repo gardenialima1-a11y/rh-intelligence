@@ -35,6 +35,16 @@ function normalizeName(name: string): string {
 }
 
 /**
+ * Compara área ignorando maiúscula/minúscula, acento e espaços extras.
+ * Evita que um gestor cadastrado como "administrativo " ou "Administração"
+ * simplesmente suma do organograma por não bater 100% com o nome da aba.
+ */
+function sameArea(a: string | null | undefined, b: string): boolean {
+  if (!a) return false;
+  return normalizeName(a) === normalizeName(b);
+}
+
+/**
  * Monta o organograma de UM setor principal, com gestores no topo e
  * colaboradores reais como folhas embaixo do seu gestor direto.
  *
@@ -49,7 +59,7 @@ export function buildAreaOrgTree(
   managers: AreaManagerInput[],
   employees: AreaEmployeeInput[]
 ): AreaOrgNode[] {
-  const areaManagers = managers.filter((m) => m.area === area);
+  const areaManagers = managers.filter((m) => sameArea(m.area, area));
   const employeeByName = new Map(employees.map((e) => [normalizeName(e.name), e]));
 
   const registeredManagerIds = new Set<string>();
@@ -104,7 +114,7 @@ export function buildAreaOrgTree(
     Array.from(registeredManagerIds).map((id) => normalizeName(managerById.get(id)!.name))
   );
 
-  const areaEmployees = employees.filter((e) => e.area === area && !registeredManagerNames.has(normalizeName(e.name)));
+  const areaEmployees = employees.filter((e) => sameArea(e.area, area) && !registeredManagerNames.has(normalizeName(e.name)));
   for (const e of areaEmployees) {
     const leaf: AreaOrgNode = { id: `emp-${e.id}`, name: e.name, subtitle: e.position, isManager: false, directCount: 0, photoUrl: e.photoUrl, children: [] };
     const directManagerId = e.managerId;
