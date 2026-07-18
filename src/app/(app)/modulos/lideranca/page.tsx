@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatPercent } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { getLiderancaKpis, getSpanOfControlRanking, getSuccessionTable, getInternalMobilityKpis, getMobilityTrend } from "@/services/lideranca";
+import { getManagersFlat } from "@/services/organograma";
 import { DeleteManagerButton } from "@/components/admin/delete-manager-button";
+import { MergeManagerButton } from "@/components/admin/merge-manager-dialog";
 
 export default async function LiderancaPage({
   searchParams,
@@ -21,12 +23,13 @@ export default async function LiderancaPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, ranking, succession, mobility, mobilityTrend] = await Promise.all([
+  const [kpis, ranking, succession, mobility, mobilityTrend, allManagers] = await Promise.all([
     getLiderancaKpis(filters),
     getSpanOfControlRanking(filters),
     getSuccessionTable(filters),
     getInternalMobilityKpis(filters),
     getMobilityTrend(filters),
+    getManagersFlat(),
   ]);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
@@ -74,7 +77,7 @@ export default async function LiderancaPage({
               <TableHead>Área</TableHead>
               <TableHead>Equipe ativa</TableHead>
               <TableHead>Sucessores potenciais</TableHead>
-              <TableHead className="w-16">Ações</TableHead>
+              <TableHead className="w-24">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -95,7 +98,10 @@ export default async function LiderancaPage({
                     )}
                   </TableCell>
                   <TableCell>
-                    <DeleteManagerButton managerId={m.id} managerName={m.name} />
+                    <div className="flex gap-1.5">
+                      <MergeManagerButton manager={{ id: m.id, name: m.name, area: m.area }} allManagers={allManagers} />
+                      <DeleteManagerButton managerId={m.id} managerName={m.name} />
+                    </div>
                   </TableCell>
                 </TableRow>
               );
