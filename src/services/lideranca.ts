@@ -170,4 +170,8 @@ export async function getSuccessionTable(filters: ExecutiveFilters) {
   }
 
   return managers.map((m) => {
-    const team =
+    const team = collectTeam(m.id);
+    const potentialSuccessors = team.filter((e) => e.reviews[0]?.boxLabel?.includes("Alto Potencial")).length;
+    return { ...m, team, teamSize: team.length, potentialSuccessors };
+  });
+}
