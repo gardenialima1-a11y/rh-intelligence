@@ -105,6 +105,53 @@ export async function deletePosition(positionId: string): Promise<ActionResult> 
 }
 
 /**
+ * Mescla um gestor duplicado em outro (o "correto"). Tudo que apontava
+ * para o duplicado — colaboradores, sub-gestores e o vínculo de usuário —
+ * passa a apontar para o gestor mantido, e o duplicado é excluído.
+ */
+export async function mergeManagers(duplicateId: string, keepId: string): Promise<ActionResult> {
+  try {
+    await requireHrAccess();
+    if (duplicateId === keepId) {
+      return { success: false, error: "Selecione dois gestores diferentes." };
+    }
+
+    const [duplicate, keep] = await Promise.all([
+      prisma.manager.findUnique({ where: { id: duplicateId } }),
+      prisma.manager.findUnique({ where: { id: keepId } }),
+    ]);
+    if (!duplicate || !keep) return { success: false, error: "Gestor não encontrado." };
+
+    // Evita criar um ciclo: o gestor mantido não pode ser, direta ou
+    // indiretamente, subordinado do duplicado.
+    let cursor = keep.reportsToId;
+    const seen = new Set<string>();
+    while (cursor && !seen.has(cursor)) {
+      if (cursor === duplicateId) {
+        return { success: false, error: "Não é possível mesclar: um deles é superior do outro na hierarquia." };
+      }
+      seen.add(cursor);
+      const next = await prisma.manager.findUnique({ where: { id: cursor }, select: { reportsToId: true } });
+      cursor = next?.reportsToId ?? null;
+    }
+
+    await prisma.$transaction([
+      prisma.manager.updateMany({ where: { reportsToId: duplicateId }, data: { reportsToId: keepId } }),
+      prisma.employee.updateMany({ where: { managerId: duplicateId }, data: { managerId: keepId } }),
+      prisma.user.updateMany({ where: { managerOfId: duplicateId }, data: { managerOfId: null } }),
+      prisma.manager.delete({ where: { id: duplicateId } }),
+    ]);
+
+    revalidatePath("/modulos/organograma");
+    revalidatePath("/modulos/lideranca");
+    revalidatePath("/modulos/colaboradores");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao mesclar gestores." };
+  }
+}
+
+/**
  * Exclui um gestor (ex.: registro fictício de exemplo). Antes de apagar,
  * "religa" quem dependia dele: colaboradores que reportavam a ele ficam
  * sem gestor direto, e outros gestores que reportavam a ele passam a
