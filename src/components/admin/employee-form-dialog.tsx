@@ -4,7 +4,7 @@ import * as React from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,10 +21,11 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { QuickAddDialog } from "@/components/admin/quick-add-dialog";
+import { AddManagerDialog } from "@/components/admin/add-manager-dialog";
 import { PhotoUploadField } from "@/components/admin/photo-upload-field";
 import { employeeFormSchema, type EmployeeFormValues, GENDER_OPTIONS, CONTRACT_TYPE_OPTIONS } from "@/lib/validation/employee";
 import { createEmployee, updateEmployee } from "@/actions/employees";
-import { createPosition, createCostCenter, createManager, createUnit } from "@/actions/reference-data";
+import { createPosition, createCostCenter, createUnit } from "@/actions/reference-data";
 
 const GENDER_LABEL: Record<string, string> = { MASCULINO: "Masculino", FEMININO: "Feminino", NAO_INFORMADO: "Não informado" };
 const CONTRACT_LABEL: Record<string, string> = { CLT: "CLT", PJ: "PJ", APRENDIZ: "Aprendiz", ESTAGIO: "Estágio", TEMPORARIO: "Temporário" };
@@ -34,11 +35,16 @@ interface OptionItem {
   name: string;
 }
 
+interface ManagerOptionItem extends OptionItem {
+  area: string;
+}
+
 export interface EmployeeFormOptions {
   positions: OptionItem[];
   costCenters: OptionItem[];
-  managers: OptionItem[];
+  managers: ManagerOptionItem[];
   units: OptionItem[];
+  employeeOptions: OptionItem[];
 }
 
 interface EmployeeFormDialogProps {
@@ -229,7 +235,7 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
             </p>
           </div>
 
-          <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
             <Label>Gestor</Label>
             <div className="flex gap-2">
               <Controller
@@ -246,16 +252,17 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
                   </Select>
                 )}
               />
-              <QuickAddDialog
-                label="Gestor"
-                description="Cadastre um novo gestor."
-                extraFields={[{ key: "area", label: "Área" }]}
-                onCreate={(name, extra) => createManager(name, extra.area)}
-                onCreated={() => router.refresh()}
+              <AddManagerDialog
+                managers={options.managers}
+                employees={options.employeeOptions}
+                trigger={
+                  <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Adicionar gestor">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                }
               />
             </div>
           </div>
-
           <div className="flex flex-col gap-1.5">
             <Label>Gênero</Label>
             <Controller
