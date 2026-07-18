@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { buildOrgTree, type OrgChartNode } from "@/lib/analytics/org-tree";
 import { buildAreaOrgTree, type AreaOrgNode } from "@/lib/analytics/area-org-tree";
+import { MAIN_AREAS } from "@/lib/constants";
 
+export { MAIN_AREAS };
 export type { AreaOrgNode };
 
 export type OrgNode = OrgChartNode;
@@ -39,7 +41,6 @@ export async function getManagersFlat() {
   return prisma.manager.findMany({ select: { id: true, name: true, area: true }, orderBy: { name: "asc" } });
 }
 
-export const MAIN_AREAS = ["Administrativo", "Comercial", "Logística", "Produção"] as const;
 
 /**
  * Organograma de UM setor principal, com gestores no topo e colaboradores
