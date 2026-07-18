@@ -18,6 +18,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { createManager } from "@/actions/reference-data";
+import { MAIN_AREAS } from "@/lib/constants";
 
 interface ManagerOption {
   id: string;
@@ -70,7 +71,14 @@ export function AddManagerDialog({ managers }: { managers: ManagerOption[] }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="manager-area">Área</Label>
-            <Input id="manager-area" value={area} onChange={(e) => setArea(e.target.value)} />
+            <Select value={area || undefined} onValueChange={setArea}>
+              <SelectTrigger id="manager-area"><SelectValue placeholder="Selecione a área" /></SelectTrigger>
+              <SelectContent>
+                {MAIN_AREAS.map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Reporta para (opcional)</Label>
@@ -90,7 +98,7 @@ export function AddManagerDialog({ managers }: { managers: ManagerOption[] }) {
           <DialogClose asChild>
             <Button type="button" variant="outline">Cancelar</Button>
           </DialogClose>
-          <Button type="button" variant="gold" onClick={handleSubmit} disabled={loading || name.trim().length < 2}>
+          <Button type="button" variant="gold" onClick={handleSubmit} disabled={loading || name.trim().length < 2 || !area}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Adicionar
           </Button>
