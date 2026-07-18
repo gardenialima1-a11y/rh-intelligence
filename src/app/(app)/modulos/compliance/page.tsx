@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import { COMPLIANCE_TYPE_LABEL } from "@/lib/labels";
 import { getComplianceKpis, getComplianceByReason, getComplianceTable } from "@/services/compliance";
+import { ComplianceFormDialog } from "@/components/admin/compliance-form-dialog";
+import { prisma } from "@/lib/prisma";
 
 const TYPE_VARIANT: Record<string, "warning" | "danger" | "outline"> = {
   ADVERTENCIA: "warning",
@@ -26,10 +28,11 @@ export default async function CompliancePage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byReason, table] = await Promise.all([
+  const [kpis, byReason, table, employees] = await Promise.all([
     getComplianceKpis(filters),
     getComplianceByReason(filters),
     getComplianceTable(filters),
+    prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const executive = (
@@ -64,8 +67,9 @@ export default async function CompliancePage({
 
   const operational = (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-col items-start gap-3 space-y-0 md:flex-row md:items-center md:justify-between">
         <CardTitle>Ocorrências de compliance</CardTitle>
+        <ComplianceFormDialog employees={employees} />
       </CardHeader>
       <CardContent>
         <Table>
