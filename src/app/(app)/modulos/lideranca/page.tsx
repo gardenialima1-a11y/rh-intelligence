@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatPercent } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { getLiderancaKpis, getSpanOfControlRanking, getSuccessionTable, getInternalMobilityKpis, getMobilityTrend } from "@/services/lideranca";
+import { DeleteManagerButton } from "@/components/admin/delete-manager-button";
 
 export default async function LiderancaPage({
   searchParams,
@@ -73,6 +74,7 @@ export default async function LiderancaPage({
               <TableHead>Área</TableHead>
               <TableHead>Equipe ativa</TableHead>
               <TableHead>Sucessores potenciais</TableHead>
+              <TableHead className="w-16">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -91,6 +93,9 @@ export default async function LiderancaPage({
                     ) : (
                       <Badge variant="danger">Nenhum</Badge>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <DeleteManagerButton managerId={m.id} managerName={m.name} />
                   </TableCell>
                 </TableRow>
               );
