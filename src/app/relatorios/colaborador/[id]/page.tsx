@@ -120,7 +120,7 @@ export default async function EmployeeReportPage({ params }: { params: Promise<{
                   <td className="py-1.5 pr-2">{formatDate(e.date)}</td>
                   <td className="py-1.5 pr-2">{COMPLIANCE_TYPE_LABEL[e.type] ?? e.type}</td>
                   <td className="py-1.5 pr-2">{e.reason?.label ?? "—"}</td>
-                  <td className="py-1.5 pr-2">{e.estimatedCost ? `R$ ${e.estimatedCost.toFixed(2)}` : "—"}</td>
+                  <td className="py-1.5 pr-2">{e.estimatedCost ? "R$ " + e.estimatedCost.toFixed(2) : "—"}</td>
                 </tr>
               ))}
             </tbody>
