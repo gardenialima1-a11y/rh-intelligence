@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Clock3 } from "lucide-react";
+import { AlertTriangle, Clock3, FileBarChart } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,9 +57,20 @@ export function DisciplinaryRankingTable({ rows }: { rows: DisciplinaryRankingRo
                 <Badge variant={SUGGESTION_VARIANT[r.suggestion] ?? "outline"}>{r.suggestion}</Badge>
               </TableCell>
               <TableCell>
-                <Button variant="outline" size="sm" onClick={() => setSelected(r)} title="Ver linha do tempo">
-                  <Clock3 className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex gap-1.5">
+                  <Button variant="outline" size="sm" onClick={() => setSelected(r)} title="Ver linha do tempo">
+                    <Clock3 className="h-3.5 w-3.5" />
+                  </Button>
+                  
+                    href={`/relatorios/colaborador/${r.employeeId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Emitir relatório do colaborador"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-gold hover:text-gold-text"
+                  >
+                    <FileBarChart className="h-3.5 w-3.5" />
+                  </a>
+                </div>
               </TableCell>
             </TableRow>
           ))}
