@@ -30,7 +30,7 @@ export function AtestadosRankingTable({ rows }: { rows: AtestadoRankingRow[] }) 
             <TableCell>{formatDate(r.lastOccurrence)}</TableCell>
             <TableCell>
               
-                href={`/relatorios/colaborador/${r.employeeId}`}
+                href={"/relatorios/colaborador/" + r.employeeId}
                 target="_blank"
                 rel="noopener noreferrer"
                 title="Emitir relatório do colaborador"
