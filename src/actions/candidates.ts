@@ -34,6 +34,7 @@ export async function createCandidate(raw: unknown): Promise<ActionResult> {
         stage: data.stage,
         openedAt: new Date(),
         hiredAt: data.stage === "CONTRATADO" ? new Date() : null,
+        rejectionReason: data.stage === "REPROVADO" ? data.rejectionReason : null,
       },
     });
 
@@ -65,6 +66,7 @@ export async function updateCandidate(candidateId: string, raw: unknown): Promis
         source: data.source,
         stage: data.stage,
         hiredAt: data.stage === "CONTRATADO" ? (existing?.hiredAt ?? new Date()) : null,
+        rejectionReason: data.stage === "REPROVADO" ? data.rejectionReason : null,
       },
     });
 
