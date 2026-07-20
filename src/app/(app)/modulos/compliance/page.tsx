@@ -9,8 +9,9 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import { COMPLIANCE_TYPE_LABEL } from "@/lib/labels";
-import { getComplianceKpis, getComplianceByReason, getComplianceTable } from "@/services/compliance";
+import { getComplianceKpis, getComplianceByReason, getComplianceTable, getDisciplinaryRanking } from "@/services/compliance";
 import { ComplianceFormDialog } from "@/components/admin/compliance-form-dialog";
+import { DisciplinaryRankingTable } from "@/components/dashboard/disciplinary-ranking-table";
 import { prisma } from "@/lib/prisma";
 
 const TYPE_VARIANT: Record<string, "warning" | "danger" | "outline"> = {
@@ -28,11 +29,12 @@ export default async function CompliancePage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byReason, table, employees] = await Promise.all([
+  const [kpis, byReason, table, employees, ranking] = await Promise.all([
     getComplianceKpis(filters),
     getComplianceByReason(filters),
     getComplianceTable(filters),
     prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    getDisciplinaryRanking(filters),
   ]);
 
   const executive = (
@@ -55,14 +57,24 @@ export default async function CompliancePage({
   );
 
   const managerial = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Distribuição de ocorrências por motivo</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {byReason.length > 0 ? <RankingBarChart data={byReason} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem dados.</p>}
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Ranking disciplinar — advertências e suspensões por colaborador</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DisciplinaryRankingTable rows={ranking} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Distribuição de ocorrências por motivo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {byReason.length > 0 ? <RankingBarChart data={byReason} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem dados.</p>}
+        </CardContent>
+      </Card>
+    </div>
   );
 
   const operational = (
