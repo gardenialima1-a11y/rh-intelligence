@@ -28,6 +28,7 @@ interface CandidateRow {
   vacancy: string;
   stage: string;
   openedAt: Date;
+  rejectionReason: string | null;
   vacancyRef: { id: string; title: string } | null;
 }
 
@@ -81,6 +82,11 @@ export function CandidatesTable({
                 <Badge variant={c.stage === "CONTRATADO" ? "success" : c.stage === "REPROVADO" ? "danger" : "outline"}>
                   {STAGE_LABEL[c.stage] ?? c.stage}
                 </Badge>
+                {c.stage === "REPROVADO" && c.rejectionReason && (
+                  <p className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground" title={c.rejectionReason}>
+                    {c.rejectionReason}
+                  </p>
+                )}
               </TableCell>
               <TableCell>{formatDate(c.openedAt)}</TableCell>
               <TableCell>
@@ -94,6 +100,7 @@ export function CandidatesTable({
                       vacancyId: c.vacancyRef?.id ?? "",
                       source: c.source,
                       stage: c.stage as "TRIAGEM" | "ENTREVISTA_RH" | "ENTREVISTA_GESTOR" | "TESTE" | "PROPOSTA" | "CONTRATADO" | "REPROVADO",
+                      rejectionReason: c.rejectionReason ?? "",
                     }}
                     trigger={
                       <Button variant="outline" size="sm">
