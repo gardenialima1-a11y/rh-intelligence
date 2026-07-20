@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { AbsenceFormDialog } from "@/components/admin/absence-form-dialog";
 import { AtestadosTable } from "@/components/admin/atestados-table";
-import { getCertificatedAbsences } from "@/actions/absences";
+import { AtestadosRankingTable } from "@/components/dashboard/atestados-ranking-table";
+import { getCertificatedAbsences, getAtestadosRanking } from "@/actions/absences";
 import { prisma } from "@/lib/prisma";
 import { getSstKpis, getIncidentsTable, getIncidentsByType } from "@/services/sst";
 
@@ -22,13 +23,14 @@ export default async function SstPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byType, table, atestados, employees, reasons] = await Promise.all([
+  const [kpis, byType, table, atestados, employees, reasons, atestadosRanking] = await Promise.all([
     getSstKpis(filters),
     getIncidentsByType(filters),
     getIncidentsTable(filters),
     getCertificatedAbsences(),
     prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.reason.findMany({ where: { category: "AFASTAMENTO" }, select: { id: true, label: true }, orderBy: { label: "asc" } }),
+    getAtestadosRanking(),
   ]);
 
   const executive = (
@@ -51,14 +53,24 @@ export default async function SstPage({
   );
 
   const managerial = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Distribuição de ocorrências</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {byType.length > 0 ? <RankingBarChart data={byType} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem dados.</p>}
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Ranking de atestados por colaborador</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AtestadosRankingTable rows={atestadosRanking} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Distribuição de ocorrências</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {byType.length > 0 ? <RankingBarChart data={byType} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem dados.</p>}
+        </CardContent>
+      </Card>
+    </div>
   );
 
   const operational = (
