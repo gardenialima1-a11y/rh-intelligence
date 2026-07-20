@@ -88,6 +88,49 @@ export async function deleteAbsence(absenceId: string): Promise<ActionResult> {
   }
 }
 
+export interface AtestadoRankingRow {
+  employeeId: string;
+  employeeName: string;
+  unitName: string;
+  totalAtestados: number;
+  totalHoursLost: number;
+  lastOccurrence: Date;
+}
+
+/**
+ * Ranking de colaboradores por quantidade de atestados e horas perdidas
+ * (histórico completo, não só o período filtrado no topo da página).
+ */
+export async function getAtestadosRanking(): Promise<AtestadoRankingRow[]> {
+  const absences = await prisma.absence.findMany({
+    include: { employee: { include: { unit: true } } },
+    orderBy: { date: "asc" },
+  });
+
+  const byEmployee = new Map<string, AtestadoRankingRow>();
+  for (const a of absences) {
+    let row = byEmployee.get(a.employeeId);
+    if (!row) {
+      row = {
+        employeeId: a.employeeId,
+        employeeName: a.employee.name,
+        unitName: a.employee.unit.name,
+        totalAtestados: 0,
+        totalHoursLost: 0,
+        lastOccurrence: a.date,
+      };
+      byEmployee.set(a.employeeId, row);
+    }
+    row.totalAtestados += 1;
+    row.totalHoursLost += a.hoursLost;
+    if (a.date > row.lastOccurrence) row.lastOccurrence = a.date;
+  }
+
+  return Array.from(byEmployee.values()).sort(
+    (a, b) => b.totalAtestados - a.totalAtestados || b.totalHoursLost - a.totalHoursLost
+  );
+}
+
 export async function getCertificatedAbsences() {
   return prisma.absence.findMany({
     where: { hasCertificate: true },
