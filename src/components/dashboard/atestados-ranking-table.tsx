@@ -29,13 +29,7 @@ export function AtestadosRankingTable({ rows }: { rows: AtestadoRankingRow[] }) 
             <TableCell>{formatNumber(r.totalHoursLost)}h</TableCell>
             <TableCell>{formatDate(r.lastOccurrence)}</TableCell>
             <TableCell>
-              
-                href={"/relatorios/colaborador/" + r.employeeId}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Emitir relatório do colaborador"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-gold hover:text-gold-text"
-              >
+              <a href={"/relatorios/colaborador/" + r.employeeId} target="_blank" rel="noopener noreferrer" title="Emitir relatorio do colaborador" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-gold hover:text-gold-text">
                 <FileBarChart className="h-3.5 w-3.5" />
               </a>
             </TableCell>
