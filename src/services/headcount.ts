@@ -3,10 +3,12 @@ import { MovementType } from "@prisma/client";
 import { resolvePeriod, previousPeriod, percentDelta, lastNMonthsKeys } from "@/services/period";
 import { linearForecast, trendDirection } from "@/services/forecast";
 import type { ExecutiveFilters } from "@/services/dashboard-executivo";
+import { activePresentEmployeeWhere } from "@/lib/employee-filters";
 
 async function activeCountAt(date: Date, unitId?: string) {
   return prisma.employee.count({
     where: {
+      ...activePresentEmployeeWhere(date),
       admissionDate: { lte: date },
       OR: [{ terminationDate: null }, { terminationDate: { gt: date } }],
       ...(unitId ? { unitId } : {}),
@@ -98,6 +100,7 @@ export async function getHeadcountBySecondaryCostCenter(unitId?: string) {
 }
 
 export async function getIdealVsRealHeadcount() {
+  const presentFilter = activePresentEmployeeWhere();
   const costCenters = await prisma.costCenter.findMany({
     where: { OR: [{ targetHeadcount: { not: null } }, { secondaryEmployees: { some: { isActive: true } } }] },
     select: {
@@ -105,7 +108,7 @@ export async function getIdealVsRealHeadcount() {
       name: true,
       area: true,
       targetHeadcount: true,
-      _count: { select: { secondaryEmployees: { where: { isActive: true } } } },
+      _count: { select: { secondaryEmployees: { where: presentFilter } } },
     },
   });
 
