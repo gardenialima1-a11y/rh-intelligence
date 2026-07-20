@@ -15,6 +15,10 @@ interface AbsenceRow {
   hoursLost: number;
   cid: string | null;
   hasCertificate: boolean;
+  absenceType: string | null;
+  returnDate: Date | null;
+  attachmentUrl: string | null;
+  attachmentName: string | null;
   employee: { id: string; name: string };
   reason: { id: string; label: string } | null;
 }
@@ -42,9 +46,11 @@ export function AtestadosTable({
         <TableRow>
           <TableHead>Colaborador</TableHead>
           <TableHead>Data</TableHead>
+          <TableHead>Retorno</TableHead>
           <TableHead>Motivo</TableHead>
           <TableHead>CID</TableHead>
           <TableHead>Horas perdidas</TableHead>
+          <TableHead>Anexo</TableHead>
           <TableHead>Ações</TableHead>
         </TableRow>
       </TableHeader>
@@ -53,9 +59,19 @@ export function AtestadosTable({
           <TableRow key={a.id}>
             <TableCell>{a.employee.name}</TableCell>
             <TableCell>{formatDate(a.date)}</TableCell>
+            <TableCell>{a.returnDate ? formatDate(a.returnDate) : a.absenceType === "INDETERMINADO" ? "A definir" : "—"}</TableCell>
             <TableCell>{a.reason?.label ?? "—"}</TableCell>
             <TableCell>{a.cid ? <Badge variant="outline">{a.cid}</Badge> : "—"}</TableCell>
             <TableCell>{a.hoursLost}h</TableCell>
+            <TableCell>
+              {a.attachmentUrl ? (
+                <a href={a.attachmentUrl} download={a.attachmentName ?? "atestado"} className="text-xs font-medium text-navy underline dark:text-cream">
+                  Ver anexo
+                </a>
+              ) : (
+                "—"
+              )}
+            </TableCell>
             <TableCell>
               <div className="flex gap-2">
                 <AbsenceFormDialog
@@ -70,6 +86,10 @@ export function AtestadosTable({
                     cid: a.cid,
                     hoursLost: a.hoursLost,
                     hasCertificate: a.hasCertificate,
+                    absenceType: (a.absenceType as "ALGUMAS_HORAS" | "DIA_PARCIAL" | "UM_DIA_OU_MAIS" | "INDETERMINADO") ?? "UM_DIA_OU_MAIS",
+                    returnDate: a.returnDate ? a.returnDate.toISOString().slice(0, 10) : null,
+                    attachmentUrl: a.attachmentUrl,
+                    attachmentName: a.attachmentName,
                   }}
                   trigger={
                     <Button variant="outline" size="sm">
