@@ -426,11 +426,14 @@ model Absence {
   cid          String?
   hoursLost    Float
   hasCertificate Boolean @default(false)
+  absenceType    String?   // ALGUMAS_HORAS | DIA_PARCIAL | UM_DIA_OU_MAIS | INDETERMINADO
+  returnDate     DateTime?
+  attachmentUrl  String?   @db.Text
+  attachmentName String?
 
   @@index([date])
   @@index([employeeId, date])
 }
-
 model TurnstileEvent {
   id          String   @id @default(cuid())
   employeeId  String
