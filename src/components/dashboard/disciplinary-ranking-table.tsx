@@ -62,7 +62,7 @@ export function DisciplinaryRankingTable({ rows }: { rows: DisciplinaryRankingRo
                     <Clock3 className="h-3.5 w-3.5" />
                   </Button>
                   
-                    href={`/relatorios/colaborador/${r.employeeId}`}
+                    href={"/relatorios/colaborador/" + r.employeeId}
                     target="_blank"
                     rel="noopener noreferrer"
                     title="Emitir relatório do colaborador"
@@ -85,7 +85,7 @@ export function DisciplinaryRankingTable({ rows }: { rows: DisciplinaryRankingRo
               {selected && (
                 <>
                   {selected.advertencias} advertência(s), {selected.suspensoes} suspensão(ões)
-                  {selected.processos > 0 && `, ${selected.processos} processo(s)`}.
+                  {selected.processos > 0 && ", " + selected.processos + " processo(s)"}.
                 </>
               )}
             </DialogDescription>
