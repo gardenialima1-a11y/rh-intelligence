@@ -482,6 +482,7 @@ model Candidate {
   stage         FunnelStage @default(TRIAGEM)
   isCritical    Boolean    @default(false)
   costToHire    Float?
+  rejectionReason String?  @db.Text
 
   @@index([vacancy])
   @@index([stage])
