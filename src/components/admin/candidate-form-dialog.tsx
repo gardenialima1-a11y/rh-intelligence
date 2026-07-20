@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import {
   Dialog,
@@ -61,6 +62,8 @@ export function CandidateFormDialog({ vacancies, mode, candidateId, defaultValue
     resolver: zodResolver(candidateFormSchema),
     defaultValues: defaultValues ?? { stage: "TRIAGEM" },
   });
+
+  const selectedStage = useWatch({ control, name: "stage" });
 
   async function onSubmit(values: CandidateFormValues) {
     setServerError(null);
@@ -143,6 +146,19 @@ export function CandidateFormDialog({ vacancies, mode, candidateId, defaultValue
               )}
             />
           </div>
+
+          {selectedStage === "REPROVADO" && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rejectionReason">Motivo da reprovação</Label>
+              <Textarea
+                id="rejectionReason"
+                placeholder="Explique por que o candidato foi reprovado nesta etapa"
+                rows={3}
+                {...register("rejectionReason")}
+              />
+              {errors.rejectionReason && <p className="text-xs text-danger">{errors.rejectionReason.message}</p>}
+            </div>
+          )}
 
           {serverError && <p className="text-sm text-danger">{serverError}</p>}
 
