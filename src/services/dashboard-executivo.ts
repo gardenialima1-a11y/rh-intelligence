@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { MovementType, FunnelStage } from "@prisma/client";
 import { resolvePeriod, previousPeriod, percentDelta, lastNMonthsKeys, type DateRange } from "@/services/period";
+import { activePresentEmployeeWhere } from "@/lib/employee-filters";
 
 export interface ExecutiveFilters {
   unitId?: string;
@@ -14,6 +15,7 @@ export interface ExecutiveFilters {
 async function activeHeadcountAt(date: Date, unitId?: string) {
   return prisma.employee.count({
     where: {
+      ...activePresentEmployeeWhere(date),
       admissionDate: { lte: date },
       OR: [{ terminationDate: null }, { terminationDate: { gt: date } }],
       ...(unitId ? { unitId } : {}),
