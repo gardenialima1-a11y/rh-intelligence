@@ -30,6 +30,10 @@ export async function createAbsence(raw: unknown): Promise<ActionResult> {
         cid: data.cid || null,
         hoursLost: parseHoursLost(data.hoursLost),
         hasCertificate: data.hasCertificate,
+        absenceType: data.absenceType,
+        returnDate: data.returnDate ? new Date(data.returnDate) : null,
+        attachmentUrl: data.attachmentUrl || null,
+        attachmentName: data.attachmentName || null,
       },
     });
 
@@ -57,6 +61,10 @@ export async function updateAbsence(absenceId: string, raw: unknown): Promise<Ac
         cid: data.cid || null,
         hoursLost: parseHoursLost(data.hoursLost),
         hasCertificate: data.hasCertificate,
+        absenceType: data.absenceType,
+        returnDate: data.returnDate ? new Date(data.returnDate) : null,
+        attachmentUrl: data.attachmentUrl || null,
+        attachmentName: data.attachmentName || null,
       },
     });
 
