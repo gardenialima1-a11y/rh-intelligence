@@ -15,6 +15,8 @@ import { CandidateFormDialog } from "@/components/admin/candidate-form-dialog";
 import { CandidatesTable } from "@/components/admin/candidates-table";
 import { getVacancies } from "@/actions/vacancies";
 import { getCandidatesForAdmin } from "@/actions/candidates";
+import { getClosedVacanciesHistory } from "@/services/vacancy-report";
+import { ClosedVacanciesTable } from "@/components/dashboard/closed-vacancies-table";
 import { prisma } from "@/lib/prisma";
 import {
   getRecrutamentoKpis,
@@ -33,7 +35,7 @@ export default async function RecrutamentoPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, funnel, bySource, byEfficiency, , vacancyCost, vacancies, positions, units, candidatesAdmin] = await Promise.all([
+  const [kpis, funnel, bySource, byEfficiency, , vacancyCost, vacancies, positions, units, candidatesAdmin, closedVacancies] = await Promise.all([
     getRecrutamentoKpis(filters),
     getFunnelByStage(filters),
     getCandidatesBySource(filters),
@@ -44,6 +46,7 @@ export default async function RecrutamentoPage({
     prisma.position.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.unit.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getCandidatesForAdmin(),
+    getClosedVacanciesHistory(),
   ]);
 
   const funnelData = funnel.map((f) => ({ name: FUNNEL_STAGE_LABEL[f.name as string] ?? f.name, value: f.value }));
@@ -130,6 +133,20 @@ export default async function RecrutamentoPage({
           ) : (
             <CandidatesTable candidates={candidatesAdmin} vacancies={vacancies.map((v) => ({ id: v.id, title: v.title }))} />
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-1">
+            <CardTitle>Histórico de vagas fechadas</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {closedVacancies.length} vaga(s) preenchida(s) ou cancelada(s). Fecha sozinha quando um candidato é marcado como &quot;Contratado&quot;.
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ClosedVacanciesTable rows={closedVacancies} />
         </CardContent>
       </Card>
     </div>
