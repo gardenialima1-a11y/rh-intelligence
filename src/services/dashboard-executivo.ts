@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { MovementType, FunnelStage } from "@prisma/client";
 import { resolvePeriod, previousPeriod, percentDelta, lastNMonthsKeys, type DateRange } from "@/services/period";
 import { activePresentEmployeeWhere } from "@/lib/employee-filters";
+import { syncAlerts } from "@/services/alerts-engine";
 
 export interface ExecutiveFilters {
   unitId?: string;
@@ -146,6 +147,13 @@ export async function getCriticalVacancies() {
   });
 }
 
+/** Vagas com status Aberta ou Em andamento — mesma lógica usada no módulo de Recrutamento. */
+export async function getOpenVacancies() {
+  return prisma.vacancy.count({
+    where: { status: { in: ["ABERTA", "EM_ANDAMENTO"] } },
+  });
+}
+
 export async function getPeopleCostKpi(filters: ExecutiveFilters) {
   const range = resolvePeriod(filters.period);
 
@@ -199,6 +207,10 @@ export async function getHumanCapitalEfficiency(filters: ExecutiveFilters) {
 }
 
 export async function getActiveAlerts() {
+  // Antes de listar, sincroniza com a realidade dos dados: resolve alertas
+  // cuja condição não existe mais e cria/atualiza os que estão realmente
+  // acontecendo agora. Ver src/services/alerts-engine.ts.
+  await syncAlerts();
   return prisma.alert.findMany({
     where: { isActive: true },
     orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
@@ -223,7 +235,7 @@ export async function getExecutiveNarrative(filters: ExecutiveFilters) {
     getTurnoverKpi(filters),
     getAbsenteeismKpi(filters),
     getEnpsKpi(),
-    getCriticalVacancies(),
+    getOpenVacancies(),
   ]);
 
   const parts: string[] = [];
@@ -243,7 +255,7 @@ export async function getExecutiveNarrative(filters: ExecutiveFilters) {
   );
 
   if (vacancies > 0) {
-    parts.push(`Há ${vacancies} vaga(s) crítica(s) em aberto que merecem atenção da liderança.`);
+    parts.push(`Há ${vacancies} vaga(s) em aberto que merecem atenção da liderança.`);
   }
 
   if (enps.current !== 0) {
