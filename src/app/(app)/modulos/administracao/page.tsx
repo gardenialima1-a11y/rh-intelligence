@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { ROLE_LABEL } from "@/lib/labels";
 import { getAdminUsers, getAdminGoals, getAdminAccessLogs, getDataFreshness } from "@/services/administracao";
+import { listAdminAccounts } from "@/actions/admin-users";
+import { AdminAccountsPanel } from "@/components/admin/admin-accounts-panel";
 
 export default async function AdministracaoPage() {
   // Defesa em profundidade: além do bloqueio em src/proxy.ts, a própria página
@@ -17,11 +19,12 @@ export default async function AdministracaoPage() {
   const session = await auth();
   if (session?.user.role !== "ADMINISTRADOR") redirect("/");
 
-  const [users, goals, accessLogs, freshness] = await Promise.all([
+  const [users, goals, accessLogs, freshness, adminAccounts] = await Promise.all([
     getAdminUsers(),
     getAdminGoals(),
     getAdminAccessLogs(),
     getDataFreshness(),
+    listAdminAccounts(),
   ]);
 
   const executive = (
@@ -91,37 +94,41 @@ export default async function AdministracaoPage() {
   );
 
   const operational = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Usuários da plataforma</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>E-mail</TableHead>
-              <TableHead>Perfil</TableHead>
-              <TableHead>Unidade</TableHead>
-              <TableHead>Criado em</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((u) => (
-              <TableRow key={u.id}>
-                <TableCell>{u.name}</TableCell>
-                <TableCell>{u.email}</TableCell>
-                <TableCell>
-                  <Badge variant="gold">{ROLE_LABEL[u.role] ?? u.role}</Badge>
-                </TableCell>
-                <TableCell>{u.unit?.name ?? "—"}</TableCell>
-                <TableCell>{formatDate(u.createdAt)}</TableCell>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Usuários da plataforma</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>Perfil</TableHead>
+                <TableHead>Unidade</TableHead>
+                <TableHead>Criado em</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {users.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell>{u.name}</TableCell>
+                  <TableCell>{u.email}</TableCell>
+                  <TableCell>
+                    <Badge variant="gold">{ROLE_LABEL[u.role] ?? u.role}</Badge>
+                  </TableCell>
+                  <TableCell>{u.unit?.name ?? "—"}</TableCell>
+                  <TableCell>{formatDate(u.createdAt)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <AdminAccountsPanel accounts={adminAccounts} />
+    </div>
   );
 
   const analytical = (
