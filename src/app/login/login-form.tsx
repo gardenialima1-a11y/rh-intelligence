@@ -77,12 +77,6 @@ export function LoginForm() {
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
         Entrar
       </Button>
-
-      <div className="mt-1 rounded-lg border border-border bg-muted/60 px-3 py-2.5 text-center text-[11.5px] leading-relaxed text-muted-foreground">
-        Acesso via seed de demonstração
-        <br />
-        <span className="font-medium text-foreground/80">admin@gostomineiro.com.br</span> / <span className="font-medium text-foreground/80">senha123</span>
-      </div>
     </form>
   );
 }
