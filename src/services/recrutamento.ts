@@ -6,15 +6,19 @@ import type { ExecutiveFilters } from "@/services/dashboard-executivo";
 export async function getRecrutamentoKpis(filters: ExecutiveFilters) {
   const range = resolvePeriod(filters.period);
 
-  const candidates = await prisma.candidate.findMany({
-    where: { openedAt: { gte: range.start, lte: range.end } },
-  });
+  const [candidates, vacancies] = await Promise.all([
+    prisma.candidate.findMany({
+      where: { openedAt: { gte: range.start, lte: range.end } },
+    }),
+    prisma.vacancy.findMany({ select: { status: true, isCritical: true } }),
+  ]);
 
-  const openVacancies = new Set(
-    candidates.filter((c) => c.stage !== FunnelStage.CONTRATADO && c.stage !== FunnelStage.REPROVADO).map((c) => c.vacancy)
-  ).size;
-
-  const criticalVacancies = candidates.filter((c) => c.isCritical).length;
+  // Conta direto do cadastro de vagas (mesma fonte que a aba Operacional
+  // usa), não pelos candidatos — uma vaga "Aberta" sem candidato nenhum
+  // ainda continua sendo uma vaga aberta.
+  const openOrInProgress = vacancies.filter((v) => v.status === "ABERTA" || v.status === "EM_ANDAMENTO");
+  const openVacancies = openOrInProgress.length;
+  const criticalVacancies = openOrInProgress.filter((v) => v.isCritical).length;
 
   const hired = candidates.filter((c) => c.stage === FunnelStage.CONTRATADO && c.hiredAt);
   const avgTimeToHire =
