@@ -160,6 +160,21 @@ export function CandidateFormDialog({ vacancies, mode, candidateId, defaultValue
             </div>
           )}
 
+          {selectedStage === "CONTRATADO" && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="negotiationNotes">Observação sobre a negociação (opcional)</Label>
+              <Textarea
+                id="negotiationNotes"
+                placeholder="Ex.: salário negociado, benefícios combinados, data de início..."
+                rows={3}
+                {...register("negotiationNotes")}
+              />
+              <p className="text-xs text-warning-text">
+                Ao salvar, a vaga será fechada automaticamente como &quot;Preenchida&quot; com este candidato.
+              </p>
+            </div>
+          )}
+
           {serverError && <p className="text-sm text-danger">{serverError}</p>}
 
           <DialogFooter>
