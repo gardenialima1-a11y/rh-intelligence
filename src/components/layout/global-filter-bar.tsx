@@ -20,11 +20,16 @@ interface SectorOption {
   name: string;
 }
 
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 10 }, (_, i) => String(CURRENT_YEAR - i));
+
 const PERIOD_OPTIONS = [
   { value: "30d", label: "Últimos 30 dias" },
   { value: "90d", label: "Últimos 90 dias" },
   { value: "12m", label: "Últimos 12 meses" },
   { value: "ytd", label: "Ano corrente (YTD)" },
+  ...YEAR_OPTIONS.map((y) => ({ value: y, label: "Ano " + y })),
+  { value: "all", label: "Todos os períodos (histórico completo)" },
 ];
 
 export function GlobalFilterBar({
