@@ -36,6 +36,7 @@ interface VacancyRow {
   notes: string | null;
   position: { id: string; name: string } | null;
   unit: { id: string; name: string } | null;
+  _count: { candidates: number };
 }
 
 export function VacanciesTable({
@@ -62,6 +63,7 @@ export function VacanciesTable({
           <TableHead>Vaga</TableHead>
           <TableHead>Unidade</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead>Candidatos</TableHead>
           <TableHead>Dias em aberto</TableHead>
           <TableHead>SLA (meta)</TableHead>
           <TableHead>Crítica</TableHead>
@@ -78,6 +80,7 @@ export function VacanciesTable({
               <TableCell>
                 <Badge variant={STATUS_VARIANT[v.status]}>{STATUS_LABEL[v.status]}</Badge>
               </TableCell>
+              <TableCell className="numeric">{v._count.candidates}</TableCell>
               <TableCell className="numeric">{sla.daysElapsed}</TableCell>
               <TableCell>
                 {sla.isBreached ? (
