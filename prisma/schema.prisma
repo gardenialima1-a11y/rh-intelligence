@@ -515,6 +515,8 @@ model Vacancy {
   openedAt    DateTime      @default(now())
   closedAt    DateTime?
   notes       String?       @db.Text
+  hiredCandidateName String? @db.Text
+  negotiationNotes   String? @db.Text
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   candidates  Candidate[]
