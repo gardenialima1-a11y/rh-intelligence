@@ -15,6 +15,27 @@ async function requireRecruiterAccess() {
   }
 }
 
+/**
+ * Fecha a vaga sozinha quando um candidato é marcado como "Contratado":
+ * muda o status para Preenchida, registra a data de fechamento, o nome de
+ * quem foi contratado e a observação da negociação (se houver). Não mexe
+ * em vagas que já estejam Canceladas.
+ */
+async function closeVacancyWithHire(vacancyId: string, candidateName: string, negotiationNotes: string | null) {
+  const vacancy = await prisma.vacancy.findUnique({ where: { id: vacancyId }, select: { status: true } });
+  if (!vacancy || vacancy.status === "CANCELADA") return;
+
+  await prisma.vacancy.update({
+    where: { id: vacancyId },
+    data: {
+      status: "PREENCHIDA",
+      closedAt: new Date(),
+      hiredCandidateName: candidateName,
+      negotiationNotes: negotiationNotes || null,
+    },
+  });
+}
+
 export async function createCandidate(raw: unknown): Promise<ActionResult> {
   try {
     await requireRecruiterAccess();
@@ -37,6 +58,10 @@ export async function createCandidate(raw: unknown): Promise<ActionResult> {
         rejectionReason: data.stage === "REPROVADO" ? data.rejectionReason : null,
       },
     });
+
+    if (data.stage === "CONTRATADO") {
+      await closeVacancyWithHire(data.vacancyId, data.name, data.negotiationNotes ?? null);
+    }
 
     revalidatePath("/modulos/recrutamento");
     return { success: true };
@@ -69,6 +94,10 @@ export async function updateCandidate(candidateId: string, raw: unknown): Promis
         rejectionReason: data.stage === "REPROVADO" ? data.rejectionReason : null,
       },
     });
+
+    if (data.stage === "CONTRATADO") {
+      await closeVacancyWithHire(data.vacancyId, data.name, data.negotiationNotes ?? null);
+    }
 
     revalidatePath("/modulos/recrutamento");
     return { success: true };
