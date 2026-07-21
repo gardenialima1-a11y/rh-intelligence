@@ -1,7 +1,8 @@
-import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Minus, Info, type LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Sparkline } from "@/components/dashboard/sparkline";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 export interface KpiCardProps {
   label: string;
@@ -12,6 +13,8 @@ export interface KpiCardProps {
   deltaSentiment?: "positive" | "negative" | "neutral";
   sparklineData?: number[];
   accent?: "navy" | "gold" | "success" | "danger";
+  /** Texto explicativo mostrado ao passar o mouse sobre o ícone de informação. */
+  tooltip?: string;
 }
 
 const ACCENT_MAP = {
@@ -43,6 +46,7 @@ export function KpiCard({
   deltaSentiment = "neutral",
   sparklineData,
   accent = "navy",
+  tooltip,
 }: KpiCardProps) {
   const DeltaIcon = deltaDirection === "up" ? ArrowUpRight : deltaDirection === "down" ? ArrowDownRight : Minus;
 
@@ -57,8 +61,16 @@ export function KpiCard({
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="flex items-center gap-1 truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {label}
+              {tooltip && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 shrink-0 cursor-help opacity-70" strokeWidth={2.25} />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[240px] normal-case tracking-normal">{tooltip}</TooltipContent>
+                </Tooltip>
+              )}
             </span>
             <span className="numeric text-[26px] font-bold leading-none text-navy dark:text-cream">{value}</span>
             {deltaLabel && (
