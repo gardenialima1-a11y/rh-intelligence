@@ -1,4 +1,4 @@
-export type PeriodKey = "30d" | "90d" | "12m" | "ytd";
+export type PeriodKey = "30d" | "90d" | "12m" | "ytd" | "all" | string;
 
 export interface DateRange {
   start: Date;
@@ -6,10 +6,21 @@ export interface DateRange {
   months: number;
 }
 
+/** Primeiro ano com dados no sistema — usado como início do período "Todos". */
+const EARLIEST_DATA_YEAR = 2000;
+
 export function resolvePeriod(period: string | undefined): DateRange {
   const end = new Date();
   end.setHours(23, 59, 59, 999);
   const start = new Date(end);
+
+  // Ano específico: período recebido é só um número de 4 dígitos, ex. "2024".
+  if (period && /^\d{4}$/.test(period)) {
+    const year = Number(period);
+    const yearStart = new Date(year, 0, 1, 0, 0, 0, 0);
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
+    return { start: yearStart, end: yearEnd, months: 12 };
+  }
 
   switch (period) {
     case "30d":
@@ -22,6 +33,11 @@ export function resolvePeriod(period: string | undefined): DateRange {
       start.setMonth(0, 1);
       start.setHours(0, 0, 0, 0);
       return { start, end, months: end.getMonth() + 1 };
+    case "all": {
+      const allStart = new Date(EARLIEST_DATA_YEAR, 0, 1, 0, 0, 0, 0);
+      const months = (end.getFullYear() - EARLIEST_DATA_YEAR) * 12 + end.getMonth() + 1;
+      return { start: allStart, end, months };
+    }
     case "12m":
     default:
       start.setMonth(start.getMonth() - 12);
