@@ -85,7 +85,7 @@ export async function deleteVacancy(vacancyId: string): Promise<ActionResult> {
 
 export async function getVacancies() {
   return prisma.vacancy.findMany({
-    include: { position: true, unit: true },
+    include: { position: true, unit: true, _count: { select: { candidates: true } } },
     orderBy: [{ status: "asc" }, { openedAt: "desc" }],
   });
 }
