@@ -17,6 +17,7 @@ export const candidateFormSchema = z
     source: z.string().trim().min(2, "Informe a origem (Ex.: LinkedIn, Indicação)"),
     stage: z.enum(FUNNEL_STAGE_OPTIONS),
     rejectionReason: z.string().trim().max(500).optional().nullable(),
+    negotiationNotes: z.string().trim().max(1000).optional().nullable(),
   })
   .refine((data) => data.stage !== "REPROVADO" || (data.rejectionReason?.trim().length ?? 0) >= 3, {
     message: "Descreva o motivo da reprovação",
