@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatPercent, formatCurrency, formatDate } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { TableCardHeader } from "@/components/dashboard/table-card-header";
+import { TerminationHistoryImportDialog } from "@/components/admin/termination-history-import-dialog";
 import { getDesligamentosKpis, getDesligamentosByManager, getDesligamentosTable } from "@/services/desligamentos";
 
 export default async function DesligamentosPage({
@@ -60,7 +61,11 @@ export default async function DesligamentosPage({
   );
 
   const operational = (
-    <Card>
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <TerminationHistoryImportDialog />
+      </div>
+      <Card>
       <TableCardHeader
         title="Desligamentos no período"
         filename="desligamentos"
@@ -113,7 +118,8 @@ export default async function DesligamentosPage({
           </TableBody>
         </Table>
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 
   const analytical = (
