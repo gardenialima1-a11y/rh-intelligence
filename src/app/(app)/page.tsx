@@ -86,11 +86,12 @@ export default async function HomePage({
           accent="success"
         />
         <KpiCard
-          label="Vagas críticas"
+          label="Vagas em aberto"
           value={formatNumber(narrative.vacancies)}
           icon={Target}
           deltaDirection="flat"
           accent="gold"
+          tooltip="Vagas com status Aberta ou Em andamento, contadas direto do cadastro de vagas do módulo de Recrutamento."
         />
         <KpiCard
           label="Custo de pessoal"
@@ -99,6 +100,7 @@ export default async function HomePage({
           deltaLabel={cost.ratio ? `${formatPercent(cost.ratio)} da receita` : "sem receita cadastrada"}
           deltaDirection="flat"
           accent="navy"
+          tooltip="Soma dos lançamentos de folha (Salário Base + Benefícios + Encargos) de cada colaborador ativo no período selecionado. É gerado automaticamente ao cadastrar/importar um colaborador com salário informado."
         />
       </div>
 
@@ -113,6 +115,7 @@ export default async function HomePage({
             value={hcEfficiency.hcroiApprox !== null ? hcEfficiency.hcroiApprox.toFixed(2) : "—"}
             icon={TrendingUp}
             accent={hcEfficiency.hcroiApprox !== null && hcEfficiency.hcroiApprox > 1 ? "success" : "gold"}
+            tooltip="Human Capital ROI: quanto a empresa ganha em receita para cada R$1 investido em pessoal. Fórmula aproximada: (Receita - Custo de Pessoal) / Custo de Pessoal. Ex.: 1,00 significa que cada R$1 gasto com pessoal retornou R$1 de lucro além do próprio custo."
           />
           <KpiCard label="Colaboradores em risco alto" value={formatNumber(flightRisk.highRiskCount)} icon={ShieldAlert} accent="danger" />
           <KpiCard label="Sinalizados pelo Flight Risk" value={formatNumber(flightRisk.totalFlagged)} icon={AlertTriangle} accent="gold" />
