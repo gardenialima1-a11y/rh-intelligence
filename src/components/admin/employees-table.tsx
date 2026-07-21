@@ -98,8 +98,11 @@ export function EmployeesTable({
   const [search, setSearch] = React.useState("");
   const [setorFilter, setSetorFilter] = React.useState(ALL);
   const [setorSecundarioFilter, setSetorSecundarioFilter] = React.useState(ALL);
+  const [statusFilter, setStatusFilter] = React.useState<"ATIVOS" | "DESLIGADOS" | "TODOS">("ATIVOS");
 
   const filtered = employees.filter((e) => {
+    if (statusFilter === "ATIVOS" && !e.isActive) return false;
+    if (statusFilter === "DESLIGADOS" && e.isActive) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       const matches = e.name.toLowerCase().includes(q) || e.registration.toLowerCase().includes(q) || (e.position?.name.toLowerCase().includes(q) ?? false);
@@ -117,6 +120,14 @@ export function EmployeesTable({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Buscar por nome, matrícula ou cargo..." className="pl-8" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "ATIVOS" | "DESLIGADOS" | "TODOS")}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ATIVOS">Ativos</SelectItem>
+            <SelectItem value="DESLIGADOS">Desligados/histórico</SelectItem>
+            <SelectItem value="TODOS">Todos</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={setorFilter} onValueChange={setSetorFilter}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="Setor principal" /></SelectTrigger>
           <SelectContent>
