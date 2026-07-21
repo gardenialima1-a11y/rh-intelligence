@@ -13,7 +13,8 @@ import { AtestadosTable } from "@/components/admin/atestados-table";
 import { AtestadosRankingTable } from "@/components/dashboard/atestados-ranking-table";
 import { getCertificatedAbsences, getAtestadosRanking } from "@/actions/absences";
 import { prisma } from "@/lib/prisma";
-import { getSstKpis, getIncidentsTable, getIncidentsByType } from "@/services/sst";
+import { getSstKpis, getIncidentsTable, getIncidentsByType, getAbsenteeismInsights } from "@/services/sst";
+import { AbsenteeismInsightsCard } from "@/components/dashboard/absenteeism-insights-card";
 
 export default async function SstPage({
   searchParams,
@@ -23,7 +24,7 @@ export default async function SstPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byType, table, atestados, employees, reasons, atestadosRanking] = await Promise.all([
+  const [kpis, byType, table, atestados, employees, reasons, atestadosRanking, absenteeismInsights] = await Promise.all([
     getSstKpis(filters),
     getIncidentsByType(filters),
     getIncidentsTable(filters),
@@ -31,6 +32,7 @@ export default async function SstPage({
     prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.reason.findMany({ where: { category: "AFASTAMENTO" }, select: { id: true, label: true }, orderBy: { label: "asc" } }),
     getAtestadosRanking(),
+    getAbsenteeismInsights(filters),
   ]);
 
   const executive = (
@@ -49,6 +51,7 @@ export default async function SstPage({
           {byType.length > 0 ? <RankingBarChart data={byType} /> : <p className="text-sm text-muted-foreground">Sem ocorrências no período.</p>}
         </CardContent>
       </Card>
+      <AbsenteeismInsightsCard {...absenteeismInsights} />
     </div>
   );
 
