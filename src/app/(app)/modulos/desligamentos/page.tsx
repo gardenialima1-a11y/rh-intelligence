@@ -12,7 +12,7 @@ import { formatNumber, formatPercent, formatCurrency, formatDate } from "@/lib/u
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { TableCardHeader } from "@/components/dashboard/table-card-header";
 import { TerminationHistoryImportDialog } from "@/components/admin/termination-history-import-dialog";
-import { getDesligamentosKpis, getDesligamentosByManager, getDesligamentosTable } from "@/services/desligamentos";
+import { getDesligamentosKpis, getDesligamentosByManager, getDesligamentosTable, getDesligamentosYearlyComparison, getDesligamentosMonthlyMatrix } from "@/services/desligamentos";
 
 export default async function DesligamentosPage({
   searchParams,
@@ -22,11 +22,15 @@ export default async function DesligamentosPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byManager, table] = await Promise.all([
+  const [kpis, byManager, table, yearlyComparison] = await Promise.all([
     getDesligamentosKpis(filters),
     getDesligamentosByManager(filters),
     getDesligamentosTable(filters),
+    getDesligamentosYearlyComparison(filters),
   ]);
+
+  const comparisonYears = yearlyComparison.map((y) => y.year).slice(-6);
+  const monthlyMatrix = comparisonYears.length > 0 ? await getDesligamentosMonthlyMatrix(filters, comparisonYears) : [];
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
 
@@ -50,14 +54,87 @@ export default async function DesligamentosPage({
   );
 
   const managerial = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Desligamentos por gestor</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {byManager.length > 0 ? <RankingBarChart data={byManager} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem desligamentos no período.</p>}
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Desligamentos por ano — comparação histórica</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {yearlyComparison.length > 0 ? (
+            <RankingBarChart data={yearlyComparison.map((y) => ({ name: String(y.year), value: y.total }))} color="#B23A48" />
+          ) : (
+            <p className="text-sm text-muted-foreground">Sem histórico suficiente ainda.</p>
+          )}
+          {yearlyComparison.length > 0 && (
+            <Table className="mt-4">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ano</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Voluntário</TableHead>
+                  <TableHead>Involuntário</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {yearlyComparison.map((y) => (
+                  <TableRow key={y.year}>
+                    <TableCell>{y.year}</TableCell>
+                    <TableCell>{y.total}</TableCell>
+                    <TableCell>{y.voluntary}</TableCell>
+                    <TableCell>{y.involuntary}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Sazonalidade — mês a mês, ano a ano</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {monthlyMatrix.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sem histórico suficiente ainda.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Mês</TableHead>
+                  {comparisonYears.map((y) => (
+                    <TableHead key={y}>{y}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {monthlyMatrix.map((row) => (
+                  <TableRow key={row.month}>
+                    <TableCell>{row.month}</TableCell>
+                    {row.values.map((v, i) => (
+                      <TableCell key={i}>{v}</TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Mostra os {comparisonYears.length} ano(s) mais recentes com dados. O filtro de período lá em cima não
+            afeta essas duas comparações — elas sempre olham o histórico completo (só respeitam o filtro de unidade).
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Desligamentos por gestor</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {byManager.length > 0 ? <RankingBarChart data={byManager} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem desligamentos no período.</p>}
+        </CardContent>
+      </Card>
+    </div>
   );
 
   const operational = (
