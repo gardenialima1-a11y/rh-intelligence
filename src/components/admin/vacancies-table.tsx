@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, FileBarChart } from "lucide-react";
 import { VacancyFormDialog } from "@/components/admin/vacancy-form-dialog";
 import { deleteVacancy } from "@/actions/vacancies";
 import { calculateVacancySla } from "@/lib/analytics/vacancy-sla";
@@ -114,6 +114,9 @@ export function VacanciesTable({
                   <Button variant="outline" size="sm" onClick={() => handleDelete(v.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
+                  <a href={"/relatorios/vaga/" + v.id} target="_blank" rel="noopener noreferrer" title="Emitir relatorio da vaga" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-gold hover:text-gold-text">
+                    <FileBarChart className="h-3.5 w-3.5" />
+                  </a>
                 </div>
               </TableCell>
             </TableRow>
