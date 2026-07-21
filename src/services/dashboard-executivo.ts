@@ -111,6 +111,8 @@ export async function getAbsenteeismKpi(filters: ExecutiveFilters) {
   return { current, previous, delta: percentDelta(current, previous) };
 }
 
+const ENPS_DIMENSION = "Recomendaria a Empresa (eNPS)";
+
 export async function getEnpsKpi() {
   const latest = await prisma.climateSurveyResponse.findFirst({
     orderBy: { createdAt: "desc" },
@@ -118,17 +120,24 @@ export async function getEnpsKpi() {
   });
   if (!latest) return { current: 0, cycle: null as string | null };
 
+  // Importante: a pesquisa de clima tem várias dimensões (Liderança,
+  // Reconhecimento, Comunicação, etc.). O eNPS deve considerar apenas as
+  // respostas da pergunta específica "Recomendaria a Empresa (eNPS)" — do
+  // contrário, notas de outras dimensões são contadas como se fossem
+  // promotoras/detratoras do eNPS, distorcendo o resultado para baixo.
+  // Este filtro replica a mesma lógica usada em src/services/clima.ts,
+  // que é a fonte dos relatórios PCO 2026.
   const responses = await prisma.climateSurveyResponse.findMany({
-    where: { cycle: latest.cycle },
+    where: { cycle: latest.cycle, dimension: ENPS_DIMENSION },
     select: { score: true },
   });
 
   const total = responses.length || 1;
   const promoters = responses.filter((r) => r.score >= 9).length;
   const detractors = responses.filter((r) => r.score <= 6).length;
-  const enps = ((promoters - detractors) / total) * 100;
+  const enps = responses.length > 0 ? ((promoters - detractors) / total) * 100 : 0;
 
-  return { current: enps, cycle: latest.cycle };
+  return { current: Math.round(enps * 10) / 10, cycle: latest.cycle };
 }
 
 export async function getCriticalVacancies() {
