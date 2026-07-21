@@ -65,6 +65,70 @@ export async function getDesligamentosByManager(filters: ExecutiveFilters) {
     .sort((a, b) => b.value - a.value);
 }
 
+export interface YearlyComparisonRow {
+  year: number;
+  total: number;
+  voluntary: number;
+  involuntary: number;
+}
+
+/**
+ * Desligamentos por ano (histórico completo, não limitado pelo filtro de
+ * período do topo — é justamente pra comparar anos diferentes). Só
+ * respeita o filtro de unidade.
+ */
+export async function getDesligamentosYearlyComparison(filters: ExecutiveFilters): Promise<YearlyComparisonRow[]> {
+  const movements = await prisma.movement.findMany({
+    where: {
+      type: MovementType.DESLIGAMENTO,
+      ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
+    },
+    select: { date: true, voluntary: true },
+  });
+
+  const byYear = new Map<number, YearlyComparisonRow>();
+  for (const m of movements) {
+    const year = m.date.getFullYear();
+    const row = byYear.get(year) ?? { year, total: 0, voluntary: 0, involuntary: 0 };
+    row.total += 1;
+    if (m.voluntary === true) row.voluntary += 1;
+    else if (m.voluntary === false) row.involuntary += 1;
+    byYear.set(year, row);
+  }
+
+  return Array.from(byYear.values()).sort((a, b) => a.year - b.year);
+}
+
+/**
+ * Matriz mês (linha) x ano (coluna) de quantidade de desligamentos — pra
+ * comparar sazonalidade entre anos (ex.: "janeiro sempre tem pico?").
+ */
+export async function getDesligamentosMonthlyMatrix(filters: ExecutiveFilters, years: number[]) {
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
+
+  const movements = await prisma.movement.findMany({
+    where: {
+      type: MovementType.DESLIGAMENTO,
+      date: { gte: new Date(minYear, 0, 1), lte: new Date(maxYear, 11, 31, 23, 59, 59) },
+      ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
+    },
+    select: { date: true },
+  });
+
+  const counts = new Map<string, number>(); // "year-month" -> count
+  for (const m of movements) {
+    const key = m.date.getFullYear() + "-" + m.date.getMonth();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  return monthNames.map((label, monthIdx) => ({
+    month: label,
+    values: years.map((year) => counts.get(year + "-" + monthIdx) ?? 0),
+  }));
+}
+
 export async function getDesligamentosTable(filters: ExecutiveFilters) {
   const range = resolvePeriod(filters.period);
   return prisma.movement.findMany({
