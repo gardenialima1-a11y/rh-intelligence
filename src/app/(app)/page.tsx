@@ -47,7 +47,7 @@ export default async function HomePage({
 
       <NarrativeCard text={narrative.headline} />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <KpiCard
           label="Headcount ativo"
           value={formatNumber(narrative.headcount.current)}
