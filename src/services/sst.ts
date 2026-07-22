@@ -19,7 +19,6 @@ export async function getSstKpis(filters: ExecutiveFilters) {
     where: { isActive: true, ...(filters.unitId ? { unitId: filters.unitId } : {}) },
   });
 
-  // taxas ilustrativas por milhão de horas trabalhadas (HHT estimado)
   const estimatedHHT = activeEmployees * 8 * 22 * (range.months || 1);
   const frequencyRate = estimatedHHT > 0 ? (accidents.length * 1_000_000) / estimatedHHT : 0;
   const severityRate = estimatedHHT > 0 ? (totalDaysLost * 1_000_000) / estimatedHHT : 0;
@@ -62,10 +61,10 @@ export async function getIncidentsByType(filters: ExecutiveFilters) {
 }
 
 /**
- * Analytics real de absenteísmo (SST): maiores ausentes, motivos e
- * sazonalidade. Tudo calculado ao vivo a partir da tabela Absence — conforme
- * novos atestados/ausências são cadastrados, esses três gráficos mudam
- * automaticamente, sem qualquer valor fixo.
+ * Analytics real de absenteísmo (SST): maiores ausentes, setor principal,
+ * setor secundário, motivos e sazonalidade. Tudo calculado ao vivo a partir
+ * da tabela Absence — conforme novos atestados/ausências são cadastrados,
+ * esses gráficos mudam automaticamente, sem qualquer valor fixo.
  */
 export async function getAbsenteeismInsights(filters: ExecutiveFilters) {
   const range = resolvePeriod(filters.period);
@@ -79,12 +78,17 @@ export async function getAbsenteeismInsights(filters: ExecutiveFilters) {
     select: {
       date: true,
       hoursLost: true,
-      employee: { select: { name: true } },
+      employee: {
+        select: {
+          name: true,
+          costCenter: { select: { name: true } },
+          secondaryCostCenter: { select: { name: true } },
+        },
+      },
       reason: { select: { label: true } },
     },
   });
 
-  // Maiores ausentes: ranking por horas perdidas (empate resolvido por nº de ocorrências).
   const byEmployee = new Map<string, { name: string; occurrences: number; hoursLost: number }>();
   for (const a of absences) {
     const name = a.employee?.name ?? "Sem colaborador";
@@ -98,7 +102,25 @@ export async function getAbsenteeismInsights(filters: ExecutiveFilters) {
     .slice(0, 10)
     .map((e) => ({ name: e.name, value: Number(e.hoursLost.toFixed(1)), occurrences: e.occurrences }));
 
-  // Motivos: soma de horas perdidas por motivo cadastrado (Reason).
+  const byPrimarySector = new Map<string, number>();
+  for (const a of absences) {
+    const label = a.employee?.costCenter?.name ?? "Sem setor principal";
+    byPrimarySector.set(label, (byPrimarySector.get(label) ?? 0) + a.hoursLost);
+  }
+  const primarySectors = Array.from(byPrimarySector.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, value]) => ({ name, value: Number(value.toFixed(1)) }));
+
+  const bySecondarySector = new Map<string, number>();
+  for (const a of absences) {
+    if (!a.employee?.secondaryCostCenter) continue;
+    const label = a.employee.secondaryCostCenter.name;
+    bySecondarySector.set(label, (bySecondarySector.get(label) ?? 0) + a.hoursLost);
+  }
+  const secondarySectors = Array.from(bySecondarySector.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, value]) => ({ name, value: Number(value.toFixed(1)) }));
+
   const byReason = new Map<string, number>();
   for (const a of absences) {
     const label = a.reason?.label ?? "Sem motivo informado";
@@ -108,7 +130,6 @@ export async function getAbsenteeismInsights(filters: ExecutiveFilters) {
     .sort((a, b) => b[1] - a[1])
     .map(([name, value]) => ({ name, value: Number(value.toFixed(1)) }));
 
-  // Sazonalidade: últimos 12 meses, horas perdidas e nº de ausências por mês.
   const months = lastNMonthsKeys(12);
   const seasonalityAbsences = await prisma.absence.findMany({
     where: {
@@ -133,5 +154,5 @@ export async function getAbsenteeismInsights(filters: ExecutiveFilters) {
     occurrences: seasonalityMap.get(key)?.occurrences ?? 0,
   }));
 
-  return { topAbsentees, reasons, seasonality, totalOccurrences: absences.length };
+  return { topAbsentees, primarySectors, secondarySectors, reasons, seasonality, totalOccurrences: absences.length };
 }
