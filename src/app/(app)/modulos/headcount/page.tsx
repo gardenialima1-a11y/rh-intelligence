@@ -14,7 +14,7 @@ import { formatNumber, formatPercent, formatDate } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { nextMonthLabelsPtBR } from "@/services/forecast";
 import { TableCardHeader } from "@/components/dashboard/table-card-header";
-import { IdealVsRealTable } from "@/components/dashboard/ideal-vs-real-table";
+import { IdealVsRealAreaCards } from "@/components/dashboard/ideal-vs-real-area-cards";
 import {
   getHeadcountKpis,
   getIdealVsRealHeadcount,
@@ -76,10 +76,14 @@ export default async function HeadcountPage({
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>Quadro Ideal x Real — por setor secundário</CardTitle>
+          <CardTitle>Quadro Ideal x Real — por área</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Soma de todos os setores de cada área. Clique num card para ver e ajustar o quadro ideal setor por
+            setor.
+          </p>
         </CardHeader>
         <CardContent>
-          <IdealVsRealTable rows={idealVsReal} />
+          <IdealVsRealAreaCards areas={idealVsReal} />
         </CardContent>
       </Card>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
