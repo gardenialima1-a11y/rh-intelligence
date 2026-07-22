@@ -102,13 +102,24 @@ export async function getHeadcountBySecondaryCostCenter(unitId?: string) {
 export async function getIdealVsRealHeadcount() {
   const presentFilter = activePresentEmployeeWhere();
   const costCenters = await prisma.costCenter.findMany({
-    where: { OR: [{ targetHeadcount: { not: null } }, { secondaryEmployees: { some: { isActive: true } } }] },
+    where: {
+      OR: [
+        { targetHeadcount: { not: null } },
+        { secondaryEmployees: { some: { isActive: true } } },
+        { employees: { some: { isActive: true } } },
+      ],
+    },
     select: {
       id: true,
       name: true,
       area: true,
       targetHeadcount: true,
-      _count: { select: { secondaryEmployees: { where: presentFilter } } },
+      _count: {
+        select: {
+          secondaryEmployees: { where: presentFilter },
+          employees: { where: presentFilter },
+        },
+      },
     },
   });
 
@@ -118,8 +129,10 @@ export async function getIdealVsRealHeadcount() {
       name: c.name,
       area: c.area,
       ideal: c.targetHeadcount,
-      real: c._count.secondaryEmployees,
-      diff: c.targetHeadcount !== null ? c._count.secondaryEmployees - c.targetHeadcount : null,
+      realPrimary: c._count.employees,
+      diffPrimary: c.targetHeadcount !== null ? c._count.employees - c.targetHeadcount : null,
+      realSecondary: c._count.secondaryEmployees,
+      diffSecondary: c.targetHeadcount !== null ? c._count.secondaryEmployees - c.targetHeadcount : null,
     }))
     .sort((a, b) => (b.ideal ?? 0) - (a.ideal ?? 0));
 }
