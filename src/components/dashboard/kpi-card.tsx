@@ -61,18 +61,18 @@ export function KpiCard({
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <span className="flex items-center gap-1 truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {label}
+            <span className="flex items-start gap-1 text-[11px] font-semibold uppercase leading-snug tracking-wide text-muted-foreground">
+              <span className="min-w-0 break-words">{label}</span>
               {tooltip && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 shrink-0 cursor-help opacity-70" strokeWidth={2.25} />
+                    <Info className="mt-0.5 h-3 w-3 shrink-0 cursor-help opacity-70" strokeWidth={2.25} />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-[240px] normal-case tracking-normal">{tooltip}</TooltipContent>
                 </Tooltip>
               )}
             </span>
-            <span className="numeric text-[26px] font-bold leading-none text-navy dark:text-cream">{value}</span>
+            <span className="numeric break-words text-[24px] font-bold leading-tight text-navy dark:text-cream">{value}</span>
             {deltaLabel && (
               <span
                 className={cn(
