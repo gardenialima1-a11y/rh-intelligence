@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPercent, formatNumber, formatCurrency } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { getFlightRiskSummary } from "@/services/people-analytics";
+import { getTodaysCelebrations } from "@/services/aniversariantes";
+import { TodaysCelebrationsCard } from "@/components/dashboard/todays-celebrations-card";
 import {
   getExecutiveNarrative,
   getActiveAlerts,
@@ -25,13 +27,14 @@ export default async function HomePage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [narrative, alerts, headcountByUnit, cost, hcEfficiency, flightRisk] = await Promise.all([
+  const [narrative, alerts, headcountByUnit, cost, hcEfficiency, flightRisk, celebrations] = await Promise.all([
     getExecutiveNarrative(filters),
     getActiveAlerts(),
     getHeadcountByUnit(),
     getPeopleCostKpi(filters),
     getHumanCapitalEfficiency(filters),
     getFlightRiskSummary(filters),
+    getTodaysCelebrations(),
   ]);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
@@ -132,7 +135,10 @@ export default async function HomePage({
           </CardContent>
         </Card>
 
-        <AlertsPanel alerts={alerts} />
+        <div className="flex flex-col gap-4">
+          <AlertsPanel alerts={alerts} />
+          <TodaysCelebrationsCard birthdays={celebrations.birthdays} workAnniversaries={celebrations.workAnniversaries} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
