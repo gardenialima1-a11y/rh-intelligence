@@ -16,8 +16,17 @@ interface IdealVsRealRow {
   name: string;
   area: string;
   ideal: number | null;
-  real: number;
-  diff: number | null;
+  realPrimary: number;
+  diffPrimary: number | null;
+  realSecondary: number;
+  diffSecondary: number | null;
+}
+
+function DiffBadge({ diff }: { diff: number | null }) {
+  if (diff === null) return <span className="text-muted-foreground">—</span>;
+  if (diff === 0) return <Badge variant="success">Completo</Badge>;
+  if (diff > 0) return <Badge variant="gold">+{diff}</Badge>;
+  return <Badge variant="danger">{diff} (faltam {Math.abs(diff)})</Badge>;
 }
 
 function EditableIdeal({ costCenterId, initialValue }: { costCenterId: string; initialValue: number | null }) {
@@ -95,11 +104,13 @@ export function IdealVsRealTable({ rows }: { rows: IdealVsRealRow[] }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Setor principal</TableHead>
-            <TableHead>Setor (secundário)</TableHead>
+            <TableHead>Área</TableHead>
+            <TableHead>Setor</TableHead>
             <TableHead>Quadro ideal</TableHead>
-            <TableHead>Quadro real</TableHead>
-            <TableHead>Diferença</TableHead>
+            <TableHead>Real (setor principal)</TableHead>
+            <TableHead>Diferença (principal)</TableHead>
+            <TableHead>Real (setor secundário)</TableHead>
+            <TableHead>Diferença (secundário)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -112,17 +123,13 @@ export function IdealVsRealTable({ rows }: { rows: IdealVsRealRow[] }) {
               <TableCell>
                 <EditableIdeal costCenterId={r.id} initialValue={r.ideal} />
               </TableCell>
-              <TableCell>{r.real}</TableCell>
+              <TableCell className="font-semibold">{r.realPrimary}</TableCell>
               <TableCell>
-                {r.diff === null ? (
-                  "—"
-                ) : r.diff === 0 ? (
-                  <Badge variant="success">Completo</Badge>
-                ) : r.diff > 0 ? (
-                  <Badge variant="gold">+{r.diff} acima</Badge>
-                ) : (
-                  <Badge variant="danger">{r.diff} (faltam {Math.abs(r.diff)})</Badge>
-                )}
+                <DiffBadge diff={r.diffPrimary} />
+              </TableCell>
+              <TableCell className="font-semibold">{r.realSecondary}</TableCell>
+              <TableCell>
+                <DiffBadge diff={r.diffSecondary} />
               </TableCell>
             </TableRow>
           ))}
