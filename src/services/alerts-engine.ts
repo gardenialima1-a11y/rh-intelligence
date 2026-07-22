@@ -13,18 +13,6 @@ interface Signal {
   severity: Severity;
 }
 
-/**
- * Motor de alertas real. Todo alerta aqui é calculado a partir de dados
- * efetivamente cadastrados no sistema (metas da tabela Goal comparadas com
- * os indicadores reais, vagas em atraso, treinamentos a vencer, risco de
- * saída). Nada é texto fixo — se a condição não existir nos dados, o
- * alerta simplesmente não aparece.
- *
- * Como funciona a comparação com metas: usamos a mesma tabela `Goal` que já
- * alimenta a aba "Metas por indicador" em Administração. Se o valor real do
- * indicador viola a meta cadastrada, geramos um alerta; se está dentro da
- * meta, não gera nada.
- */
 async function evaluateGoalSignals(): Promise<Signal[]> {
   const year = new Date().getFullYear();
   const goals = await prisma.goal.findMany({ where: { periodYear: year } });
@@ -52,7 +40,6 @@ async function evaluateGoalSignals(): Promise<Signal[]> {
 
     if (!violated) return;
 
-    // Quanto mais longe da meta, mais severo (regra simples: >20% de desvio = crítico).
     const deviation = goal.targetValue !== 0 ? Math.abs(currentValue - goal.targetValue) / Math.abs(goal.targetValue) : 1;
     const severity = deviation > 0.2 ? Severity.CRITICO : Severity.ATENCAO;
 
@@ -90,7 +77,6 @@ async function evaluateGoalSignals(): Promise<Signal[]> {
   return signals;
 }
 
-/** Vagas abertas há mais tempo do que o prazo (targetDays) cadastrado na própria vaga. */
 async function evaluateVacancySignals(): Promise<Signal[]> {
   const openVacancies = await prisma.vacancy.findMany({
     where: { status: { in: [VacancyStatus.ABERTA, VacancyStatus.EM_ANDAMENTO] } },
@@ -119,7 +105,6 @@ async function evaluateVacancySignals(): Promise<Signal[]> {
   ];
 }
 
-/** Treinamentos obrigatórios (ex.: NRs) com vencimento nos próximos 30 dias. */
 async function evaluateTrainingSignals(): Promise<Signal[]> {
   const now = new Date();
   const in30Days = new Date(now.getTime() + 30 * 86_400_000);
@@ -141,7 +126,6 @@ async function evaluateTrainingSignals(): Promise<Signal[]> {
   ];
 }
 
-/** Colaboradores sinalizados com risco alto de saída pelo modelo de Flight Risk. */
 async function evaluateFlightRiskSignals(): Promise<Signal[]> {
   const { highRiskCount, totalFlagged } = await getFlightRiskSummary({});
   if (highRiskCount === 0) return [];
@@ -156,21 +140,66 @@ async function evaluateFlightRiskSignals(): Promise<Signal[]> {
   ];
 }
 
-/**
- * Roda todas as avaliações reais e sincroniza a tabela Alert:
- * - resolve (isActive=false) qualquer alerta ativo cuja condição não é mais verdadeira;
- * - cria alertas novos para condições reais que ainda não têm alerta ativo correspondente.
- * Não cria duplicados: usa moduleKey+title como assinatura da condição.
- */
+/** Colaboradores com 3 ou mais atestados médicos nos últimos 30 dias — padrão que vale investigar. */
+async function evaluateAtestadosSignals(): Promise<Signal[]> {
+  const since = new Date(Date.now() - 30 * 86_400_000);
+  const absences = await prisma.absence.findMany({
+    where: { date: { gte: since }, hasCertificate: true },
+    select: { employeeId: true, employee: { select: { name: true } } },
+  });
+
+  const byEmployee = new Map<string, { name: string; count: number }>();
+  for (const a of absences) {
+    const cur = byEmployee.get(a.employeeId) ?? { name: a.employee.name, count: 0 };
+    cur.count += 1;
+    byEmployee.set(a.employeeId, cur);
+  }
+  const frequent = Array.from(byEmployee.values()).filter((e) => e.count >= 3);
+  if (frequent.length === 0) return [];
+
+  return [
+    {
+      moduleKey: "sst",
+      title: "Colaboradores com atestados frequentes",
+      description: `${frequent.length} colaborador(es) tiveram 3 ou mais atestados nos últimos 30 dias (ex.: ${frequent
+        .slice(0, 3)
+        .map((e) => e.name)
+        .join(", ")}${frequent.length > 3 ? "..." : ""}). Vale uma conversa de acompanhamento.`,
+      severity: frequent.length >= 3 ? Severity.CRITICO : Severity.ATENCAO,
+    },
+  ];
+}
+
+/** Advertências disciplinares registradas nos últimos 30 dias. */
+async function evaluateComplianceSignals(): Promise<Signal[]> {
+  const since = new Date(Date.now() - 30 * 86_400_000);
+  const events = await prisma.complianceEvent.findMany({
+    where: { date: { gte: since }, type: "ADVERTENCIA" },
+    select: { id: true },
+  });
+  if (events.length === 0) return [];
+
+  return [
+    {
+      moduleKey: "compliance",
+      title: "Advertências registradas no último mês",
+      description: `${events.length} advertência(s) registrada(s) nos últimos 30 dias.`,
+      severity: events.length >= 5 ? Severity.CRITICO : Severity.ATENCAO,
+    },
+  ];
+}
+
 export async function syncAlerts(): Promise<void> {
-  const [goalSignals, vacancySignals, trainingSignals, flightRiskSignals] = await Promise.all([
+  const [goalSignals, vacancySignals, trainingSignals, flightRiskSignals, atestadosSignals, complianceSignals] = await Promise.all([
     evaluateGoalSignals(),
     evaluateVacancySignals(),
     evaluateTrainingSignals(),
     evaluateFlightRiskSignals(),
+    evaluateAtestadosSignals(),
+    evaluateComplianceSignals(),
   ]);
 
-  const signals = [...goalSignals, ...vacancySignals, ...trainingSignals, ...flightRiskSignals];
+  const signals = [...goalSignals, ...vacancySignals, ...trainingSignals, ...flightRiskSignals, ...atestadosSignals, ...complianceSignals];
   const signalKeys = new Set(signals.map((s) => `${s.moduleKey}::${s.title}`));
 
   const activeAlerts = await prisma.alert.findMany({ where: { isActive: true } });
@@ -195,8 +224,6 @@ export async function syncAlerts(): Promise<void> {
       })),
     });
   } else {
-    // Mesmo sem criar, atualiza a descrição/severidade dos alertas já ativos
-    // para refletir o valor mais recente (ex.: "está em 4,1%" vira "está em 4,6%").
     for (const s of signals) {
       const existing = activeAlerts.find((a) => a.moduleKey === s.moduleKey && a.title === s.title);
       if (existing && (existing.description !== s.description || existing.severity !== s.severity)) {
