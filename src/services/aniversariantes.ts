@@ -49,6 +49,68 @@ export async function getBirthdaysThisMonth(month?: number): Promise<Aniversaria
     .sort((a, b) => a.day - b.day);
 }
 
+export interface TodayCelebration {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  position: string | null;
+  unit: string;
+  years: number;
+}
+
+/**
+ * Aniversariantes de HOJE (data de nascimento e tempo de empresa). Como é
+ * uma consulta ao vivo filtrada pelo dia/mês atuais, ela muda sozinha todo
+ * dia — não precisa de nenhuma rotina agendada.
+ */
+export async function getTodaysCelebrations(): Promise<{ birthdays: TodayCelebration[]; workAnniversaries: TodayCelebration[] }> {
+  const now = new Date();
+  const day = now.getDate();
+  const month = now.getMonth();
+
+  const employees = await prisma.employee.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      photoUrl: true,
+      birthDate: true,
+      admissionDate: true,
+      position: { select: { name: true } },
+      unit: { select: { name: true } },
+    },
+  });
+
+  const birthdays = employees
+    .filter((e) => e.birthDate && e.birthDate.getDate() === day && e.birthDate.getMonth() === month)
+    .map((e) => ({
+      id: e.id,
+      name: e.name,
+      photoUrl: e.photoUrl,
+      position: e.position?.name ?? null,
+      unit: e.unit.name,
+      years: now.getFullYear() - e.birthDate!.getFullYear(),
+    }));
+
+  const workAnniversaries = employees
+    .filter(
+      (e) =>
+        e.admissionDate.getDate() === day &&
+        e.admissionDate.getMonth() === month &&
+        e.admissionDate.getFullYear() < now.getFullYear()
+    )
+    .map((e) => ({
+      id: e.id,
+      name: e.name,
+      photoUrl: e.photoUrl,
+      position: e.position?.name ?? null,
+      unit: e.unit.name,
+      years: now.getFullYear() - e.admissionDate.getFullYear(),
+    }));
+
+  return { birthdays, workAnniversaries };
+}
+
 export async function getWorkAnniversariesThisMonth(month?: number): Promise<AniversarianteRow[]> {
   const targetMonth = month ?? new Date().getMonth();
   const employees = await fetchActiveWithDates();
