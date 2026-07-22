@@ -99,42 +99,64 @@ export async function getHeadcountBySecondaryCostCenter(unitId?: string) {
     .sort((a, b) => b.headcount - a.headcount);
 }
 
-export async function getIdealVsRealHeadcount() {
+export interface IdealVsRealSector {
+  id: string;
+  name: string;
+  ideal: number | null;
+  real: number;
+  diff: number | null;
+}
+
+export interface IdealVsRealArea {
+  area: string;
+  ideal: number;
+  real: number;
+  diff: number;
+  sectors: IdealVsRealSector[];
+}
+
+/**
+ * Quadro Ideal x Real agrupado por ÁREA (Produção, Comercial, Logística,
+ * Administrativo...), somando todos os setores dentro de cada área. O "real"
+ * usa o setor SECUNDÁRIO do colaborador, que é o campo que de fato está
+ * preenchido no cadastro hoje (o setor principal ainda está vazio para a
+ * maior parte dos colaboradores).
+ */
+export async function getIdealVsRealHeadcount(): Promise<IdealVsRealArea[]> {
   const presentFilter = activePresentEmployeeWhere();
   const costCenters = await prisma.costCenter.findMany({
     where: {
-      OR: [
-        { targetHeadcount: { not: null } },
-        { secondaryEmployees: { some: { isActive: true } } },
-        { employees: { some: { isActive: true } } },
-      ],
+      OR: [{ targetHeadcount: { not: null } }, { secondaryEmployees: { some: { isActive: true } } }],
     },
     select: {
       id: true,
       name: true,
       area: true,
       targetHeadcount: true,
-      _count: {
-        select: {
-          secondaryEmployees: { where: presentFilter },
-          employees: { where: presentFilter },
-        },
-      },
+      _count: { select: { secondaryEmployees: { where: presentFilter } } },
     },
   });
 
-  return costCenters
-    .map((c) => ({
+  const byArea = new Map<string, IdealVsRealArea>();
+  for (const c of costCenters) {
+    const entry = byArea.get(c.area) ?? { area: c.area, ideal: 0, real: 0, diff: 0, sectors: [] as IdealVsRealSector[] };
+    const ideal = c.targetHeadcount ?? 0;
+    const real = c._count.secondaryEmployees;
+    entry.ideal += ideal;
+    entry.real += real;
+    entry.sectors.push({
       id: c.id,
       name: c.name,
-      area: c.area,
       ideal: c.targetHeadcount,
-      realPrimary: c._count.employees,
-      diffPrimary: c.targetHeadcount !== null ? c._count.employees - c.targetHeadcount : null,
-      realSecondary: c._count.secondaryEmployees,
-      diffSecondary: c.targetHeadcount !== null ? c._count.secondaryEmployees - c.targetHeadcount : null,
-    }))
-    .sort((a, b) => (b.ideal ?? 0) - (a.ideal ?? 0));
+      real,
+      diff: c.targetHeadcount !== null ? real - c.targetHeadcount : null,
+    });
+    byArea.set(c.area, entry);
+  }
+
+  return Array.from(byArea.values())
+    .map((a) => ({ ...a, diff: a.real - a.ideal, sectors: a.sectors.sort((s1, s2) => s2.real - s1.real) }))
+    .sort((a, b) => b.ideal - a.ideal);
 }
 
 export async function getHeadcountByManager(unitId?: string) {
