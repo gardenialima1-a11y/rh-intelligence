@@ -6,17 +6,19 @@ import { monthLabelsPtBR } from "@/services/period";
 
 interface AbsenteeismInsightsProps {
   topAbsentees: { name: string; value: number; occurrences: number }[];
+  primarySectors: { name: string; value: number }[];
+  secondarySectors: { name: string; value: number }[];
   reasons: { name: string; value: number }[];
   seasonality: { month: string; hoursLost: number; occurrences: number }[];
 }
 
-export function AbsenteeismInsightsCard({ topAbsentees, reasons, seasonality }: AbsenteeismInsightsProps) {
+export function AbsenteeismInsightsCard({ topAbsentees, primarySectors, secondarySectors, reasons, seasonality }: AbsenteeismInsightsProps) {
   const monthLabels = monthLabelsPtBR(seasonality.map((s) => s.month));
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Absenteísmo — maiores ausentes, motivos e sazonalidade</CardTitle>
+        <CardTitle>Absenteísmo — maiores ausentes, setores, motivos e sazonalidade</CardTitle>
         <p className="text-xs text-muted-foreground">
           Calculado a partir das ausências e atestados cadastrados no período. Atualiza sozinho conforme novos
           registros são alimentados.
@@ -26,6 +28,8 @@ export function AbsenteeismInsightsCard({ topAbsentees, reasons, seasonality }: 
         <Tabs defaultValue="ausentes">
           <TabsList>
             <TabsTrigger value="ausentes">Maiores ausentes</TabsTrigger>
+            <TabsTrigger value="setor-principal">Setor principal</TabsTrigger>
+            <TabsTrigger value="setor-secundario">Setor secundário</TabsTrigger>
             <TabsTrigger value="motivos">Motivos</TabsTrigger>
             <TabsTrigger value="sazonalidade">Sazonalidade</TabsTrigger>
           </TabsList>
@@ -36,6 +40,26 @@ export function AbsenteeismInsightsCard({ topAbsentees, reasons, seasonality }: 
             ) : (
               <p className="py-6 text-center text-sm text-muted-foreground">
                 Sem ausências registradas no período selecionado.
+              </p>
+            )}
+          </TabsContent>
+
+          <TabsContent value="setor-principal">
+            {primarySectors.length > 0 ? (
+              <RankingBarChart data={primarySectors} color="#1B2A4A" />
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Sem ausências registradas no período selecionado.
+              </p>
+            )}
+          </TabsContent>
+
+          <TabsContent value="setor-secundario">
+            {secondarySectors.length > 0 ? (
+              <RankingBarChart data={secondarySectors} color="#6B7CA0" />
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Nenhum colaborador com ausência tem setor secundário cadastrado no período.
               </p>
             )}
           </TabsContent>
