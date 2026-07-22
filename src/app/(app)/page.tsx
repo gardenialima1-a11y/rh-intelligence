@@ -111,7 +111,7 @@ export default async function HomePage({
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <KpiCard label="Receita por colaborador" value={formatCurrency(hcEfficiency.revenuePerEmployee)} icon={LineChart} accent="navy" />
           <KpiCard
-            label="HCROI (aproximado)"
+            label="HCROI"
             value={hcEfficiency.hcroiApprox !== null ? hcEfficiency.hcroiApprox.toFixed(2) : "—"}
             icon={TrendingUp}
             accent={hcEfficiency.hcroiApprox !== null && hcEfficiency.hcroiApprox > 1 ? "success" : "gold"}
