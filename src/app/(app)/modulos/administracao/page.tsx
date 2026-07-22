@@ -12,19 +12,21 @@ import { ROLE_LABEL } from "@/lib/labels";
 import { getAdminUsers, getAdminGoals, getAdminAccessLogs, getDataFreshness } from "@/services/administracao";
 import { listAdminAccounts } from "@/actions/admin-users";
 import { AdminAccountsPanel } from "@/components/admin/admin-accounts-panel";
+import { GoalsPanel } from "@/components/admin/goals-panel";
+import { RevenuePanel } from "@/components/admin/revenue-panel";
+import { listRevenueEntries } from "@/actions/revenue";
 
 export default async function AdministracaoPage() {
-  // Defesa em profundidade: além do bloqueio em src/proxy.ts, a própria página
-  // revalida o perfil no servidor antes de consultar qualquer dado administrativo.
   const session = await auth();
   if (session?.user.role !== "ADMINISTRADOR") redirect("/");
 
-  const [users, goals, accessLogs, freshness, adminAccounts] = await Promise.all([
+  const [users, goals, accessLogs, freshness, adminAccounts, revenueEntries] = await Promise.all([
     getAdminUsers(),
     getAdminGoals(),
     getAdminAccessLogs(),
     getDataFreshness(),
     listAdminAccounts(),
+    listRevenueEntries(),
   ]);
 
   const executive = (
@@ -62,35 +64,10 @@ export default async function AdministracaoPage() {
   );
 
   const managerial = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Metas por indicador</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Módulo</TableHead>
-              <TableHead>Indicador</TableHead>
-              <TableHead>Meta</TableHead>
-              <TableHead>Comparador</TableHead>
-              <TableHead>Ano</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {goals.map((g) => (
-              <TableRow key={g.id}>
-                <TableCell>{g.moduleKey}</TableCell>
-                <TableCell>{g.indicator}</TableCell>
-                <TableCell>{g.targetValue}</TableCell>
-                <TableCell>{g.comparator}</TableCell>
-                <TableCell>{g.periodYear}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <GoalsPanel goals={goals} />
+      <RevenuePanel entries={revenueEntries} />
+    </div>
   );
 
   const operational = (
