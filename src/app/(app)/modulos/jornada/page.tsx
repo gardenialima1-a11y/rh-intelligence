@@ -13,6 +13,9 @@ import { getJornadaKpis, getOvertimeByCostCenter, getOvertimeBySectorBreakdown, 
 import { OvertimeBySectorTable } from "@/components/dashboard/overtime-by-sector-table";
 import { SectorFilterInline } from "@/components/dashboard/sector-filter-inline";
 import { OvertimeImportDialog } from "@/components/admin/overtime-import-dialog";
+import { OvertimeManualEntryDialog } from "@/components/admin/overtime-manual-entry-dialog";
+import { OvertimeDeleteRangeDialog } from "@/components/admin/overtime-delete-range-dialog";
+import { DeleteOvertimeEntryButton } from "@/components/admin/delete-overtime-entry-button";
 import { prisma } from "@/lib/prisma";
 
 export default async function JornadaPage({
@@ -23,13 +26,14 @@ export default async function JornadaPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byCostCenter, sectorBreakdown, ranking, table, sectors] = await Promise.all([
+  const [kpis, byCostCenter, sectorBreakdown, ranking, table, sectors, employees] = await Promise.all([
     getJornadaKpis(filters),
     getOvertimeByCostCenter(filters),
     getOvertimeBySectorBreakdown(filters),
     getOvertimeRanking(filters),
     getJornadaTable(filters),
     prisma.costCenter.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.employee.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
@@ -87,9 +91,13 @@ export default async function JornadaPage({
 
   const operational = (
     <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex-col items-start gap-3 space-y-0 md:flex-row md:items-center md:justify-between">
         <CardTitle>Lançamentos com horas extras</CardTitle>
-        <OvertimeImportDialog />
+        <div className="flex flex-wrap gap-2">
+          <OvertimeManualEntryDialog employees={employees} />
+          <OvertimeImportDialog />
+          <OvertimeDeleteRangeDialog employees={employees} />
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -101,6 +109,7 @@ export default async function JornadaPage({
               <TableHead>Data</TableHead>
               <TableHead>Horas trabalhadas</TableHead>
               <TableHead>Horas extras</TableHead>
+              <TableHead>Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -112,6 +121,9 @@ export default async function JornadaPage({
                 <TableCell>{formatDate(t.date)}</TableCell>
                 <TableCell>{t.workedHours.toFixed(1)} h</TableCell>
                 <TableCell>{t.overtimeHours.toFixed(1)} h</TableCell>
+                <TableCell>
+                  <DeleteOvertimeEntryButton entryId={t.id} employeeName={t.employee.name} />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
