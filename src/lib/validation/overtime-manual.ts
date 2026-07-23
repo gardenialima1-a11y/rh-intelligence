@@ -1,11 +1,21 @@
 import { z } from "zod";
 
-/** Campo numérico opcional: trata "" (input vazio) como "não informado" em vez de deixar o z.coerce transformar em 0. */
-function optionalNonNegativeNumber() {
-  return z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? undefined : v),
-    z.coerce.number().min(0)
-  ).optional();
+/** Mesmo padrão usado em src/lib/validation/compliance.ts (campo estimatedCost): mantém o valor como string/number no schema — sem z.coerce, que quebra a inferência de tipos do zodResolver com react-hook-form — e valida/converte com as funções abaixo. */
+function isValidOptionalNumber(v: unknown) {
+  return v === null || v === undefined || v === "" || (!Number.isNaN(Number(v)) && Number(v) >= 0);
+}
+
+/** Converte um campo numérico opcional do formulário (string vinda do input, número, vazio ou nulo) pro valor final: null quando "não informado". */
+export function parseOptionalNumber(v: string | number | null | undefined): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+}
+
+/** Converte um campo numérico obrigatório do formulário (já validado como preenchido e válido) pro número final. */
+export function parseRequiredNumber(v: string | number): number {
+  const n = Number(v);
+  return Number.isNaN(n) ? 0 : n;
 }
 
 /**
@@ -17,10 +27,15 @@ function optionalNonNegativeNumber() {
 export const manualOvertimeFormSchema = z.object({
   employeeId: z.string().min(1, "Selecione o colaborador"),
   date: z.string().min(1, "Informe a data"),
-  overtimeHours: z.coerce.number().positive("Informe as horas extras (maior que zero)"),
-  scheduledHours: optionalNonNegativeNumber(),
-  workedHours: optionalNonNegativeNumber(),
-  overtimeCost: optionalNonNegativeNumber(),
+  overtimeHours: z
+    .union([z.string(), z.number()])
+    .refine(
+      (v) => v !== "" && v !== undefined && v !== null && !Number.isNaN(Number(v)) && Number(v) > 0,
+      "Informe as horas extras (maior que zero)"
+    ),
+  scheduledHours: z.union([z.string(), z.number(), z.null()]).optional().refine(isValidOptionalNumber, "Valor inválido"),
+  workedHours: z.union([z.string(), z.number(), z.null()]).optional().refine(isValidOptionalNumber, "Valor inválido"),
+  overtimeCost: z.union([z.string(), z.number(), z.null()]).optional().refine(isValidOptionalNumber, "Valor inválido"),
 });
 
 export type ManualOvertimeFormValues = z.infer<typeof manualOvertimeFormSchema>;
