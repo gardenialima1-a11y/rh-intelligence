@@ -7,6 +7,8 @@ import {
   manualOvertimeFormSchema,
   overtimeDeleteRangeSchema,
   parseDateInputLocal,
+  parseOptionalNumber,
+  parseRequiredNumber,
 } from "@/lib/validation/overtime-manual";
 import type { ActionResult } from "@/actions/employees";
 
@@ -51,12 +53,13 @@ export async function createManualOvertimeEntry(raw: unknown): Promise<ActionRes
     const employee = await prisma.employee.findUnique({ where: { id: data.employeeId }, select: { id: true } });
     if (!employee) return { success: false, error: "Colaborador não encontrado." };
 
-    const overtimeHours = data.overtimeHours;
-    const scheduledHours = data.scheduledHours ?? DEFAULT_SCHEDULED_HOURS;
-    const workedHours = data.workedHours ?? scheduledHours + overtimeHours;
+    const overtimeHours = parseRequiredNumber(data.overtimeHours);
+    const scheduledHours = parseOptionalNumber(data.scheduledHours) ?? DEFAULT_SCHEDULED_HOURS;
+    const workedHours = parseOptionalNumber(data.workedHours) ?? scheduledHours + overtimeHours;
+    const manualCost = parseOptionalNumber(data.overtimeCost);
     const overtimeCost =
-      data.overtimeCost != null && data.overtimeCost > 0
-        ? data.overtimeCost
+      manualCost != null && manualCost > 0
+        ? manualCost
         : await estimateOvertimeCost(data.employeeId, date, overtimeHours);
 
     await prisma.timeEntry.upsert({
