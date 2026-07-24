@@ -30,6 +30,16 @@ function toDateInputValue(dataFolhaBr: string | null): string {
   return `${y}-${mo}-${d}`;
 }
 
+/** Remove acento, deixa maiúsculo e uniformiza espaços — pra comparar nomes que podem estar escritos ligeiramente diferente entre a folha e o cadastro. */
+function normalizeName(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
 export interface PdfPreviewRow {
   matricula: string;
   nome: string;
@@ -39,6 +49,7 @@ export interface PdfPreviewRow {
   custoPorHora: number | null;
   employeeId: string | null;
   matched: boolean;
+  matchType: "registration" | "name" | null;
   warning: boolean;
 }
 
@@ -70,17 +81,37 @@ export async function extractOvertimePdf(base64Pdf: string): Promise<PdfPreviewR
     }
 
     const matriculas = parsed.rows.map((r: PayrollOvertimeRow) => r.matricula);
-    const employees = await prisma.employee.findMany({
-      where: { registration: { in: matriculas } },
-      select: { id: true, registration: true },
+    const allEmployees = await prisma.employee.findMany({
+      select: { id: true, name: true, registration: true },
     });
-    const byRegistration = new Map(employees.map((e) => [e.registration.trim(), e.id]));
+    const byRegistration = new Map(allEmployees.map((e) => [e.registration.trim(), e.id]));
+
+    // Cruzamento por nome (só usado quando a matrícula não bate com nada). Se dois ou mais
+    // colaboradores tiverem exatamente o mesmo nome normalizado, não arriscamos escolher
+    // sozinhos — a linha fica pra vincular manualmente, igual a um "não encontrado".
+    const byNormalizedName = new Map<string, string[]>();
+    for (const e of allEmployees) {
+      const key = normalizeName(e.name);
+      const list = byNormalizedName.get(key) ?? [];
+      list.push(e.id);
+      byNormalizedName.set(key, list);
+    }
 
     let unmatchedCount = 0;
     let warningCount = 0;
 
     const rows: PdfPreviewRow[] = parsed.rows.map((r) => {
-      const employeeId = byRegistration.get(r.matricula.trim()) ?? null;
+      let employeeId: string | null = byRegistration.get(r.matricula.trim()) ?? null;
+      let matchType: PdfPreviewRow["matchType"] = employeeId ? "registration" : null;
+
+      if (!employeeId) {
+        const candidates = byNormalizedName.get(normalizeName(r.nome));
+        if (candidates && candidates.length === 1) {
+          employeeId = candidates[0];
+          matchType = "name";
+        }
+      }
+
       const custoPorHora = r.horasExtras > 0 ? Math.round((r.valorHE / r.horasExtras) * 100) / 100 : null;
       const warning =
         custoPorHora != null && (custoPorHora < OVERTIME_HOURLY_RATE_MIN || custoPorHora > OVERTIME_HOURLY_RATE_MAX);
@@ -95,6 +126,7 @@ export async function extractOvertimePdf(base64Pdf: string): Promise<PdfPreviewR
         custoPorHora,
         employeeId,
         matched: employeeId != null,
+        matchType,
         warning,
       };
     });
