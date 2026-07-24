@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
     },
   },
   serverExternalPackages: ["pdfjs-dist"],
+  outputFileTracingIncludes: {
+    "/**": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+  },
 };
 
 export default nextConfig;
