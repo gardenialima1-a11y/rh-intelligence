@@ -59,6 +59,7 @@
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3",
     "pdfjs-dist": "^6.1.200",
+    "xlsx": "^0.18.5",
     "dommatrix": "^0.1.1"
   },
   "devDependencies": {
