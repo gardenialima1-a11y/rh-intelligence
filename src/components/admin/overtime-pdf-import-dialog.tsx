@@ -68,8 +68,8 @@ export function OvertimePdfImportDialog({ employees }: { employees: { id: string
         setRows(res.rows ?? []);
         setDateInput(res.dateInputValue ?? "");
       }
-    } catch {
-      setError("Não foi possível ler o arquivo.");
+    } catch (err) {
+      setError(err instanceof Error ? `Erro ao processar o arquivo: ${err.message}` : "Não foi possível ler o arquivo.");
     }
     setLoading(false);
   }
@@ -210,6 +210,10 @@ export function OvertimePdfImportDialog({ employees }: { employees: { id: string
                             <span className="flex items-center gap-1 text-warning">
                               <AlertTriangle className="h-3.5 w-3.5" /> Confira o R$/h
                             </span>
+                          ) : r.matchType === "name" && !overrides[r.matricula] ? (
+                            <span className="flex items-center gap-1 text-warning" title="Matrícula não bateu, vinculado pelo nome do cadastro">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> OK (pelo nome)
+                            </span>
                           ) : (
                             <span className="flex items-center gap-1 text-success">
                               <CheckCircle2 className="h-3.5 w-3.5" /> OK
@@ -254,9 +258,12 @@ export function OvertimePdfImportDialog({ employees }: { employees: { id: string
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Linhas com &quot;colaborador não encontrado&quot; não têm o número de matrícula da folha cadastrado no
-              sistema — confira o cadastro do colaborador (campo Matrícula) e reimporte depois. Linhas com aviso de
-              R$/h fora do comum vêm destacadas, mas você decide se importa mesmo assim.
+              O sistema tenta casar cada linha primeiro pela matrícula da folha e, se não achar, pelo nome do
+              colaborador já cadastrado. Linhas marcadas &quot;OK (pelo nome)&quot; vieram assim — vale uma conferida rápida.
+              Linhas com &quot;Não encontrado&quot; não bateram por nenhum dos dois jeitos (nome pode estar escrito
+              diferente, ou o colaborador não está cadastrado ainda) — vincule manualmente ali ou confira o cadastro
+              e reimporte depois. Linhas com aviso de R$/h fora do comum vêm destacadas, mas você decide se importa
+              mesmo assim.
             </p>
           </div>
         )}
