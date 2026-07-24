@@ -17,6 +17,14 @@ import {
 } from "@/components/ui/dialog";
 import { importAttendanceReport, type AttendanceImportSummary } from "@/actions/attendance-import";
 
+async function parseExcelFile(file: File): Promise<Record<string, string>[]> {
+  const XLSX = await import("xlsx");
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  return XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "", raw: false });
+}
+
 export function AttendanceImportDialog() {
   const [open, setOpen] = React.useState(false);
   const [rows, setRows] = React.useState<Record<string, string>[] | null>(null);
@@ -33,12 +41,30 @@ export function AttendanceImportDialog() {
     setSummary(null);
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     reset();
     setParsing(true);
+
+    const isExcel = /\.(xls|xlsx)$/i.test(file.name);
+
+    if (isExcel) {
+      try {
+        const parsedRows = await parseExcelFile(file);
+        setParsing(false);
+        if (parsedRows.length === 0) {
+          setGlobalError("A planilha está vazia ou não foi possível lê-la.");
+          return;
+        }
+        setRows(parsedRows);
+      } catch {
+        setParsing(false);
+        setGlobalError("Não foi possível ler o arquivo. Confirme que é um .xls/.xlsx válido.");
+      }
+      return;
+    }
 
     Papa.parse<Record<string, string>>(file, {
       header: true,
@@ -88,9 +114,10 @@ export function AttendanceImportDialog() {
         <DialogHeader>
           <DialogTitle>Importar relatório de ponto</DialogTitle>
           <DialogDescription>
-            No Excel, abra o relatório e salve como <strong>CSV UTF-8</strong> (Arquivo → Salvar Como). O sistema
-            reconhece as colunas Dia, Nome, Código, Rotina Esperada e Entrada automaticamente, calcula quem faltou e
-            marca sozinho quem é Cargo de Confiança (essas pessoas nunca contam falta).
+            Suba o relatório de ponto direto em <strong>.xls, .xlsx ou .csv</strong> — não precisa mais converter.
+            O sistema reconhece as colunas Dia, Nome, Código, Rotina Esperada, Entrada/Saída, Horário Esperado e
+            Duração automaticamente: calcula quem faltou, atualiza a jornada esperada/trabalhada de cada dia (base
+            da taxa de absenteísmo), registra as ausências e marca sozinho quem é Cargo de Confiança.
           </DialogDescription>
         </DialogHeader>
 
@@ -102,9 +129,15 @@ export function AttendanceImportDialog() {
               className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground transition-colors hover:border-gold hover:text-gold-text"
             >
               {parsing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
-              {parsing ? "Lendo relatório..." : "Clique para escolher o arquivo .csv"}
+              {parsing ? "Lendo relatório..." : "Clique para escolher o arquivo .xls, .xlsx ou .csv"}
             </button>
-            <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".csv,text/csv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={handleFile}
+            />
 
             {globalError && <p className="text-sm text-danger">{globalError}</p>}
 
@@ -124,6 +157,14 @@ export function AttendanceImportDialog() {
             <p className="text-xs text-muted-foreground">
               {summary.faltas} falta(s) · {summary.ferias} em férias · {summary.cargoConfiancaDetectados} identificado(s) como Cargo de Confiança
             </p>
+            <div className="rounded-lg border border-border p-3 text-sm">
+              <p className="font-medium">Taxa de absenteísmo atualizada</p>
+              <p className="text-muted-foreground">
+                {summary.diasComJornadaAtualizada} dia(s)-colaborador com jornada esperada/trabalhada atualizada ·{" "}
+                {summary.horasEsperadasTotais} h esperadas · {summary.horasPerdidasTotais} h perdidas ·{" "}
+                {summary.ausenciasRegistradas} ausência(s) registrada(s)
+              </p>
+            </div>
             {summary.unmatchedNames.length > 0 && (
               <div className="flex flex-col gap-1">
                 <p className="flex items-center gap-2 text-sm text-warning-text">
