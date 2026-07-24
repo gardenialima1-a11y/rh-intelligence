@@ -13,6 +13,7 @@ import { getJornadaKpis, getOvertimeByCostCenter, getOvertimeBySectorBreakdown, 
 import { OvertimeBySectorTable } from "@/components/dashboard/overtime-by-sector-table";
 import { SectorFilterInline } from "@/components/dashboard/sector-filter-inline";
 import { OvertimeImportDialog } from "@/components/admin/overtime-import-dialog";
+import { OvertimePdfImportDialog } from "@/components/admin/overtime-pdf-import-dialog";
 import { OvertimeManualEntryDialog } from "@/components/admin/overtime-manual-entry-dialog";
 import { OvertimeDeleteRangeDialog } from "@/components/admin/overtime-delete-range-dialog";
 import { DeleteOvertimeEntryButton } from "@/components/admin/delete-overtime-entry-button";
@@ -95,6 +96,7 @@ export default async function JornadaPage({
         <CardTitle>Lançamentos com horas extras</CardTitle>
         <div className="flex flex-wrap gap-2">
           <OvertimeManualEntryDialog employees={employees} />
+          <OvertimePdfImportDialog employees={employees} />
           <OvertimeImportDialog />
           <OvertimeDeleteRangeDialog employees={employees} />
         </div>
