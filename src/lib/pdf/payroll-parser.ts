@@ -1,5 +1,3 @@
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-
 /**
  * Leitor do "Relatório de Folha de Pagamento" (formato usado na folha da Gosto
  * Mineiro). O relatório tem duas tabelas lado a lado por colaborador
@@ -13,9 +11,23 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
  *   357 = HORA EXTRA NOTURNO 50%
  * Linhas cujo texto contém "MÉDIA" são ignoradas de propósito: são o valor
  * médio de HE pago durante férias/13º, não horas realmente trabalhadas no mês.
+ *
+ * NOTA TÉCNICA: o pdfjs-dist espera encontrar a API "DOMMatrix" do navegador
+ * mesmo rodando em Node (servidor). Por isso aplicamos um polyfill ANTES de
+ * importar o pacote — e o import precisa ser dinâmico (não estático lá em
+ * cima do arquivo) pra garantir que o polyfill já esteja pronto nesse momento.
  */
 
 const OVERTIME_VERBA_CODES = new Set(["150", "200", "357"]);
+
+async function loadPdfjs() {
+  const globalScope = globalThis as unknown as { DOMMatrix?: unknown };
+  if (typeof globalScope.DOMMatrix === "undefined") {
+    const { default: DOMMatrixPolyfill } = await import("dommatrix");
+    globalScope.DOMMatrix = DOMMatrixPolyfill;
+  }
+  return import("pdfjs-dist/legacy/build/pdf.mjs");
+}
 
 export interface PayrollOvertimeBreakdownItem {
   verba: string;
@@ -66,6 +78,7 @@ function groupIntoRows(words: PositionedWord[]): { y: number; items: PositionedW
 }
 
 export async function parsePayrollPdf(data: Uint8Array): Promise<PayrollParseResult> {
+  const { getDocument } = await loadPdfjs();
   const doc = await getDocument({ data }).promise;
   const employees = new Map<string, PayrollOvertimeRow>();
   let current: PayrollOvertimeRow | null = null;
