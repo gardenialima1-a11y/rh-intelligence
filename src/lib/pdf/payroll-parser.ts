@@ -26,7 +26,16 @@ async function loadPdfjs() {
     const { default: DOMMatrixPolyfill } = await import("dommatrix");
     globalScope.DOMMatrix = DOMMatrixPolyfill;
   }
-  return import("pdfjs-dist/legacy/build/pdf.mjs");
+
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+  // O pdfjs tenta abrir um "worker" (processo auxiliar) apontando pra esse arquivo — sem isso
+  // explícito, em ambiente serverless (Vercel) ele não acha o caminho certo em tempo de execução.
+  const { createRequire } = await import("module");
+  const nodeRequire = createRequire(import.meta.url);
+  pdfjs.GlobalWorkerOptions.workerSrc = nodeRequire.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
+
+  return pdfjs;
 }
 
 export interface PayrollOvertimeBreakdownItem {
