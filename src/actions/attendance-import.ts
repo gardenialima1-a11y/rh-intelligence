@@ -5,10 +5,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { classifyAttendanceRow, type AttendanceStatus } from "@/lib/validation/attendance-import";
 
-// Relatórios de ponto costumam ter milhares de linhas (um mês inteiro × todos os
-// colaboradores) — precisamos de mais que o limite padrão de 10s da Vercel.
-export const maxDuration = 60;
-
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RH"];
 
 /**
