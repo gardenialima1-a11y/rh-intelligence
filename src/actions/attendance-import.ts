@@ -5,6 +5,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { classifyAttendanceRow, type AttendanceStatus } from "@/lib/validation/attendance-import";
 
+// Relatórios de ponto costumam ter milhares de linhas (um mês inteiro × todos os
+// colaboradores) — precisamos de mais que o limite padrão de 10s da Vercel.
+export const maxDuration = 60;
+
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RH"];
 
 /**
@@ -212,11 +216,11 @@ export async function importAttendanceReport(
     };
     const trustPositionIdsToSet = new Set<string>();
 
-    for (const row of parsedRows) {
+    async function processRow(row: ParsedRow) {
       const employee = byRegistration.get(row.codigoRaw) ?? byName.get(normalizeName(row.nomeRaw));
       if (!employee) {
         if (row.nomeRaw) summary.unmatchedNames.push(row.nomeRaw);
-        continue;
+        return;
       }
 
       let status: AttendanceStatus = classifyAttendanceRow({ rotinaEsperada: row.rotina, hasEntrada: row.hasEntrada });
@@ -227,18 +231,20 @@ export async function importAttendanceReport(
       }
       if (employee.isTrustPosition) status = "CARGO_CONFIANCA";
 
-      await prisma.attendanceRecord.upsert({
-        where: { employeeId_date: { employeeId: employee.id, date: row.date } },
-        create: {
-          employeeId: employee.id,
-          date: row.date,
-          status,
-          rawRotina: row.rotina,
-          setorNoDia: row.setorNoDia,
-          atrasoMinutos: row.atrasoMinutos,
-        },
-        update: { status, rawRotina: row.rotina, setorNoDia: row.setorNoDia, atrasoMinutos: row.atrasoMinutos },
-      });
+      const writes: Promise<unknown>[] = [
+        prisma.attendanceRecord.upsert({
+          where: { employeeId_date: { employeeId: employee.id, date: row.date } },
+          create: {
+            employeeId: employee.id,
+            date: row.date,
+            status,
+            rawRotina: row.rotina,
+            setorNoDia: row.setorNoDia,
+            atrasoMinutos: row.atrasoMinutos,
+          },
+          update: { status, rawRotina: row.rotina, setorNoDia: row.setorNoDia, atrasoMinutos: row.atrasoMinutos },
+        }),
+      ];
 
       summary.created += 1;
       if (status === "FALTOU") summary.faltas += 1;
@@ -247,77 +253,89 @@ export async function importAttendanceReport(
 
       // Dias sem jornada esperada (Férias, Folga, Cargo de Confiança, texto não reconhecido)
       // não entram no cálculo de horas esperadas/perdidas — não é justo contar isso.
-      if (status === "FERIAS" || status === "FOLGA" || status === "CARGO_CONFIANCA" || status === "OUTRO") {
-        continue;
-      }
+      const isWorkday = !(status === "FERIAS" || status === "FOLGA" || status === "CARGO_CONFIANCA" || status === "OUTRO");
 
-      const scheduledMin = scheduledFromRow(row) ?? typicalByCodigo.get(row.codigoRaw) ?? 480;
-      const workedMin = status === "PRESENTE" ? row.duracaoMin ?? 0 : 0;
-      const rawLostMin = Math.max(0, scheduledMin - workedMin);
-      const lostMin = rawLostMin >= TOLERANCIA_MIN ? rawLostMin : 0;
+      if (isWorkday) {
+        const scheduledMin = scheduledFromRow(row) ?? typicalByCodigo.get(row.codigoRaw) ?? 480;
+        const workedMin = status === "PRESENTE" ? row.duracaoMin ?? 0 : 0;
+        const rawLostMin = Math.max(0, scheduledMin - workedMin);
+        const lostMin = rawLostMin >= TOLERANCIA_MIN ? rawLostMin : 0;
 
-      await prisma.timeEntry.upsert({
-        where: { date_employeeId: { date: row.date, employeeId: employee.id } },
-        create: {
-          date: row.date,
-          employeeId: employee.id,
-          scheduledHours: scheduledMin / 60,
-          workedHours: workedMin / 60,
-          overtimeHours: 0,
-          overtimeCost: 0,
-          bankHoursDelta: 0,
-        },
-        update: {
-          scheduledHours: scheduledMin / 60,
-          workedHours: workedMin / 60,
-        },
-      });
-      summary.diasComJornadaAtualizada += 1;
-      summary.horasEsperadasTotais += scheduledMin / 60;
-
-      if (lostMin > 0) {
-        summary.horasPerdidasTotais += lostMin / 60;
-
-        let reasonId = reasons.generico;
-        if (status === "FALTOU") {
-          reasonId = reasons.faltaInjustificada;
-        } else if (status === "DISPENSADO") {
-          reasonId = row.obs.includes("Abono")
-            ? reasons.abono
-            : row.obs.includes("Falta compensada")
-              ? reasons.compensada
-              : reasons.dispensa;
-        } else if (status === "LICENCA") {
-          reasonId = reasons.licenca;
-        } else if (status === "PRESENTE") {
-          reasonId = (row.atrasoMinutos ?? 0) > 0
-            ? reasons.atraso
-            : (row.saidaAntecipadaMinutos ?? 0) > 0
-              ? reasons.saidaAntecipada
-              : reasons.generico;
-        }
-
-        const key = absenceKey(employee.id, row.date);
-        const existingId = existingAbsenceByKey.get(key);
-        if (existingId) {
-          await prisma.absence.update({
-            where: { id: existingId },
-            data: { reasonId, hoursLost: lostMin / 60 },
-          });
-        } else {
-          await prisma.absence.create({
-            data: {
-              employeeId: employee.id,
+        writes.push(
+          prisma.timeEntry.upsert({
+            where: { date_employeeId: { date: row.date, employeeId: employee.id } },
+            create: {
               date: row.date,
-              reasonId,
-              hoursLost: lostMin / 60,
-              hasCertificate: false,
-              absenceType: lostMin >= scheduledMin ? "UM_DIA_OU_MAIS" : "ALGUMAS_HORAS",
+              employeeId: employee.id,
+              scheduledHours: scheduledMin / 60,
+              workedHours: workedMin / 60,
+              overtimeHours: 0,
+              overtimeCost: 0,
+              bankHoursDelta: 0,
             },
-          });
+            update: {
+              scheduledHours: scheduledMin / 60,
+              workedHours: workedMin / 60,
+            },
+          })
+        );
+        summary.diasComJornadaAtualizada += 1;
+        summary.horasEsperadasTotais += scheduledMin / 60;
+
+        if (lostMin > 0) {
+          summary.horasPerdidasTotais += lostMin / 60;
+
+          let reasonId = reasons.generico;
+          if (status === "FALTOU") {
+            reasonId = reasons.faltaInjustificada;
+          } else if (status === "DISPENSADO") {
+            reasonId = row.obs.includes("Abono")
+              ? reasons.abono
+              : row.obs.includes("Falta compensada")
+                ? reasons.compensada
+                : reasons.dispensa;
+          } else if (status === "LICENCA") {
+            reasonId = reasons.licenca;
+          } else if (status === "PRESENTE") {
+            reasonId = (row.atrasoMinutos ?? 0) > 0
+              ? reasons.atraso
+              : (row.saidaAntecipadaMinutos ?? 0) > 0
+                ? reasons.saidaAntecipada
+                : reasons.generico;
+          }
+
+          const key = absenceKey(employee.id, row.date);
+          const existingId = existingAbsenceByKey.get(key);
+          writes.push(
+            existingId
+              ? prisma.absence.update({
+                  where: { id: existingId },
+                  data: { reasonId, hoursLost: lostMin / 60 },
+                })
+              : prisma.absence.create({
+                  data: {
+                    employeeId: employee.id,
+                    date: row.date,
+                    reasonId,
+                    hoursLost: lostMin / 60,
+                    hasCertificate: false,
+                    absenceType: lostMin >= scheduledMin ? "UM_DIA_OU_MAIS" : "ALGUMAS_HORAS",
+                  },
+                })
+          );
+          summary.ausenciasRegistradas += 1;
         }
-        summary.ausenciasRegistradas += 1;
       }
+
+      await Promise.all(writes);
+    }
+
+    // Processa em lotes paralelos (em vez de uma linha por vez) — com ~4500 linhas,
+    // processar sequencialmente demoraria minutos e estouraria o tempo limite da função.
+    const CHUNK_SIZE = 30;
+    for (let i = 0; i < parsedRows.length; i += CHUNK_SIZE) {
+      const chunk = parsedRows.slice(i, i + CHUNK_SIZE);
+      await Promise.all(chunk.map(processRow));
     }
 
     if (trustPositionIdsToSet.size > 0) {
