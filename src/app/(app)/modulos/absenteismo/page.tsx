@@ -3,6 +3,10 @@ import { AlertTriangle, Clock3, Wallet, ListChecks, Gauge } from "lucide-react";
 import { ModuleHeader } from "@/components/dashboard/module-header";
 import { ModuleViewTabs } from "@/components/dashboard/module-view-tabs";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+
+// Relatórios de ponto costumam ter milhares de linhas (um mês inteiro × todos os
+// colaboradores) — a importação precisa de mais que o limite padrão de 10s da Vercel.
+export const maxDuration = 60;
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { RankingBarChart } from "@/components/dashboard/ranking-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
