@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { useRouter } from "next/navigation";
 import { Upload, Loader2, CheckCircle2, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import {
   Dialog,
   DialogTrigger,
@@ -15,9 +16,14 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { importAttendanceReport, type AttendanceImportSummary } from "@/actions/attendance-import";
+import {
+  importAttendanceReport,
+  previewUnmatchedNames,
+  type AttendanceImportSummary,
+} from "@/actions/attendance-import";
 
 const BATCH_SIZE = 250;
+const IGNORE_VALUE = "__ignorar__";
 
 function emptySummary(): AttendanceImportSummary {
   return {
@@ -57,22 +63,32 @@ async function parseExcelFile(file: File): Promise<Record<string, string>[]> {
   return XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "", raw: false });
 }
 
+type Step = "upload" | "confirm-unmatched" | "importing" | "done";
+
 export function AttendanceImportDialog() {
   const [open, setOpen] = React.useState(false);
+  const [step, setStep] = React.useState<Step>("upload");
   const [rows, setRows] = React.useState<Record<string, string>[] | null>(null);
   const [parsing, setParsing] = React.useState(false);
-  const [submitting, setSubmitting] = React.useState(false);
+  const [checkingMatches, setCheckingMatches] = React.useState(false);
   const [progress, setProgress] = React.useState<{ done: number; total: number } | null>(null);
   const [globalError, setGlobalError] = React.useState<string | null>(null);
   const [summary, setSummary] = React.useState<AttendanceImportSummary | null>(null);
+  const [unmatchedNames, setUnmatchedNames] = React.useState<string[]>([]);
+  const [employees, setEmployees] = React.useState<{ id: string; name: string }[]>([]);
+  const [matchChoices, setMatchChoices] = React.useState<Record<string, string>>({});
   const inputRef = React.useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   function reset() {
+    setStep("upload");
     setRows(null);
     setGlobalError(null);
     setSummary(null);
     setProgress(null);
+    setUnmatchedNames([]);
+    setEmployees([]);
+    setMatchChoices({});
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -83,45 +99,66 @@ export function AttendanceImportDialog() {
     setParsing(true);
 
     const isExcel = /\.(xls|xlsx)$/i.test(file.name);
+    let parsedRows: Record<string, string>[] | null = null;
 
     if (isExcel) {
       try {
-        const parsedRows = await parseExcelFile(file);
-        setParsing(false);
-        if (parsedRows.length === 0) {
-          setGlobalError("A planilha está vazia ou não foi possível lê-la.");
-          return;
-        }
-        setRows(parsedRows);
+        parsedRows = await parseExcelFile(file);
       } catch {
         setParsing(false);
         setGlobalError("Não foi possível ler o arquivo. Confirme que é um .xls/.xlsx válido.");
+        return;
       }
+    } else {
+      parsedRows = await new Promise<Record<string, string>[] | null>((resolve) => {
+        Papa.parse<Record<string, string>>(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (parsed) => resolve(parsed.data),
+          error: () => resolve(null),
+        });
+      });
+      if (!parsedRows) {
+        setParsing(false);
+        setGlobalError("Não foi possível ler o arquivo. Confirme que é um .csv válido.");
+        return;
+      }
+    }
+
+    if (!parsedRows || parsedRows.length === 0) {
+      setParsing(false);
+      setGlobalError("A planilha está vazia ou não foi possível lê-la.");
       return;
     }
 
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (parsed) => {
-        setParsing(false);
-        if (parsed.data.length === 0) {
-          setGlobalError("A planilha está vazia ou não foi possível lê-la.");
-          return;
-        }
-        setRows(parsed.data);
-      },
-      error: () => {
-        setParsing(false);
-        setGlobalError("Não foi possível ler o arquivo. Confirme que é um .csv válido.");
-      },
-    });
+    setRows(parsedRows);
+    setParsing(false);
+    setCheckingMatches(true);
+    const preview = await previewUnmatchedNames(parsedRows);
+    setCheckingMatches(false);
+    if (!preview.success) {
+      setGlobalError(preview.error ?? "Não foi possível conferir os colaboradores do arquivo.");
+      return;
+    }
+    setEmployees(preview.employees ?? []);
+    if ((preview.unmatchedNames ?? []).length > 0) {
+      setUnmatchedNames(preview.unmatchedNames ?? []);
+      setStep("confirm-unmatched");
+    } else {
+      setStep("upload");
+    }
   }
 
-  async function handleImport() {
+  async function runImport() {
     if (!rows) return;
-    setSubmitting(true);
+    setStep("importing");
     setGlobalError(null);
+
+    const overrides: Record<string, string> = {};
+    for (const name of unmatchedNames) {
+      const choice = matchChoices[name];
+      if (choice && choice !== IGNORE_VALUE) overrides[name] = choice;
+    }
 
     const batches: Record<string, string>[][] = [];
     for (let i = 0; i < rows.length; i += BATCH_SIZE) batches.push(rows.slice(i, i + BATCH_SIZE));
@@ -130,13 +167,13 @@ export function AttendanceImportDialog() {
     setProgress({ done: 0, total: rows.length });
 
     for (const batch of batches) {
-      const result = await importAttendanceReport(batch);
+      const result = await importAttendanceReport(batch, overrides);
       if (!result.success) {
-        setSubmitting(false);
         setGlobalError(
           `${result.error ?? "Erro ao importar."} (parte do arquivo já foi importada — o que passou não some, é só rodar de novo pra terminar o resto)`
         );
         setSummary(acc.created > 0 ? acc : null);
+        setStep("done");
         router.refresh();
         return;
       }
@@ -144,10 +181,12 @@ export function AttendanceImportDialog() {
       setProgress((p) => ({ done: (p?.done ?? 0) + batch.length, total: rows.length }));
     }
 
-    setSubmitting(false);
     setSummary(acc);
+    setStep("done");
     router.refresh();
   }
+
+  const allResolved = unmatchedNames.every((n) => Boolean(matchChoices[n]));
 
   return (
     <Dialog
@@ -173,16 +212,16 @@ export function AttendanceImportDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        {!summary && (
+        {step === "upload" && (
           <div className="flex flex-col gap-3">
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              disabled={submitting}
+              disabled={parsing || checkingMatches}
               className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground transition-colors hover:border-gold hover:text-gold-text disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {parsing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
-              {parsing ? "Lendo relatório..." : "Clique para escolher o arquivo .xls, .xlsx ou .csv"}
+              {parsing || checkingMatches ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
+              {parsing ? "Lendo relatório..." : checkingMatches ? "Conferindo colaboradores do cadastro..." : "Clique para escolher o arquivo .xls, .xlsx ou .csv"}
             </button>
             <input
               ref={inputRef}
@@ -194,30 +233,62 @@ export function AttendanceImportDialog() {
 
             {globalError && <p className="text-sm text-danger">{globalError}</p>}
 
-            {rows && !submitting && (
+            {rows && !parsing && !checkingMatches && (
               <p className="flex items-center gap-1.5 text-sm text-success">
                 <CheckCircle2 className="h-4 w-4" /> {rows.length} linha(s) prontas para importar
-                {rows.length > BATCH_SIZE ? ` (em lotes de ${BATCH_SIZE})` : ""}.
+                {rows.length > BATCH_SIZE ? ` (em lotes de ${BATCH_SIZE})` : ""}. Todos os nomes bateram com o cadastro.
               </p>
-            )}
-
-            {submitting && progress && (
-              <div className="flex flex-col gap-1.5">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-gold transition-all duration-300"
-                    style={{ width: `${Math.min(100, Math.round((progress.done / progress.total) * 100))}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Importando {progress.done} de {progress.total} linhas...
-                </p>
-              </div>
             )}
           </div>
         )}
 
-        {summary && (
+        {step === "confirm-unmatched" && (
+          <div className="flex flex-col gap-3">
+            <p className="flex items-center gap-2 text-sm text-warning-text">
+              <AlertTriangle className="h-4 w-4" /> {unmatchedNames.length} nome(s) do arquivo não bateram com
+              ninguém do cadastro (só comparando pelo nome). Escolha o colaborador certo pra cada um, ou marque
+              &quot;Ignorar&quot; pra deixar esse nome de fora da importação.
+            </p>
+            <div className="flex max-h-80 flex-col gap-2 overflow-y-auto rounded-lg border border-border p-2">
+              {unmatchedNames.map((name) => (
+                <div key={name} className="flex flex-wrap items-center justify-between gap-2 rounded-md p-1.5">
+                  <span className="text-sm">{name}</span>
+                  <Select
+                    value={matchChoices[name] ?? undefined}
+                    onValueChange={(v) => setMatchChoices((prev) => ({ ...prev, [name]: v }))}
+                  >
+                    <SelectTrigger className="h-8 w-56"><SelectValue placeholder="Selecionar colaborador" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={IGNORE_VALUE}>Ignorar esse nome</SelectItem>
+                      {employees.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+            {globalError && <p className="text-sm text-danger">{globalError}</p>}
+          </div>
+        )}
+
+        {(step === "importing" || (step === "done" && progress)) && (
+          <div className="flex flex-col gap-1.5">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-gold transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.round(((progress?.done ?? 0) / (progress?.total ?? 1)) * 100))}%` }}
+              />
+            </div>
+            {step === "importing" && (
+              <p className="text-xs text-muted-foreground">
+                Importando {progress?.done ?? 0} de {progress?.total ?? 0} linhas...
+              </p>
+            )}
+          </div>
+        )}
+
+        {step === "done" && summary && (
           <div className="flex flex-col gap-2">
             <p className="flex items-center gap-2 text-sm text-success">
               <CheckCircle2 className="h-4 w-4" /> {summary.created} registro(s) processados.
@@ -236,11 +307,8 @@ export function AttendanceImportDialog() {
             {summary.unmatchedNames.length > 0 && (
               <div className="flex flex-col gap-1">
                 <p className="flex items-center gap-2 text-sm text-warning-text">
-                  <AlertTriangle className="h-4 w-4" /> {summary.unmatchedNames.length} nome(s) não encontrados no cadastro:
+                  <AlertTriangle className="h-4 w-4" /> {summary.unmatchedNames.length} linha(s) de nomes ignorados ficaram de fora.
                 </p>
-                <div className="max-h-28 overflow-y-auto rounded-lg border border-border p-2 text-xs text-muted-foreground">
-                  {summary.unmatchedNames.map((n, i) => <p key={i}>{n}</p>)}
-                </div>
               </div>
             )}
             {summary.outros.length > 0 && (
@@ -258,12 +326,18 @@ export function AttendanceImportDialog() {
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={submitting}>{summary ? "Fechar" : "Cancelar"}</Button>
+            <Button type="button" variant="outline" disabled={step === "importing"}>
+              {step === "done" ? "Fechar" : "Cancelar"}
+            </Button>
           </DialogClose>
-          {!summary && (
-            <Button type="button" variant="gold" onClick={handleImport} disabled={!rows || submitting}>
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? "Importando..." : "Importar"}
+          {step === "upload" && rows && (
+            <Button type="button" variant="gold" onClick={runImport} disabled={parsing || checkingMatches}>
+              Importar
+            </Button>
+          )}
+          {step === "confirm-unmatched" && (
+            <Button type="button" variant="gold" onClick={runImport} disabled={!allResolved}>
+              Confirmar e importar
             </Button>
           )}
         </DialogFooter>
