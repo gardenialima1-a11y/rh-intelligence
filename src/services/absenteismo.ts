@@ -22,8 +22,12 @@ export async function getAbsenteismoKpis(filters: ExecutiveFilters) {
       }),
     ]);
     const lost = lostAgg._sum.hoursLost ?? 0;
-    const scheduled = scheduledAgg._sum.scheduledHours ?? 1;
-    return { lost, scheduled, rate: lost / scheduled, occurrences };
+    const scheduled = scheduledAgg._sum.scheduledHours ?? 0;
+    // Sem jornada esperada registrada nesse período, não dá pra calcular uma taxa de
+    // verdade — melhor mostrar 0 do que uma taxa absurda (dividir "horas perdidas" por
+    // um valor de segurança de 1 hora inflava a taxa pra milhares de %).
+    const rate = scheduled > 0 ? lost / scheduled : 0;
+    return { lost, scheduled, rate, occurrences };
   }
 
   const [current, previous] = await Promise.all([stats(range.start, range.end), stats(prev.start, prev.end)]);
