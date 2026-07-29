@@ -22,6 +22,48 @@ async function requireHrAccess() {
   }
 }
 
+export interface UnmatchedPreviewResult {
+  success: boolean;
+  error?: string;
+  unmatchedNames?: string[];
+  employees?: { id: string; name: string }[];
+}
+
+/**
+ * Escaneia o arquivo (sem gravar nada) e devolve a lista de nomes que não bateram
+ * com ninguém do cadastro — nem pela matrícula, nem pelo nome — pra Gardenia
+ * confirmar manualmente antes da importação de verdade rodar.
+ */
+export async function previewUnmatchedNames(rows: Record<string, string>[]): Promise<UnmatchedPreviewResult> {
+  try {
+    await requireHrAccess();
+
+    const employees = await prisma.employee.findMany({
+      select: { id: true, registration: true, name: true },
+      orderBy: { name: "asc" },
+    });
+    const byRegistration = new Set(employees.map((e) => e.registration.trim()));
+    const byName = new Set(employees.map((e) => normalizeName(e.name)));
+
+    const unmatched = new Set<string>();
+    for (const row of rows) {
+      const codigoRaw = (row["Código"] ?? "").toString().trim().replace(/\.0$/, "");
+      const nomeRaw = (row["Nome"] ?? "").toString().trim();
+      if (!nomeRaw) continue;
+      const matched = byRegistration.has(codigoRaw) || byName.has(normalizeName(nomeRaw));
+      if (!matched) unmatched.add(nomeRaw);
+    }
+
+    return {
+      success: true,
+      unmatchedNames: Array.from(unmatched).sort((a, b) => a.localeCompare(b, "pt-BR")),
+      employees: employees.map((e) => ({ id: e.id, name: e.name })),
+    };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao conferir os colaboradores." };
+  }
+}
+
 /** Aceita "14/07/26 Ter" ou "14/07/2026" e devolve um Date (meia-noite). */
 function parseReportDate(raw: string): Date | null {
   const match = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
@@ -120,7 +162,8 @@ async function ensureReasons(): Promise<Record<keyof typeof REASON_LABELS, strin
 }
 
 export async function importAttendanceReport(
-  rows: Record<string, string>[]
+  rows: Record<string, string>[],
+  nameOverrides: Record<string, string> = {}
 ): Promise<{ success: boolean; summary?: AttendanceImportSummary; error?: string }> {
   try {
     await requireHrAccess();
@@ -131,6 +174,7 @@ export async function importAttendanceReport(
     });
     const byRegistration = new Map(employees.map((e) => [e.registration.trim(), e]));
     const byName = new Map(employees.map((e) => [normalizeName(e.name), e]));
+    const employeesById = new Map(employees.map((e) => [e.id, e]));
 
     // Parse bruto de todas as linhas primeiro (precisamos disso pra calcular a "jornada
     // típica" de cada matrícula, usada como estimativa nos dias em que a rotina virou
@@ -213,7 +257,10 @@ export async function importAttendanceReport(
     const trustPositionIdsToSet = new Set<string>();
 
     async function processRow(row: ParsedRow) {
-      const employee = byRegistration.get(row.codigoRaw) ?? byName.get(normalizeName(row.nomeRaw));
+      const employee =
+        byRegistration.get(row.codigoRaw) ??
+        byName.get(normalizeName(row.nomeRaw)) ??
+        (nameOverrides[row.nomeRaw] ? employeesById.get(nameOverrides[row.nomeRaw]) : undefined);
       if (!employee) {
         if (row.nomeRaw) summary.unmatchedNames.push(row.nomeRaw);
         return;
