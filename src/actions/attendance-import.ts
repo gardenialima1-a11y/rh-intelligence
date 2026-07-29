@@ -328,7 +328,7 @@ export async function importAttendanceReport(
 
     // Processa em lotes paralelos (em vez de uma linha por vez) — com ~4500 linhas,
     // processar sequencialmente demoraria minutos e estouraria o tempo limite da função.
-    const CHUNK_SIZE = 30;
+    const CHUNK_SIZE = 15;
     for (let i = 0; i < parsedRows.length; i += CHUNK_SIZE) {
       const chunk = parsedRows.slice(i, i + CHUNK_SIZE);
       await Promise.all(chunk.map(processRow));
