@@ -17,6 +17,38 @@ import {
 } from "@/components/ui/dialog";
 import { importAttendanceReport, type AttendanceImportSummary } from "@/actions/attendance-import";
 
+const BATCH_SIZE = 250;
+
+function emptySummary(): AttendanceImportSummary {
+  return {
+    created: 0,
+    faltas: 0,
+    ferias: 0,
+    cargoConfiancaDetectados: 0,
+    unmatchedNames: [],
+    outros: [],
+    diasComJornadaAtualizada: 0,
+    horasEsperadasTotais: 0,
+    horasPerdidasTotais: 0,
+    ausenciasRegistradas: 0,
+  };
+}
+
+function mergeSummary(acc: AttendanceImportSummary, part: AttendanceImportSummary): AttendanceImportSummary {
+  return {
+    created: acc.created + part.created,
+    faltas: acc.faltas + part.faltas,
+    ferias: acc.ferias + part.ferias,
+    cargoConfiancaDetectados: acc.cargoConfiancaDetectados + part.cargoConfiancaDetectados,
+    unmatchedNames: [...acc.unmatchedNames, ...part.unmatchedNames],
+    outros: [...acc.outros, ...part.outros],
+    diasComJornadaAtualizada: acc.diasComJornadaAtualizada + part.diasComJornadaAtualizada,
+    horasEsperadasTotais: Math.round((acc.horasEsperadasTotais + part.horasEsperadasTotais) * 10) / 10,
+    horasPerdidasTotais: Math.round((acc.horasPerdidasTotais + part.horasPerdidasTotais) * 10) / 10,
+    ausenciasRegistradas: acc.ausenciasRegistradas + part.ausenciasRegistradas,
+  };
+}
+
 async function parseExcelFile(file: File): Promise<Record<string, string>[]> {
   const XLSX = await import("xlsx");
   const buffer = await file.arrayBuffer();
@@ -30,6 +62,7 @@ export function AttendanceImportDialog() {
   const [rows, setRows] = React.useState<Record<string, string>[] | null>(null);
   const [parsing, setParsing] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [progress, setProgress] = React.useState<{ done: number; total: number } | null>(null);
   const [globalError, setGlobalError] = React.useState<string | null>(null);
   const [summary, setSummary] = React.useState<AttendanceImportSummary | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -39,6 +72,7 @@ export function AttendanceImportDialog() {
     setRows(null);
     setGlobalError(null);
     setSummary(null);
+    setProgress(null);
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -87,13 +121,31 @@ export function AttendanceImportDialog() {
   async function handleImport() {
     if (!rows) return;
     setSubmitting(true);
-    const result = await importAttendanceReport(rows);
-    setSubmitting(false);
-    if (!result.success) {
-      setGlobalError(result.error ?? "Erro ao importar.");
-      return;
+    setGlobalError(null);
+
+    const batches: Record<string, string>[][] = [];
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) batches.push(rows.slice(i, i + BATCH_SIZE));
+
+    let acc = emptySummary();
+    setProgress({ done: 0, total: rows.length });
+
+    for (const batch of batches) {
+      const result = await importAttendanceReport(batch);
+      if (!result.success) {
+        setSubmitting(false);
+        setGlobalError(
+          `${result.error ?? "Erro ao importar."} (parte do arquivo já foi importada — o que passou não some, é só rodar de novo pra terminar o resto)`
+        );
+        setSummary(acc.created > 0 ? acc : null);
+        router.refresh();
+        return;
+      }
+      acc = mergeSummary(acc, result.summary ?? emptySummary());
+      setProgress((p) => ({ done: (p?.done ?? 0) + batch.length, total: rows.length }));
     }
-    setSummary(result.summary ?? null);
+
+    setSubmitting(false);
+    setSummary(acc);
     router.refresh();
   }
 
@@ -126,7 +178,8 @@ export function AttendanceImportDialog() {
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground transition-colors hover:border-gold hover:text-gold-text"
+              disabled={submitting}
+              className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground transition-colors hover:border-gold hover:text-gold-text disabled:cursor-not-allowed disabled:opacity-50"
             >
               {parsing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
               {parsing ? "Lendo relatório..." : "Clique para escolher o arquivo .xls, .xlsx ou .csv"}
@@ -141,10 +194,25 @@ export function AttendanceImportDialog() {
 
             {globalError && <p className="text-sm text-danger">{globalError}</p>}
 
-            {rows && (
+            {rows && !submitting && (
               <p className="flex items-center gap-1.5 text-sm text-success">
-                <CheckCircle2 className="h-4 w-4" /> {rows.length} linha(s) prontas para importar.
+                <CheckCircle2 className="h-4 w-4" /> {rows.length} linha(s) prontas para importar
+                {rows.length > BATCH_SIZE ? ` (em lotes de ${BATCH_SIZE})` : ""}.
               </p>
+            )}
+
+            {submitting && progress && (
+              <div className="flex flex-col gap-1.5">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-gold transition-all duration-300"
+                    style={{ width: `${Math.min(100, Math.round((progress.done / progress.total) * 100))}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Importando {progress.done} de {progress.total} linhas...
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -190,12 +258,12 @@ export function AttendanceImportDialog() {
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline">{summary ? "Fechar" : "Cancelar"}</Button>
+            <Button type="button" variant="outline" disabled={submitting}>{summary ? "Fechar" : "Cancelar"}</Button>
           </DialogClose>
           {!summary && (
             <Button type="button" variant="gold" onClick={handleImport} disabled={!rows || submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Importar
+              {submitting ? "Importando..." : "Importar"}
             </Button>
           )}
         </DialogFooter>
