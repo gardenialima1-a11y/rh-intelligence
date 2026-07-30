@@ -43,7 +43,10 @@ export function buildCatracaAttentionPoints({ criticalEmployees, ranking, byUnit
   if (piorou > 0) {
     points.push({
       severity: "warning",
-      text: `${piorou} colaborador${piorou === 1 ? "" : "es"} piorou${piorou === 1 ? "" : "ram"} o tempo fora do posto entre o início e o fim do período.`,
+      text:
+        piorou === 1
+          ? "1 colaborador piorou o tempo fora do posto entre o início e o fim do período."
+          : `${piorou} colaboradores pioraram o tempo fora do posto entre o início e o fim do período.`,
     });
   }
 
@@ -51,7 +54,10 @@ export function buildCatracaAttentionPoints({ criticalEmployees, ranking, byUnit
   if (melhorou > 0) {
     points.push({
       severity: "info",
-      text: `${melhorou} colaborador${melhorou === 1 ? "" : "es"} melhorou${melhorou === 1 ? "" : "ram"} o tempo fora do posto no mesmo comparativo.`,
+      text:
+        melhorou === 1
+          ? "1 colaborador melhorou o tempo fora do posto no mesmo comparativo."
+          : `${melhorou} colaboradores melhoraram o tempo fora do posto no mesmo comparativo.`,
     });
   }
 
