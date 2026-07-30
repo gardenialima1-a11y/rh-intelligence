@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { resolvePeriod, previousPeriod, percentDelta, monthKeysForPeriod, monthLabelsPtBR } from "@/services/period";
+import { resolvePeriod, previousPeriod, percentDelta, monthKeysForPeriod, monthLabelsPtBR, monthKey } from "@/services/period";
 import { calculateBradfordFactor, type BradfordRiskLevel } from "@/lib/analytics/bradford";
 import type { ExecutiveFilters } from "@/services/dashboard-executivo";
 
@@ -343,24 +343,72 @@ export async function getAbsenceTable(filters: ExecutiveFilters) {
   });
 }
 
-export interface FaltaRow {
+export interface OcorrenciaDetalhada {
   date: Date;
   employeeName: string;
   registration: string;
   setorPrincipal: string | null;
   setorSecundario: string | null;
-  temAtestado: boolean;
-  atrasoMinutos: number | null;
+  status: string;
+  motivoLabel: string;
+  /** Se esse dia entra no cálculo da taxa de absenteísmo (mesma regra da importação). */
+  entraNoCalculo: boolean;
+  hasCertificate: boolean;
+  hoursLost: number;
+  mesKey: string;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  FALTOU: "Falta injustificada",
+  FERIAS: "Férias",
+  FOLGA: "Folga",
+  FERIADO: "Feriado",
+  SEM_JORNADA: "Sem jornada",
+  DISPENSADO: "Dispensa",
+  LICENCA: "Licença",
+  ATESTADO: "Atestado médico",
+  DECLARACAO: "Declaração",
+  ABONO: "Abono autorizado pela gestão",
+  CURSO_APRENDIZAGEM: "Curso/Aprendizagem",
+  CARGO_CONFIANCA: "Cargo de confiança",
+  OUTRO: "Não identificado",
+};
+
+/** Os mesmos status que ficam de fora do cálculo de absenteísmo lá na importação (src/actions/attendance-import.ts) — mantidos em sincronia de propósito. */
+const STATUS_FORA_DO_CALCULO = new Set([
+  "FERIAS",
+  "FOLGA",
+  "FERIADO",
+  "SEM_JORNADA",
+  "CARGO_CONFIANCA",
+  "ABONO",
+  "DISPENSADO",
+  "OUTRO",
+]);
+
 /**
- * Faltas detectadas automaticamente pela importação do relatório de ponto,
- * já cruzadas com os atestados médicos cadastrados (SST → Atestados) pela
- * mesma data. Sempre exclui quem está marcado como Cargo de Confiança.
+ * Lista completa de ocorrências (todo dia que não foi presença normal), uma
+ * linha por colaborador por dia — cruzando o AttendanceRecord (que tem o
+ * status real do dia: falta, atestado, licença, férias, etc.) com o Absence
+ * correspondente (que tem o atestado e as horas perdidas). Essa é a ÚNICA
+ * fonte usada por todo o resto da aba operacional, pra nunca mais existir
+ * divergência entre "quantas faltas" e "quantas com atestado".
+ *
+ * Antes, a tabela de faltas só olhava quem tinha status FALTOU — só que, com a
+ * classificação corrigida, quem tem atestado/licença NUNCA fica com status
+ * FALTOU (fica ATESTADO/LICENCA). Por isso a coluna "com atestado" sempre
+ * dava 0: estava procurando atestado dentro do grupo que, por definição, não
+ * tem atestado.
  */
-export async function getFaltasComCruzamento(limit = 200) {
-  const faltas = await prisma.attendanceRecord.findMany({
-    where: { status: "FALTOU" },
+export async function getOcorrenciasDetalhadas(filters: ExecutiveFilters, limit = 5000): Promise<OcorrenciaDetalhada[]> {
+  const range = resolvePeriod(filters.period);
+
+  const records = await prisma.attendanceRecord.findMany({
+    where: {
+      date: { gte: range.start, lte: range.end },
+      status: { not: "PRESENTE" },
+      ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
+    },
     orderBy: { date: "desc" },
     take: limit,
     include: {
@@ -375,64 +423,94 @@ export async function getFaltasComCruzamento(limit = 200) {
     },
   });
 
-  if (faltas.length === 0) return [];
+  if (records.length === 0) return [];
 
-  const employeeIds = Array.from(new Set(faltas.map((f) => f.employeeId)));
-  const dates = faltas.map((f) => f.date);
-  const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-  const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
+  const employeeIds = Array.from(new Set(records.map((r) => r.employeeId)));
+  const dates = records.map((r) => r.date.getTime());
+  const minDate = new Date(Math.min(...dates));
+  const maxDate = new Date(Math.max(...dates));
 
   const absences = await prisma.absence.findMany({
-    where: { employeeId: { in: employeeIds }, date: { gte: minDate, lte: maxDate }, hasCertificate: true },
-    select: { employeeId: true, date: true },
+    where: { employeeId: { in: employeeIds }, date: { gte: minDate, lte: maxDate } },
+    select: { employeeId: true, date: true, hasCertificate: true, hoursLost: true },
   });
-  const certificateKeys = new Set(absences.map((a) => `${a.employeeId}_${a.date.toISOString().slice(0, 10)}`));
+  const absenceByKey = new Map(absences.map((a) => [`${a.employeeId}_${a.date.toISOString().slice(0, 10)}`, a]));
 
-  const rows: FaltaRow[] = faltas.map((f) => ({
-    date: f.date,
-    employeeName: f.employee.name,
-    registration: f.employee.registration,
-    setorPrincipal: f.employee.costCenter?.name ?? null,
-    setorSecundario: f.employee.secondaryCostCenter?.name ?? null,
-    temAtestado: certificateKeys.has(`${f.employeeId}_${f.date.toISOString().slice(0, 10)}`),
-    atrasoMinutos: f.atrasoMinutos,
-  }));
-
-  return rows;
+  return records.map((r) => {
+    const key = `${r.employeeId}_${r.date.toISOString().slice(0, 10)}`;
+    const abs = absenceByKey.get(key);
+    const status = r.status as string;
+    return {
+      date: r.date,
+      employeeName: r.employee.name,
+      registration: r.employee.registration,
+      setorPrincipal: r.employee.costCenter?.name ?? null,
+      setorSecundario: r.employee.secondaryCostCenter?.name ?? null,
+      status,
+      motivoLabel: STATUS_LABELS[status] ?? status,
+      entraNoCalculo: !STATUS_FORA_DO_CALCULO.has(status),
+      hasCertificate: abs?.hasCertificate ?? false,
+      hoursLost: abs?.hoursLost ?? 0,
+      mesKey: monthKey(r.date),
+    };
+  });
 }
 
-export interface FaltasBySetorRow {
-  setor: string;
-  faltas: number;
+export interface OcorrenciasMesResumo {
+  mes: string;
+  label: string;
+  total: number;
+  contamCalculo: number;
   comAtestado: number;
   semAtestado: number;
 }
 
-export async function getFaltasPorSetorPrincipal(): Promise<FaltasBySetorRow[]> {
-  const rows = await getFaltasComCruzamento(1000);
-  const map = new Map<string, FaltasBySetorRow>();
-  for (const r of rows) {
-    const setor = r.setorPrincipal ?? "Não informado";
-    const cur = map.get(setor) ?? { setor, faltas: 0, comAtestado: 0, semAtestado: 0 };
-    cur.faltas += 1;
-    if (r.temAtestado) cur.comAtestado += 1;
-    else cur.semAtestado += 1;
-    map.set(setor, cur);
+/** Agrupa as ocorrências por mês — total de ocorrências, quantas entram no cálculo e o mix atestado/sem atestado dessas. */
+export function resumoOcorrenciasPorMes(ocorrencias: OcorrenciaDetalhada[]): OcorrenciasMesResumo[] {
+  const map = new Map<string, OcorrenciasMesResumo>();
+  for (const o of ocorrencias) {
+    const cur = map.get(o.mesKey) ?? {
+      mes: o.mesKey,
+      label: monthLabelsPtBR([o.mesKey])[0],
+      total: 0,
+      contamCalculo: 0,
+      comAtestado: 0,
+      semAtestado: 0,
+    };
+    cur.total += 1;
+    if (o.entraNoCalculo) {
+      cur.contamCalculo += 1;
+      if (o.hasCertificate) cur.comAtestado += 1;
+      else cur.semAtestado += 1;
+    }
+    map.set(o.mesKey, cur);
   }
-  return Array.from(map.values()).sort((a, b) => b.faltas - a.faltas);
+  return Array.from(map.values()).sort((a, b) => b.mes.localeCompare(a.mes));
 }
 
-export async function getFaltasPorSetorSecundario(): Promise<FaltasBySetorRow[]> {
-  const rows = await getFaltasComCruzamento(1000);
-  const map = new Map<string, FaltasBySetorRow>();
-  for (const r of rows) {
-    if (!r.setorSecundario) continue;
-    const setor = r.setorSecundario;
-    const cur = map.get(setor) ?? { setor, faltas: 0, comAtestado: 0, semAtestado: 0 };
-    cur.faltas += 1;
-    if (r.temAtestado) cur.comAtestado += 1;
+export interface OcorrenciasSetorResumo {
+  setor: string;
+  total: number;
+  comAtestado: number;
+  semAtestado: number;
+}
+
+/** Agrupa por setor (principal ou secundário) só as ocorrências que ENTRAM NO CÁLCULO — abono, férias, folga etc. não fazem sentido num ranking de faltas por setor. */
+export function resumoOcorrenciasPorSetor(
+  ocorrencias: OcorrenciaDetalhada[],
+  campo: "setorPrincipal" | "setorSecundario"
+): OcorrenciasSetorResumo[] {
+  const map = new Map<string, OcorrenciasSetorResumo>();
+  for (const o of ocorrencias) {
+    if (!o.entraNoCalculo) continue;
+    const valor = o[campo];
+    if (campo === "setorSecundario" && !valor) continue; // nem todo colaborador tem setor secundário
+    const setor = valor ?? "Não informado";
+    const cur = map.get(setor) ?? { setor, total: 0, comAtestado: 0, semAtestado: 0 };
+    cur.total += 1;
+    if (o.hasCertificate) cur.comAtestado += 1;
     else cur.semAtestado += 1;
     map.set(setor, cur);
   }
-  return Array.from(map.values()).sort((a, b) => b.faltas - a.faltas);
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
 }
