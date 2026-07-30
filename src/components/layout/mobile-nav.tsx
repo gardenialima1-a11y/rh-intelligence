@@ -4,9 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Menu, Building2, X, Star } from "lucide-react";
+import { Menu, X, Star } from "lucide-react";
 import { MODULES, modulesByGroup, type ModuleDef } from "@/lib/modules";
 import { cn } from "@/lib/utils";
+import { CompanyLogo } from "@/components/layout/company-logo";
 import type { Role } from "@prisma/client";
 
 function moduleHref(slug: string) {
@@ -53,9 +54,7 @@ export function MobileNav({ role, favoriteKeys }: { role: Role; favoriteKeys: st
           </DialogPrimitive.Description>
           <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy text-gold">
-                <Building2 className="h-4 w-4" />
-              </div>
+              <CompanyLogo />
               <span className="text-sm font-semibold tracking-tight text-navy dark:text-cream">RH BI</span>
             </div>
             <DialogPrimitive.Close asChild>
