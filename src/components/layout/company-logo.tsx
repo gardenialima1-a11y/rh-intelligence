@@ -25,7 +25,7 @@ export function CompanyLogo() {
     <img
       src="/logo.png"
       alt="Logomarca da empresa"
-      className="h-8 w-8 shrink-0 rounded-lg object-contain"
+      className="h-9 w-auto max-w-[120px] shrink-0 object-contain"
       onError={() => setFailed(true)}
     />
   );
