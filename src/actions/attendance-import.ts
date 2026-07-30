@@ -123,6 +123,12 @@ export interface AttendanceImportSummary {
   horasEsperadasTotais: number;
   horasPerdidasTotais: number;
   ausenciasRegistradas: number;
+  /** Ausências com atestado, declaração ou licença — contam como "com atestado" nos relatórios. */
+  comAtestado: number;
+  /** Dias em curso/aprendizagem — contados como cumpridos (não é falta), mesmo sem bater ponto. */
+  cursoAprendizagem: number;
+  /** Dias que não entram no cálculo de absenteísmo: férias, folga, feriado, sem jornada, abono, dispensa, cargo de confiança. */
+  naoContabilizados: number;
 }
 
 const REASON_LABELS = {
@@ -130,6 +136,8 @@ const REASON_LABELS = {
   abono: "Abono autorizado pela gestão",
   compensada: "Falta compensada (banco de horas)",
   licenca: "Licença",
+  atestadoMedico: "Atestado médico",
+  declaracaoLabel: "Declaração",
   atraso: "Atraso",
   saidaAntecipada: "Saída antecipada",
   generico: "Ausência registrada no ponto",
@@ -253,6 +261,9 @@ export async function importAttendanceReport(
       horasEsperadasTotais: 0,
       horasPerdidasTotais: 0,
       ausenciasRegistradas: 0,
+      comAtestado: 0,
+      cursoAprendizagem: 0,
+      naoContabilizados: 0,
     };
     const trustPositionIdsToSet = new Set<string>();
 
@@ -266,7 +277,11 @@ export async function importAttendanceReport(
         return;
       }
 
-      let status: AttendanceStatus = classifyAttendanceRow({ rotinaEsperada: row.rotina, hasEntrada: row.hasEntrada });
+      let status: AttendanceStatus = classifyAttendanceRow({
+        rotinaEsperada: row.rotina,
+        obs: row.obs,
+        hasEntrada: row.hasEntrada,
+      });
 
       if (status === "CARGO_CONFIANCA") {
         trustPositionIdsToSet.add(employee.id);
@@ -294,15 +309,38 @@ export async function importAttendanceReport(
       if (status === "FERIAS") summary.ferias += 1;
       if (status === "OUTRO") summary.outros.push({ nome: employee.name, texto: row.rotina });
 
-      // Dias sem jornada esperada (Férias, Folga, Cargo de Confiança, texto não reconhecido)
-      // não entram no cálculo de horas esperadas/perdidas — não é justo contar isso.
-      const isWorkday = !(status === "FERIAS" || status === "FOLGA" || status === "CARGO_CONFIANCA" || status === "OUTRO");
+      // Dias que NÃO entram no cálculo de absenteísmo (nem como jornada esperada,
+      // nem como falta): férias, folga, feriado, sem jornada, cargo de confiança,
+      // abono autorizado pela gestão (foi acordado, não é falta), dispensa (o
+      // colaborador foi desligado, não é ausência) e texto não reconhecido.
+      // Curso/Aprendizagem é diferente: entra como jornada esperada normalmente,
+      // mas as horas contam como cumpridas (ver workedMin abaixo) — o colaborador
+      // não bateu ponto, mas também não faltou, só estava em outro lugar.
+      const NAO_CONTABILIZADOS: AttendanceStatus[] = [
+        "FERIAS",
+        "FOLGA",
+        "FERIADO",
+        "SEM_JORNADA",
+        "CARGO_CONFIANCA",
+        "ABONO",
+        "DISPENSADO",
+        "OUTRO",
+      ];
+      const isWorkday = !NAO_CONTABILIZADOS.includes(status);
+      if (!isWorkday) summary.naoContabilizados += 1;
 
       if (isWorkday) {
         const scheduledMin = scheduledFromRow(row) ?? typicalByCodigo.get(row.codigoRaw) ?? 480;
-        const workedMin = status === "PRESENTE" ? row.duracaoMin ?? 0 : 0;
+        const workedMin =
+          status === "PRESENTE"
+            ? row.duracaoMin ?? 0
+            : status === "CURSO_APRENDIZAGEM"
+              ? scheduledMin // no curso: conta como cumprido mesmo sem bater ponto
+              : 0;
         const rawLostMin = Math.max(0, scheduledMin - workedMin);
         const lostMin = rawLostMin >= TOLERANCIA_MIN ? rawLostMin : 0;
+
+        if (status === "CURSO_APRENDIZAGEM") summary.cursoAprendizagem += 1;
 
         writes.push(
           prisma.timeEntry.upsert({
@@ -328,17 +366,25 @@ export async function importAttendanceReport(
         if (lostMin > 0) {
           summary.horasPerdidasTotais += lostMin / 60;
 
+          // Licença, Atestado médico e Declaração são as 3 formas de ausência
+          // "com documento" — por isso marcam hasCertificate: true. Todo o resto
+          // que chega até aqui (Falta / Presente com atraso ou saída antecipada)
+          // fica sem atestado. "Falta injustificada" só é usada quando o status
+          // realmente for FALTOU — nunca como motivo padrão de fallback.
           let reasonId = reasons.generico;
+          let hasCertificate = false;
+
           if (status === "FALTOU") {
             reasonId = reasons.faltaInjustificada;
-          } else if (status === "DISPENSADO") {
-            reasonId = row.obs.includes("Abono")
-              ? reasons.abono
-              : row.obs.includes("Falta compensada")
-                ? reasons.compensada
-                : reasons.dispensa;
           } else if (status === "LICENCA") {
             reasonId = reasons.licenca;
+            hasCertificate = true;
+          } else if (status === "ATESTADO") {
+            reasonId = reasons.atestadoMedico;
+            hasCertificate = true;
+          } else if (status === "DECLARACAO") {
+            reasonId = reasons.declaracaoLabel;
+            hasCertificate = true;
           } else if (status === "PRESENTE") {
             reasonId = (row.atrasoMinutos ?? 0) > 0
               ? reasons.atraso
@@ -347,13 +393,15 @@ export async function importAttendanceReport(
                 : reasons.generico;
           }
 
+          if (hasCertificate) summary.comAtestado += 1;
+
           const key = absenceKey(employee.id, row.date);
           const existingId = existingAbsenceByKey.get(key);
           writes.push(
             existingId
               ? prisma.absence.update({
                   where: { id: existingId },
-                  data: { reasonId, hoursLost: lostMin / 60 },
+                  data: { reasonId, hoursLost: lostMin / 60, hasCertificate },
                 })
               : prisma.absence.create({
                   data: {
@@ -361,7 +409,7 @@ export async function importAttendanceReport(
                     date: row.date,
                     reasonId,
                     hoursLost: lostMin / 60,
-                    hasCertificate: false,
+                    hasCertificate,
                     absenceType: lostMin >= scheduledMin ? "UM_DIA_OU_MAIS" : "ALGUMAS_HORAS",
                   },
                 })
