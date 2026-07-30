@@ -67,6 +67,27 @@ export function lastNMonthsKeys(n: number): string[] {
   return keys;
 }
 
+/**
+ * Meses a exibir em gráficos mensais, de acordo com o período selecionado:
+ * - Ano específico (ex.: "2026"): mostra janeiro até o mês atual (se for o ano
+ *   corrente) ou até dezembro (se for um ano fechado). Evita exibir meses
+ *   futuros ainda sem dados como se fossem "0% de absenteísmo".
+ * - Qualquer outro período: mantém o comportamento padrão de últimos 12 meses.
+ */
+export function monthKeysForPeriod(period?: string): string[] {
+  if (period && /^\d{4}$/.test(period)) {
+    const year = Number(period);
+    const now = new Date();
+    const lastMonthIndex = year === now.getFullYear() ? now.getMonth() : 11;
+    const keys: string[] = [];
+    for (let m = 0; m <= lastMonthIndex; m++) {
+      keys.push(`${year}-${String(m + 1).padStart(2, "0")}`);
+    }
+    return keys;
+  }
+  return lastNMonthsKeys(12);
+}
+
 export function monthLabelsPtBR(keys: string[]): string[] {
   const fmt = new Intl.DateTimeFormat("pt-BR", { month: "short" });
   return keys.map((key) => {
