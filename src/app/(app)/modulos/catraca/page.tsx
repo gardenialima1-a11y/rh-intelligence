@@ -11,6 +11,8 @@ import { formatNumber } from "@/lib/utils";
 import { TurnstileImportDialog } from "@/components/admin/turnstile-import-dialog";
 import { CatracaDayDetailDialog } from "@/components/admin/catraca-day-detail-dialog";
 import { CatracaHistoricoTable } from "@/components/dashboard/catraca-historico-table";
+import { AttentionPointsCard } from "@/components/dashboard/attention-points-card";
+import { buildCatracaAttentionPoints } from "@/lib/analytics/catraca-insight";
 import { getCatracaKpis, getCatracaRanking, getCatracaByUnit, getCatracaTable } from "@/services/catraca";
 import { getCatracaHistorico } from "@/services/catraca-historico";
 
@@ -30,6 +32,13 @@ export default async function CatracaPage({
     getCatracaHistorico(),
   ]);
 
+  const attentionPoints = buildCatracaAttentionPoints({
+    criticalEmployees: kpis.criticalEmployees,
+    ranking,
+    byUnit,
+    historico,
+  });
+
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -38,6 +47,7 @@ export default async function CatracaPage({
         <KpiCard label="Média por colaborador" value={`${kpis.avgMinutesPerEmployee.toFixed(0)} min`} icon={ScanFace} accent="gold" />
         <KpiCard label="Colaboradores críticos" value={formatNumber(kpis.criticalEmployees)} icon={AlertOctagon} accent="danger" />
       </div>
+      <AttentionPointsCard points={attentionPoints} />
       <Card>
         <CardHeader>
           <CardTitle>Tempo fora do posto por unidade (minutos)</CardTitle>
