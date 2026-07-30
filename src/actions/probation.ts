@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { probationFormSchema } from "@/lib/validation/probation";
+import { computeProbationDates, resolveDisplayStatus, computeProbationAlert, type StoredProbationStatus } from "@/lib/analytics/probation";
 import type { ActionResult } from "@/actions/employees";
 
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RH"];
@@ -46,21 +47,48 @@ export async function upsertProbationTracking(employeeId: string, raw: unknown):
   }
 }
 
-/**
- * Colaboradores ativos, admitidos nos últimos ~105 dias (90 do período de
- * experiência + margem), com o acompanhamento (se já existir) já anexado.
- */
-export async function getProbationCandidates() {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 105);
+/** Quantos dias pra trás olhar pro histórico de período de experiência (2 anos é uma margem confortável). */
+const HISTORICO_WINDOW_DAYS = 730;
 
-  return prisma.employee.findMany({
-    where: { isActive: true, admissionDate: { gte: cutoff } },
+export interface ProbationCandidate {
+  id: string;
+  name: string;
+  registration: string;
+  admissionDate: Date;
+  isActive: boolean;
+  position: { name: string } | null;
+  costCenter: { name: string } | null;
+  manager: { name: string } | null;
+  probationTracking: {
+    avaliador: string | null;
+    status30: string;
+    status60: string;
+    notes: string | null;
+  } | null;
+}
+
+/**
+ * Busca todo mundo com admissão nos últimos ~2 anos (cobre período de
+ * experiência em andamento e o histórico de quem já passou pelos 90 dias),
+ * já separado em duas listas:
+ * - emAndamento: ainda dentro dos 90 dias e ativo — é a lista que a liderança
+ *   acompanha no dia a dia.
+ * - historico: já passou dos 90 dias (aprovado, reprovado ou não avaliado) —
+ *   sai da lista de acompanhamento automaticamente, mas o registro nunca é
+ *   apagado, fica disponível aqui pra consulta.
+ */
+export async function getProbationOverview() {
+  const historicoWindowStart = new Date();
+  historicoWindowStart.setDate(historicoWindowStart.getDate() - HISTORICO_WINDOW_DAYS);
+
+  const employees = await prisma.employee.findMany({
+    where: { admissionDate: { gte: historicoWindowStart } },
     select: {
       id: true,
       name: true,
       registration: true,
       admissionDate: true,
+      isActive: true,
       position: { select: { name: true } },
       costCenter: { select: { name: true } },
       manager: { select: { name: true } },
@@ -68,4 +96,19 @@ export async function getProbationCandidates() {
     },
     orderBy: { admissionDate: "asc" },
   });
+
+  const now = new Date();
+  const withComputed = employees.map((c) => {
+    const dates = computeProbationDates(c.admissionDate);
+    const status30 = resolveDisplayStatus((c.probationTracking?.status30 ?? "EM_AVALIACAO") as StoredProbationStatus, dates.checkpoint1, now);
+    const status60 = resolveDisplayStatus((c.probationTracking?.status60 ?? "EM_AVALIACAO") as StoredProbationStatus, dates.checkpoint2, now);
+    const { diasRestantes, alerta } = computeProbationAlert(dates.checkpoint2, status60, now);
+    const emAndamento = c.isActive && now.getTime() <= dates.checkpoint2.getTime();
+    return { ...c, dates, status30, status60, diasRestantes, alerta, emAndamento };
+  });
+
+  return {
+    emAndamento: withComputed.filter((c) => c.emAndamento),
+    historico: withComputed.filter((c) => !c.emAndamento).sort((a, b) => b.admissionDate.getTime() - a.admissionDate.getTime()),
+  };
 }
