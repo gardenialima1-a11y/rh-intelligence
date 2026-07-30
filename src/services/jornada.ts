@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { resolvePeriod, previousPeriod, percentDelta, lastNMonthsKeys } from "@/services/period";
+import { resolvePeriod, previousPeriod, percentDelta, monthKeysForPeriod } from "@/services/period";
 import type { ExecutiveFilters } from "@/services/dashboard-executivo";
 
 /**
@@ -41,7 +41,7 @@ export async function getJornadaKpis(filters: ExecutiveFilters) {
 
   const [current, previous] = await Promise.all([stats(range.start, range.end), stats(prev.start, prev.end)]);
 
-  const months = lastNMonthsKeys(12);
+  const months = monthKeysForPeriod(filters.period);
   const series = await Promise.all(
     months.map(async (key) => {
       const [y, m] = key.split("-").map(Number);
