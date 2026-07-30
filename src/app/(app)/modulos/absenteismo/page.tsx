@@ -7,13 +7,13 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 // Relatórios de ponto costumam ter milhares de linhas (um mês inteiro × todos os
 // colaboradores) — a importação precisa de mais que o limite padrão de 10s da Vercel.
 export const maxDuration = 60;
-import { TrendChart } from "@/components/dashboard/trend-chart";
+import { AbsenteeismTrendChart } from "@/components/dashboard/absenteeism-trend-chart";
+import { AbsenteeismStrategicAnalysis } from "@/components/dashboard/absenteeism-strategic-analysis";
 import { RankingBarChart } from "@/components/dashboard/ranking-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatPercent, formatCurrency, formatDate } from "@/lib/utils";
-import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { TableCardHeader } from "@/components/dashboard/table-card-header";
 import { AttendanceImportDialog } from "@/components/admin/attendance-import-dialog";
 import {
@@ -25,6 +25,7 @@ import {
   getFaltasComCruzamento,
   getFaltasPorSetorPrincipal,
   getFaltasPorSetorSecundario,
+  getAbsenteismoMonthlyBreakdown,
 } from "@/services/absenteismo";
 
 const BRADFORD_VARIANT: Record<string, "danger" | "warning" | "outline"> = {
@@ -39,21 +40,25 @@ export default async function AbsenteismoPage({
   searchParams: Promise<{ unidade?: string; periodo?: string }>;
 }) {
   const params = await searchParams;
-  const filters = await resolveScopedFilters(params);
+  // Padrão deste módulo é o ano de 2026 — a pessoa ainda pode trocar pelo filtro
+  // global de período (unidade/setor/período) no topo da tela, se quiser ver outro recorte.
+  const filters = await resolveScopedFilters({ ...params, periodo: params.periodo ?? "2026" });
 
-  const [kpis, byReason, byCostCenter, table, bradford, faltas, faltasPorPrincipal, faltasPorSecundario] = await Promise.all([
-    getAbsenteismoKpis(filters),
-    getAbsenceByReason(filters),
-    getAbsenceByCostCenter(filters),
-    getAbsenceTable(filters),
-    getBradfordFactorRanking(filters),
-    getFaltasComCruzamento(),
-    getFaltasPorSetorPrincipal(),
-    getFaltasPorSetorSecundario(),
-  ]);
+  const [kpis, byReason, byCostCenter, table, bradford, faltas, faltasPorPrincipal, faltasPorSecundario, monthlyBreakdown] =
+    await Promise.all([
+      getAbsenteismoKpis(filters),
+      getAbsenceByReason(filters),
+      getAbsenceByCostCenter(filters),
+      getAbsenceTable(filters),
+      getBradfordFactorRanking(filters),
+      getFaltasComCruzamento(),
+      getFaltasPorSetorPrincipal(),
+      getFaltasPorSetorSecundario(),
+      getAbsenteismoMonthlyBreakdown(filters),
+    ]);
 
-  const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
   const criticalBradford = bradford.filter((b) => b.riskLevel === "Crítico");
+  const trendTitle = filters.period && /^\d{4}$/.test(filters.period) ? `Absenteísmo — ${filters.period}` : "Absenteísmo — 12 meses";
 
   const executive = (
     <div className="flex flex-col gap-4">
@@ -61,14 +66,29 @@ export default async function AbsenteismoPage({
         <KpiCard label="Taxa de absenteísmo" value={formatPercent(kpis.rate)} icon={AlertTriangle} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "negative" : "positive"} sparklineData={kpis.series} accent="gold" />
         <KpiCard label="Horas perdidas" value={`${formatNumber(kpis.hoursLost)} h`} icon={Clock3} accent="danger" />
         <KpiCard label="Ocorrências" value={formatNumber(kpis.occurrences)} icon={ListChecks} accent="navy" />
-        <KpiCard label="Custo estimado" value={formatCurrency(kpis.estimatedCost)} icon={Wallet} accent="danger" />
+        <KpiCard
+          label="Custo estimado"
+          value={formatCurrency(kpis.estimatedCost)}
+          icon={Wallet}
+          accent="danger"
+          tooltip={`Calculado a partir da faixa salarial do cargo de cada colaborador (piso/teto), convertida em valor-hora por uma jornada de 220h/mês. ${
+            kpis.estimatedCostCoverage < 0.95
+              ? `${Math.round((1 - kpis.estimatedCostCoverage) * 100)}% das horas usaram uma média salarial de aproximação, por falta de cargo/faixa cadastrada para o colaborador — vale revisar o cadastro de cargos para deixar esse número mais preciso.`
+              : "A maior parte das horas usou a faixa salarial real do cargo do colaborador."
+          }`}
+        />
       </div>
       <Card>
-        <CardHeader>
-          <CardTitle>Absenteísmo — 12 meses</CardTitle>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle>{trendTitle}</CardTitle>
+          <AbsenteeismStrategicAnalysis data={monthlyBreakdown} />
         </CardHeader>
         <CardContent>
-          <TrendChart data={kpis.series.map((v) => v * 100)} labels={monthLabels} color="#C9922E" format="percent1" />
+          <AbsenteeismTrendChart data={monthlyBreakdown} color="#C9922E" />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Passe o mouse sobre um mês pra ver o mix atestado x falta não justificada, o setor secundário mais
+            impactado e o motivo mais frequente. Meses com um ponto destacado ficaram acima da média do período.
+          </p>
         </CardContent>
       </Card>
     </div>
