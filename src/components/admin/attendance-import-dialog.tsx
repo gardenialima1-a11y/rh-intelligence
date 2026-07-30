@@ -37,6 +37,9 @@ function emptySummary(): AttendanceImportSummary {
     horasEsperadasTotais: 0,
     horasPerdidasTotais: 0,
     ausenciasRegistradas: 0,
+    comAtestado: 0,
+    cursoAprendizagem: 0,
+    naoContabilizados: 0,
   };
 }
 
@@ -52,6 +55,9 @@ function mergeSummary(acc: AttendanceImportSummary, part: AttendanceImportSummar
     horasEsperadasTotais: Math.round((acc.horasEsperadasTotais + part.horasEsperadasTotais) * 10) / 10,
     horasPerdidasTotais: Math.round((acc.horasPerdidasTotais + part.horasPerdidasTotais) * 10) / 10,
     ausenciasRegistradas: acc.ausenciasRegistradas + part.ausenciasRegistradas,
+    comAtestado: acc.comAtestado + part.comAtestado,
+    cursoAprendizagem: acc.cursoAprendizagem + part.cursoAprendizagem,
+    naoContabilizados: acc.naoContabilizados + part.naoContabilizados,
   };
 }
 
@@ -206,9 +212,10 @@ export function AttendanceImportDialog() {
           <DialogTitle>Importar relatório de ponto</DialogTitle>
           <DialogDescription>
             Suba o relatório de ponto direto em <strong>.xls, .xlsx ou .csv</strong> — não precisa mais converter.
-            O sistema reconhece as colunas Dia, Nome, Código, Rotina Esperada, Entrada/Saída, Horário Esperado e
+            O sistema reconhece as colunas Dia, Nome, Código, Rotina Esperada, Obs, Entrada/Saída, Horário Esperado e
             Duração automaticamente: calcula quem faltou, atualiza a jornada esperada/trabalhada de cada dia (base
-            da taxa de absenteísmo), registra as ausências e marca sozinho quem é Cargo de Confiança.
+            da taxa de absenteísmo), registra as ausências (identificando atestado/declaração/licença) e marca
+            sozinho quem é Cargo de Confiança.
           </DialogDescription>
         </DialogHeader>
 
@@ -294,7 +301,8 @@ export function AttendanceImportDialog() {
               <CheckCircle2 className="h-4 w-4" /> {summary.created} registro(s) processados.
             </p>
             <p className="text-xs text-muted-foreground">
-              {summary.faltas} falta(s) · {summary.ferias} em férias · {summary.cargoConfiancaDetectados} identificado(s) como Cargo de Confiança
+              {summary.faltas} falta(s) injustificada(s) · {summary.comAtestado} com atestado/declaração/licença ·{" "}
+              {summary.ferias} em férias · {summary.cargoConfiancaDetectados} identificado(s) como Cargo de Confiança
             </p>
             <div className="rounded-lg border border-border p-3 text-sm">
               <p className="font-medium">Taxa de absenteísmo atualizada</p>
@@ -302,6 +310,11 @@ export function AttendanceImportDialog() {
                 {summary.diasComJornadaAtualizada} dia(s)-colaborador com jornada esperada/trabalhada atualizada ·{" "}
                 {summary.horasEsperadasTotais} h esperadas · {summary.horasPerdidasTotais} h perdidas ·{" "}
                 {summary.ausenciasRegistradas} ausência(s) registrada(s)
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                {summary.naoContabilizados} dia(s)-colaborador fora do cálculo (férias, folga, feriado, sem jornada,
+                abono, dispensa ou cargo de confiança) · {summary.cursoAprendizagem} dia(s) em curso/aprendizagem
+                (contados como cumpridos)
               </p>
             </div>
             {summary.unmatchedNames.length > 0 && (
