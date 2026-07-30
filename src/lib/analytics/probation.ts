@@ -30,3 +30,22 @@ export function isWithinProbationWindow(admissionDate: Date, now: Date = new Dat
   const daysSinceAdmission = Math.floor((now.getTime() - admissionDate.getTime()) / 86400000);
   return daysSinceAdmission >= 0 && daysSinceAdmission <= windowDays + gracePeriodDays;
 }
+
+export interface ProbationAlertInfo {
+  /** Dias até o checkpoint de 90 dias (negativo se já passou). */
+  diasRestantes: number;
+  /** true quando faltam 10 dias ou menos pro checkpoint de 90 dias e a avaliação final ainda não foi decidida. */
+  alerta: boolean;
+}
+
+/**
+ * Alerta de prazo: dispara quando faltam 10 dias ou menos pro fim do período
+ * de experiência (checkpoint de 90 dias) e ainda não houve decisão
+ * (Aprovado/Reprovado) registrada — pra dar tempo da liderança agendar a
+ * avaliação final antes do prazo vencer.
+ */
+export function computeProbationAlert(checkpoint2: Date, status60: DisplayProbationStatus, now: Date = new Date()): ProbationAlertInfo {
+  const diasRestantes = Math.ceil((checkpoint2.getTime() - now.getTime()) / 86400000);
+  const alerta = diasRestantes >= 0 && diasRestantes <= 10 && status60 === "EM_AVALIACAO";
+  return { diasRestantes, alerta };
+}
