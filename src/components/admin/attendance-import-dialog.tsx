@@ -140,7 +140,23 @@ export function AttendanceImportDialog() {
     setRows(parsedRows);
     setParsing(false);
     setCheckingMatches(true);
-    const preview = await previewUnmatchedNames(parsedRows);
+
+    // Manda só código+nome, já deduplicados — não o arquivo inteiro com todas as
+    // colunas. Um mês de ponto tem milhares de linhas; mandar tudo pra essa
+    // conferência facilmente estourava o limite de tamanho da requisição.
+    const seen = new Set<string>();
+    const people: { codigo: string; nome: string }[] = [];
+    for (const row of parsedRows) {
+      const codigo = (row["Código"] ?? "").toString().trim();
+      const nome = (row["Nome"] ?? "").toString().trim();
+      if (!nome) continue;
+      const key = `${codigo}|${nome}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      people.push({ codigo, nome });
+    }
+
+    const preview = await previewUnmatchedNames(people);
     setCheckingMatches(false);
     if (!preview.success) {
       setGlobalError(preview.error ?? "Não foi possível conferir os colaboradores do arquivo.");
