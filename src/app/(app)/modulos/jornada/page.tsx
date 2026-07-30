@@ -8,7 +8,7 @@ import { RankingBarChart } from "@/components/dashboard/ranking-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { formatNumber, formatPercent, formatCurrency, formatDate } from "@/lib/utils";
-import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
+import { monthKeysForPeriod, monthLabelsPtBR, OVERTIME_TRACKING_START_PERIOD } from "@/services/period";
 import { getJornadaKpis, getOvertimeByCostCenter, getOvertimeBySectorBreakdown, getOvertimeRanking, getJornadaTable } from "@/services/jornada";
 import { OvertimeBySectorTable } from "@/components/dashboard/overtime-by-sector-table";
 import { SectorFilterInline } from "@/components/dashboard/sector-filter-inline";
@@ -25,7 +25,9 @@ export default async function JornadaPage({
   searchParams: Promise<{ unidade?: string; periodo?: string; setorPrincipal?: string; setorSecundario?: string }>;
 }) {
   const params = await searchParams;
-  const filters = await resolveScopedFilters(params);
+  // Horas extras contam a partir de janeiro de 2026 por padrão — sem filtro
+  // global de período na tela, esse é o recorte fixo do módulo.
+  const filters = await resolveScopedFilters({ ...params, periodo: params.periodo ?? OVERTIME_TRACKING_START_PERIOD });
 
   const [kpis, byCostCenter, sectorBreakdown, ranking, table, sectors, employees] = await Promise.all([
     getJornadaKpis(filters),
@@ -37,7 +39,7 @@ export default async function JornadaPage({
     prisma.employee.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
-  const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
+  const monthLabels = monthLabelsPtBR(monthKeysForPeriod(filters.period));
 
   const executive = (
     <div className="flex flex-col gap-4">
@@ -49,7 +51,7 @@ export default async function JornadaPage({
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Horas extras — 12 meses</CardTitle>
+          <CardTitle>Horas extras — desde jan/2026</CardTitle>
         </CardHeader>
         <CardContent>
           <TrendChart data={kpis.series} labels={monthLabels} color="#C9922E" />
