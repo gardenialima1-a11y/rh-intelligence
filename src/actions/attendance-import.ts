@@ -30,11 +30,19 @@ export interface UnmatchedPreviewResult {
 }
 
 /**
- * Escaneia o arquivo (sem gravar nada) e devolve a lista de nomes que não bateram
- * com ninguém do cadastro — nem pela matrícula, nem pelo nome — pra Gardenia
- * confirmar manualmente antes da importação de verdade rodar.
+ * Escaneia os pares código+nome do arquivo (sem gravar nada) e devolve a lista de
+ * nomes que não bateram com ninguém do cadastro — nem pela matrícula, nem pelo
+ * nome — pra Gardenia confirmar manualmente antes da importação de verdade rodar.
+ *
+ * Recebe só código+nome (já deduplicados no cliente) em vez do arquivo inteiro
+ * com todas as colunas — um relatório de ponto de um mês inteiro (milhares de
+ * linhas × 15 colunas) facilmente passava do limite de tamanho da requisição
+ * (erro 413) quando mandava tudo. Como só o código e o nome importam aqui, dá
+ * pra cortar isso de milhares de linhas pra só as ~200 pessoas do cadastro.
  */
-export async function previewUnmatchedNames(rows: Record<string, string>[]): Promise<UnmatchedPreviewResult> {
+export async function previewUnmatchedNames(
+  people: { codigo: string; nome: string }[]
+): Promise<UnmatchedPreviewResult> {
   try {
     await requireHrAccess();
 
@@ -46,9 +54,9 @@ export async function previewUnmatchedNames(rows: Record<string, string>[]): Pro
     const byName = new Set(employees.map((e) => normalizeName(e.name)));
 
     const unmatched = new Set<string>();
-    for (const row of rows) {
-      const codigoRaw = (row["Código"] ?? "").toString().trim().replace(/\.0$/, "");
-      const nomeRaw = (row["Nome"] ?? "").toString().trim();
+    for (const p of people) {
+      const codigoRaw = p.codigo.trim().replace(/\.0$/, "");
+      const nomeRaw = p.nome.trim();
       if (!nomeRaw) continue;
       const matched = byRegistration.has(codigoRaw) || byName.has(normalizeName(nomeRaw));
       if (!matched) unmatched.add(nomeRaw);
