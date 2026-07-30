@@ -1,7 +1,60 @@
 import { prisma } from "@/lib/prisma";
-import { resolvePeriod, previousPeriod, percentDelta, lastNMonthsKeys } from "@/services/period";
+import { resolvePeriod, previousPeriod, percentDelta, monthKeysForPeriod, monthLabelsPtBR } from "@/services/period";
 import { calculateBradfordFactor, type BradfordRiskLevel } from "@/lib/analytics/bradford";
 import type { ExecutiveFilters } from "@/services/dashboard-executivo";
+
+// Jornada mensal padrão usada para transformar salário em valor-hora (CLT: 220h/mês).
+const MONTHLY_HOURS_CLT = 220;
+
+/**
+ * Custo estimado das horas perdidas, calculado a partir da faixa salarial do
+ * CARGO de cada colaborador (média entre piso e teto), convertida em valor-hora
+ * pela jornada mensal padrão (220h). Antes esse cálculo usava um valor fixo de
+ * R$ 22/hora para todo mundo (estagiário ou gerente, tanto fazia) — o que inflava
+ * ou distorcia o número dependendo de quem faltava. Quando o colaborador não tem
+ * cargo com faixa salarial cadastrada, usamos a média salarial dos cargos que
+ * têm faixa cadastrada, como aproximação — e reportamos quanto do valor final
+ * veio de aproximação (coveragePercent), pra você saber o quanto confiar no número.
+ */
+async function estimateAbsenceCost(start: Date, end: Date, unitId?: string) {
+  const absences = await prisma.absence.findMany({
+    where: { date: { gte: start, lte: end }, ...(unitId ? { employee: { unitId } } : {}) },
+    select: {
+      hoursLost: true,
+      employee: { select: { position: { select: { salaryFloor: true, salaryCeil: true } } } },
+    },
+  });
+
+  if (absences.length === 0) return { cost: 0, coveragePercent: 1 };
+
+  const positionsWithSalary = await prisma.position.findMany({
+    where: { salaryFloor: { not: null } },
+    select: { salaryFloor: true, salaryCeil: true },
+  });
+  const fallbackMonthlySalary =
+    positionsWithSalary.length > 0
+      ? positionsWithSalary.reduce((sum: number, p: { salaryFloor: number | null; salaryCeil: number | null }) => sum + ((p.salaryFloor ?? 0) + (p.salaryCeil ?? p.salaryFloor ?? 0)) / 2, 0) /
+        positionsWithSalary.length
+      : 0;
+  const fallbackHourlyRate = fallbackMonthlySalary / MONTHLY_HOURS_CLT;
+
+  let cost = 0;
+  let totalHours = 0;
+  let coveredHours = 0;
+  for (const a of absences) {
+    totalHours += a.hoursLost;
+    const pos = a.employee.position;
+    let hourlyRate = fallbackHourlyRate;
+    if (pos?.salaryFloor) {
+      const monthlySalary = (pos.salaryFloor + (pos.salaryCeil ?? pos.salaryFloor)) / 2;
+      hourlyRate = monthlySalary / MONTHLY_HOURS_CLT;
+      coveredHours += a.hoursLost;
+    }
+    cost += a.hoursLost * hourlyRate;
+  }
+
+  return { cost, coveragePercent: totalHours > 0 ? coveredHours / totalHours : 0 };
+}
 
 export async function getAbsenteismoKpis(filters: ExecutiveFilters) {
   const range = resolvePeriod(filters.period);
@@ -30,9 +83,13 @@ export async function getAbsenteismoKpis(filters: ExecutiveFilters) {
     return { lost, scheduled, rate, occurrences };
   }
 
-  const [current, previous] = await Promise.all([stats(range.start, range.end), stats(prev.start, prev.end)]);
+  const [current, previous, costEstimate] = await Promise.all([
+    stats(range.start, range.end),
+    stats(prev.start, prev.end),
+    estimateAbsenceCost(range.start, range.end, filters.unitId),
+  ]);
 
-  const months = lastNMonthsKeys(12);
+  const months = monthKeysForPeriod(filters.period);
   const series = await Promise.all(
     months.map(async (key) => {
       const [y, m] = key.split("-").map(Number);
@@ -49,7 +106,8 @@ export async function getAbsenteismoKpis(filters: ExecutiveFilters) {
     rate: current.rate,
     delta: percentDelta(current.rate, previous.rate),
     series,
-    estimatedCost: current.lost * 22,
+    estimatedCost: costEstimate.cost,
+    estimatedCostCoverage: costEstimate.coveragePercent,
   };
 }
 
@@ -93,6 +151,139 @@ export async function getBradfordFactorRanking(filters: ExecutiveFilters): Promi
   });
 
   return rows.sort((a, b) => b.bradfordScore - a.bradfordScore);
+}
+
+export interface AbsenteeismoMonthBreakdown {
+  key: string;
+  label: string;
+  rate: number;
+  hoursLost: number;
+  occurrences: number;
+  /** true quando a taxa do mês está pelo menos 20% acima da média do período analisado. */
+  isAlta: boolean;
+  percentComAtestado: number;
+  percentSemAtestado: number;
+  motivoPrincipal: { label: string; hoursLost: number } | null;
+  setorSecundarioMaisImpactado: { name: string; hoursLost: number } | null;
+  /** Texto pronto, em tom analítico (não alarmista), pra usar direto no hover ou na análise estratégica. */
+  insight: string;
+}
+
+function buildInsight(m: Omit<AbsenteeismoMonthBreakdown, "insight">): string {
+  if (m.occurrences === 0) return "Sem ausências registradas neste mês.";
+
+  const parts: string[] = [];
+  const semPct = Math.round(m.percentSemAtestado * 100);
+  const comPct = Math.round(m.percentComAtestado * 100);
+
+  if (m.percentSemAtestado > m.percentComAtestado) {
+    parts.push(`a maior parte das ausências (${semPct}%) não teve atestado registrado`);
+  } else if (comPct > 0) {
+    parts.push(`a maior parte das ausências (${comPct}%) teve atestado médico`);
+  }
+
+  if (m.setorSecundarioMaisImpactado) {
+    parts.push(`o setor secundário mais impactado foi ${m.setorSecundarioMaisImpactado.name}`);
+  }
+
+  if (m.motivoPrincipal) {
+    parts.push(`o motivo mais frequente foi "${m.motivoPrincipal.label}"`);
+  }
+
+  if (parts.length === 0) return "Sem detalhamento suficiente para este mês.";
+  return parts[0].charAt(0).toUpperCase() + parts[0].slice(1) + (parts.length > 1 ? "; " + parts.slice(1).join("; ") : "") + ".";
+}
+
+/**
+ * Análise mês a mês: pra cada mês do período, calcula o mix atestado x falta não
+ * justificada, o setor secundário mais impactado e o motivo mais frequente, e
+ * sinaliza (isAlta) os meses em que a taxa de absenteísmo ficou pelo menos 20%
+ * acima da média do próprio período — usado no hover do gráfico e no botão de
+ * "Análise estratégica". O corte é relativo à média do período (e não um valor
+ * fixo tipo "5% é crítico") de propósito: evita marcar tudo como grave quando o
+ * período inteiro já está ruim, e evita marcar tudo como ok quando está tudo baixo.
+ */
+export async function getAbsenteismoMonthlyBreakdown(filters: ExecutiveFilters): Promise<AbsenteeismoMonthBreakdown[]> {
+  const months = monthKeysForPeriod(filters.period);
+  const labels = monthLabelsPtBR(months);
+
+  const raw = await Promise.all(
+    months.map(async (key) => {
+      const [y, m] = key.split("-").map(Number);
+      const start = new Date(y, m - 1, 1);
+      const end = new Date(y, m, 0, 23, 59, 59);
+
+      const [lostAgg, scheduledAgg, absences] = await Promise.all([
+        prisma.absence.aggregate({
+          _sum: { hoursLost: true },
+          where: { date: { gte: start, lte: end }, ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}) },
+        }),
+        prisma.timeEntry.aggregate({
+          _sum: { scheduledHours: true },
+          where: { date: { gte: start, lte: end }, ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}) },
+        }),
+        prisma.absence.findMany({
+          where: { date: { gte: start, lte: end }, ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}) },
+          select: {
+            hoursLost: true,
+            hasCertificate: true,
+            reason: { select: { label: true } },
+            employee: { select: { secondaryCostCenter: { select: { name: true } } } },
+          },
+        }),
+      ]);
+
+      const lost = lostAgg._sum.hoursLost ?? 0;
+      const scheduled = scheduledAgg._sum.scheduledHours ?? 0;
+      const rate = scheduled > 0 ? lost / scheduled : 0;
+
+      let comAtestadoHoras = 0;
+      let semAtestadoHoras = 0;
+      const motivoMap = new Map<string, number>();
+      const setorSecMap = new Map<string, number>();
+
+      for (const a of absences) {
+        if (a.hasCertificate) comAtestadoHoras += a.hoursLost;
+        else semAtestadoHoras += a.hoursLost;
+
+        const motivoLabel = a.reason?.label ?? "Não informado";
+        motivoMap.set(motivoLabel, (motivoMap.get(motivoLabel) ?? 0) + a.hoursLost);
+
+        const setorSec = a.employee.secondaryCostCenter?.name;
+        if (setorSec) setorSecMap.set(setorSec, (setorSecMap.get(setorSec) ?? 0) + a.hoursLost);
+      }
+
+      const totalHoras = comAtestadoHoras + semAtestadoHoras;
+      const motivoPrincipal = [...motivoMap.entries()].sort((a, b) => b[1] - a[1])[0];
+      const setorSecundarioTop = [...setorSecMap.entries()].sort((a, b) => b[1] - a[1])[0];
+
+      return {
+        key,
+        rate,
+        hoursLost: lost,
+        occurrences: absences.length,
+        percentComAtestado: totalHoras > 0 ? comAtestadoHoras / totalHoras : 0,
+        percentSemAtestado: totalHoras > 0 ? semAtestadoHoras / totalHoras : 0,
+        motivoPrincipal: motivoPrincipal ? { label: motivoPrincipal[0], hoursLost: Math.round(motivoPrincipal[1]) } : null,
+        setorSecundarioMaisImpactado: setorSecundarioTop
+          ? { name: setorSecundarioTop[0], hoursLost: Math.round(setorSecundarioTop[1]) }
+          : null,
+      };
+    })
+  );
+
+  const ratesWithData = raw.map((r) => r.rate).filter((r) => r > 0);
+  const avgRate = ratesWithData.length > 0 ? ratesWithData.reduce((s, r) => s + r, 0) / ratesWithData.length : 0;
+  const highThreshold = avgRate * 1.2;
+
+  return raw.map((r, i) => {
+    const base = {
+      ...r,
+      label: labels[i],
+      isAlta: r.rate > 0 && r.rate >= highThreshold,
+    };
+    return { ...base, insight: buildInsight(base) };
+  });
 }
 
 export async function getAbsenceByReason(filters: ExecutiveFilters) {
