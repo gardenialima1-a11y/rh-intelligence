@@ -400,7 +400,7 @@ const STATUS_FORA_DO_CALCULO = new Set([
  * dava 0: estava procurando atestado dentro do grupo que, por definição, não
  * tem atestado.
  */
-export async function getOcorrenciasDetalhadas(filters: ExecutiveFilters, limit = 5000): Promise<OcorrenciaDetalhada[]> {
+export async function getOcorrenciasDetalhadas(filters: ExecutiveFilters, limit = 50000): Promise<OcorrenciaDetalhada[]> {
   const range = resolvePeriod(filters.period);
 
   const records = await prisma.attendanceRecord.findMany({
