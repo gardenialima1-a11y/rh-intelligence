@@ -7,6 +7,7 @@ interface EmployeeMinutes {
   employeeId: string;
   name: string;
   unit: string;
+  secondarySector: string | null;
   minutesOut: number;
   occurrences: number;
 }
@@ -19,14 +20,22 @@ async function computeTimeOutside(filters: ExecutiveFilters): Promise<EmployeeMi
       timestamp: { gte: range.start, lte: range.end },
       ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
     },
-    include: { employee: { select: { id: true, name: true, unit: { select: { name: true } } } } },
+    include: {
+      employee: {
+        select: { id: true, name: true, unit: { select: { name: true } }, secondaryCostCenter: { select: { name: true } } },
+      },
+    },
     orderBy: { timestamp: "asc" },
   });
 
-  const employeeInfo = new Map<string, { name: string; unit: string }>();
+  const employeeInfo = new Map<string, { name: string; unit: string; secondarySector: string | null }>();
   for (const ev of events) {
     if (!employeeInfo.has(ev.employeeId)) {
-      employeeInfo.set(ev.employeeId, { name: ev.employee.name, unit: ev.employee.unit.name });
+      employeeInfo.set(ev.employeeId, {
+        name: ev.employee.name,
+        unit: ev.employee.unit.name,
+        secondarySector: ev.employee.secondaryCostCenter?.name ?? null,
+      });
     }
   }
 
@@ -40,6 +49,7 @@ async function computeTimeOutside(filters: ExecutiveFilters): Promise<EmployeeMi
       employeeId,
       name: info.name,
       unit: info.unit,
+      secondarySector: info.secondarySector,
       minutesOut: Math.round(minutesOut),
       occurrences,
     });
@@ -73,6 +83,18 @@ export async function getCatracaByUnit(filters: ExecutiveFilters) {
   const map = new Map<string, number>();
   for (const d of data) map.set(d.unit, (map.get(d.unit) ?? 0) + d.minutesOut);
   return Array.from(map.entries()).map(([name, value]) => ({ name, value: Math.round(value) }));
+}
+
+export async function getCatracaBySecondarySector(filters: ExecutiveFilters) {
+  const data = await computeTimeOutside(filters);
+  const map = new Map<string, number>();
+  for (const d of data) {
+    const key = d.secondarySector ?? "Sem setor secundário";
+    map.set(key, (map.get(key) ?? 0) + d.minutesOut);
+  }
+  return Array.from(map.entries())
+    .map(([name, value]) => ({ name, value: Math.round(value) }))
+    .sort((a, b) => b.value - a.value);
 }
 
 export async function getCatracaTable(filters: ExecutiveFilters) {
