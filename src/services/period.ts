@@ -9,10 +9,23 @@ export interface DateRange {
 /** Primeiro ano com dados no sistema — usado como início do período "Todos". */
 const EARLIEST_DATA_YEAR = 2000;
 
+/**
+ * Período fixo usado como padrão no módulo de Horas Extras: começa em
+ * 1º de janeiro de 2026 e vai até hoje — não reseta a cada virada de ano,
+ * ao contrário do filtro de "Ano X" (que é só janeiro a dezembro daquele ano).
+ */
+export const OVERTIME_TRACKING_START_PERIOD = "desde-jan-2026";
+const OVERTIME_TRACKING_START_DATE = new Date(2026, 0, 1, 0, 0, 0, 0);
+
 export function resolvePeriod(period: string | undefined): DateRange {
   const end = new Date();
   end.setHours(23, 59, 59, 999);
   const start = new Date(end);
+
+  if (period === OVERTIME_TRACKING_START_PERIOD) {
+    const months = (end.getFullYear() - OVERTIME_TRACKING_START_DATE.getFullYear()) * 12 + end.getMonth() + 1;
+    return { start: OVERTIME_TRACKING_START_DATE, end, months: Math.max(1, months) };
+  }
 
   // Ano específico: período recebido é só um número de 4 dígitos, ex. "2024".
   if (period && /^\d{4}$/.test(period)) {
