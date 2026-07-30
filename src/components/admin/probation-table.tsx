@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { ProbationFormDialog } from "@/components/admin/probation-form-dialog";
-import { computeProbationDates, resolveDisplayStatus, type StoredProbationStatus } from "@/lib/analytics/probation";
+import { computeProbationDates, resolveDisplayStatus, computeProbationAlert, type StoredProbationStatus } from "@/lib/analytics/probation";
 import { formatDate } from "@/lib/utils";
 
 interface ProbationRow {
@@ -9,6 +9,7 @@ interface ProbationRow {
   name: string;
   registration: string;
   admissionDate: Date;
+  isActive?: boolean;
   position: { name: string } | null;
   costCenter: { name: string } | null;
   manager: { name: string } | null;
@@ -27,7 +28,19 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant="outline">Em avaliação</Badge>;
 }
 
-export function ProbationTable({ rows }: { rows: ProbationRow[] }) {
+function PrazoBadge({ diasRestantes, alerta }: { diasRestantes: number; alerta: boolean }) {
+  if (alerta) {
+    return (
+      <Badge variant="warning">
+        {diasRestantes === 0 ? "Vence hoje" : `Faltam ${diasRestantes} dia${diasRestantes === 1 ? "" : "s"}`}
+      </Badge>
+    );
+  }
+  if (diasRestantes < 0) return <Badge variant="outline">Prazo encerrado</Badge>;
+  return <span className="text-xs text-muted-foreground">{diasRestantes} dias restantes</span>;
+}
+
+export function ProbationTable({ rows, variant = "andamento" }: { rows: ProbationRow[]; variant?: "andamento" | "historico" }) {
   return (
     <Table>
       <TableHeader>
@@ -39,6 +52,8 @@ export function ProbationTable({ rows }: { rows: ProbationRow[] }) {
           <TableHead>Admissão</TableHead>
           <TableHead>Checkpoint 30d</TableHead>
           <TableHead>Checkpoint final (90d)</TableHead>
+          {variant === "andamento" && <TableHead>Prazo</TableHead>}
+          {variant === "historico" && <TableHead>Situação</TableHead>}
           <TableHead>Avaliador</TableHead>
           <TableHead>Ações</TableHead>
         </TableRow>
@@ -48,6 +63,7 @@ export function ProbationTable({ rows }: { rows: ProbationRow[] }) {
           const dates = computeProbationDates(r.admissionDate);
           const status30 = resolveDisplayStatus((r.probationTracking?.status30 ?? "EM_AVALIACAO") as StoredProbationStatus, dates.checkpoint1);
           const status60 = resolveDisplayStatus((r.probationTracking?.status60 ?? "EM_AVALIACAO") as StoredProbationStatus, dates.checkpoint2);
+          const { diasRestantes, alerta } = computeProbationAlert(dates.checkpoint2, status60);
 
           return (
             <TableRow key={r.id}>
@@ -68,6 +84,20 @@ export function ProbationTable({ rows }: { rows: ProbationRow[] }) {
                   <StatusBadge status={status60} />
                 </div>
               </TableCell>
+              {variant === "andamento" && (
+                <TableCell>
+                  <PrazoBadge diasRestantes={diasRestantes} alerta={alerta} />
+                </TableCell>
+              )}
+              {variant === "historico" && (
+                <TableCell>
+                  {r.isActive === false ? (
+                    <Badge variant="outline">Inativo</Badge>
+                  ) : (
+                    <Badge variant="success">Ativo</Badge>
+                  )}
+                </TableCell>
+              )}
               <TableCell>{r.probationTracking?.avaliador ?? r.manager?.name ?? "—"}</TableCell>
               <TableCell>
                 <ProbationFormDialog
