@@ -13,7 +13,7 @@ import { CatracaDayDetailDialog } from "@/components/admin/catraca-day-detail-di
 import { CatracaHistoricoTable } from "@/components/dashboard/catraca-historico-table";
 import { AttentionPointsCard } from "@/components/dashboard/attention-points-card";
 import { buildCatracaAttentionPoints } from "@/lib/analytics/catraca-insight";
-import { getCatracaKpis, getCatracaRanking, getCatracaByUnit, getCatracaTable } from "@/services/catraca";
+import { getCatracaKpis, getCatracaRanking, getCatracaByUnit, getCatracaBySecondarySector, getCatracaTable } from "@/services/catraca";
 import { getCatracaHistorico } from "@/services/catraca-historico";
 
 export default async function CatracaPage({
@@ -24,10 +24,11 @@ export default async function CatracaPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, ranking, byUnit, table, historico] = await Promise.all([
+  const [kpis, ranking, byUnit, bySecondarySector, table, historico] = await Promise.all([
     getCatracaKpis(filters),
     getCatracaRanking(filters),
     getCatracaByUnit(filters),
+    getCatracaBySecondarySector(filters),
     getCatracaTable(filters),
     getCatracaHistorico(),
   ]);
@@ -50,10 +51,10 @@ export default async function CatracaPage({
       <AttentionPointsCard points={attentionPoints} />
       <Card>
         <CardHeader>
-          <CardTitle>Tempo fora do posto por unidade (minutos)</CardTitle>
+          <CardTitle>Tempo fora do posto por setor secundário (minutos)</CardTitle>
         </CardHeader>
         <CardContent>
-          {byUnit.length > 0 ? <RankingBarChart data={byUnit} color="#B8935A" /> : <p className="text-sm text-muted-foreground">Sem ocorrências no período.</p>}
+          {bySecondarySector.length > 0 ? <RankingBarChart data={bySecondarySector} color="#B8935A" /> : <p className="text-sm text-muted-foreground">Sem ocorrências no período.</p>}
         </CardContent>
       </Card>
     </div>
