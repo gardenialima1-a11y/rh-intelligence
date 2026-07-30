@@ -9,6 +9,7 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 export const maxDuration = 60;
 import { AbsenteeismTrendChart } from "@/components/dashboard/absenteeism-trend-chart";
 import { AbsenteeismStrategicAnalysis } from "@/components/dashboard/absenteeism-strategic-analysis";
+import { OcorrenciasFilterBar } from "@/components/dashboard/ocorrencias-filter-bar";
 import { RankingBarChart } from "@/components/dashboard/ranking-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
@@ -22,9 +23,9 @@ import {
   getAbsenceByCostCenter,
   getAbsenceTable,
   getBradfordFactorRanking,
-  getFaltasComCruzamento,
-  getFaltasPorSetorPrincipal,
-  getFaltasPorSetorSecundario,
+  getOcorrenciasDetalhadas,
+  resumoOcorrenciasPorMes,
+  resumoOcorrenciasPorSetor,
   getAbsenteismoMonthlyBreakdown,
 } from "@/services/absenteismo";
 
@@ -37,25 +38,35 @@ const BRADFORD_VARIANT: Record<string, "danger" | "warning" | "outline"> = {
 export default async function AbsenteismoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ unidade?: string; periodo?: string }>;
+  searchParams: Promise<{ unidade?: string; periodo?: string; mes?: string; busca?: string }>;
 }) {
   const params = await searchParams;
   // Padrão deste módulo é o ano de 2026 — a pessoa ainda pode trocar pelo filtro
   // global de período (unidade/setor/período) no topo da tela, se quiser ver outro recorte.
   const filters = await resolveScopedFilters({ ...params, periodo: params.periodo ?? "2026" });
 
-  const [kpis, byReason, byCostCenter, table, bradford, faltas, faltasPorPrincipal, faltasPorSecundario, monthlyBreakdown] =
-    await Promise.all([
-      getAbsenteismoKpis(filters),
-      getAbsenceByReason(filters),
-      getAbsenceByCostCenter(filters),
-      getAbsenceTable(filters),
-      getBradfordFactorRanking(filters),
-      getFaltasComCruzamento(),
-      getFaltasPorSetorPrincipal(),
-      getFaltasPorSetorSecundario(),
-      getAbsenteismoMonthlyBreakdown(filters),
-    ]);
+  const [kpis, byReason, byCostCenter, table, bradford, ocorrencias, monthlyBreakdown] = await Promise.all([
+    getAbsenteismoKpis(filters),
+    getAbsenceByReason(filters),
+    getAbsenceByCostCenter(filters),
+    getAbsenceTable(filters),
+    getBradfordFactorRanking(filters),
+    getOcorrenciasDetalhadas(filters),
+    getAbsenteismoMonthlyBreakdown(filters),
+  ]);
+
+  const resumoMensal = resumoOcorrenciasPorMes(ocorrencias);
+  const resumoSetorPrincipal = resumoOcorrenciasPorSetor(ocorrencias, "setorPrincipal");
+  const resumoSetorSecundario = resumoOcorrenciasPorSetor(ocorrencias, "setorSecundario");
+
+  // Filtro de mês/nome (via URL, aplicado só na lista detalhada — os resumos acima
+  // sempre mostram o período inteiro pra dar a visão geral).
+  const buscaNormalizada = (params.busca ?? "").trim().toLowerCase();
+  let ocorrenciasFiltradas = ocorrencias;
+  if (params.mes) ocorrenciasFiltradas = ocorrenciasFiltradas.filter((o) => o.mesKey === params.mes);
+  if (buscaNormalizada) ocorrenciasFiltradas = ocorrenciasFiltradas.filter((o) => o.employeeName.toLowerCase().includes(buscaNormalizada));
+  const TAMANHO_PAGINA = 300;
+  const ocorrenciasExibidas = ocorrenciasFiltradas.slice(0, TAMANHO_PAGINA);
 
   const criticalBradford = bradford.filter((b) => b.riskLevel === "Crítico");
   const trendTitle = filters.period && /^\d{4}$/.test(filters.period) ? `Absenteísmo — ${filters.period}` : "Absenteísmo — 12 meses";
@@ -120,100 +131,166 @@ export default async function AbsenteismoPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <div className="flex flex-col gap-1">
-            <CardTitle>Faltas detectadas pelo ponto (automático)</CardTitle>
-            <p className="text-xs text-muted-foreground">{faltas.length} falta(s) registrada(s), já cruzadas com atestados.</p>
+            <CardTitle>Ocorrências por mês</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Todo dia de ausência detectado pelo ponto, dizendo se entra no cálculo de absenteísmo e se tem
+              atestado — atualizado automaticamente a cada importação.
+            </p>
           </div>
           <AttendanceImportDialog />
         </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <div>
-              <h4 className="mb-2 text-sm font-semibold text-navy dark:text-cream">Faltas por setor principal</h4>
-              {faltasPorPrincipal.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhuma falta importada ainda.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Setor</TableHead>
-                      <TableHead>Faltas</TableHead>
-                      <TableHead>Com atestado</TableHead>
-                      <TableHead>Sem atestado</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {faltasPorPrincipal.map((r) => (
-                      <TableRow key={r.setor}>
-                        <TableCell>{r.setor}</TableCell>
-                        <TableCell>{r.faltas}</TableCell>
-                        <TableCell><Badge variant="success">{r.comAtestado}</Badge></TableCell>
-                        <TableCell><Badge variant="danger">{r.semAtestado}</Badge></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-            <div>
-              <h4 className="mb-2 text-sm font-semibold text-navy dark:text-cream">Faltas por setor secundário</h4>
-              {faltasPorSecundario.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhuma falta com setor secundário identificado.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Setor</TableHead>
-                      <TableHead>Faltas</TableHead>
-                      <TableHead>Com atestado</TableHead>
-                      <TableHead>Sem atestado</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {faltasPorSecundario.map((r) => (
-                      <TableRow key={r.setor}>
-                        <TableCell>{r.setor}</TableCell>
-                        <TableCell>{r.faltas}</TableCell>
-                        <TableCell><Badge variant="success">{r.comAtestado}</Badge></TableCell>
-                        <TableCell><Badge variant="danger">{r.semAtestado}</Badge></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-          </div>
+        <CardContent>
+          {resumoMensal.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Nenhum relatório de ponto importado ainda.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Mês</TableHead>
+                  <TableHead>Total de ocorrências</TableHead>
+                  <TableHead>Entram no cálculo</TableHead>
+                  <TableHead>Com atestado</TableHead>
+                  <TableHead>Sem atestado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {resumoMensal.map((m) => (
+                  <TableRow key={m.mes}>
+                    <TableCell className="font-medium capitalize">{m.label}</TableCell>
+                    <TableCell>{m.total}</TableCell>
+                    <TableCell>{m.contamCalculo}</TableCell>
+                    <TableCell><Badge variant="success">{m.comAtestado}</Badge></TableCell>
+                    <TableCell><Badge variant="danger">{m.semAtestado}</Badge></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            &quot;Entram no cálculo&quot; exclui férias, folga, feriado, sem jornada, cargo de confiança, abono e
+            dispensa — esses dias não contam como absenteísmo. Curso/Aprendizagem também não aparece como falta,
+            mas conta como jornada cumprida.
+          </p>
+        </CardContent>
+      </Card>
 
-          <div>
-            <h4 className="mb-2 text-sm font-semibold text-navy dark:text-cream">Detalhamento das faltas</h4>
-            {faltas.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma falta importada ainda.</p>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Ocorrências por setor principal</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {resumoSetorPrincipal.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma ocorrência no período.</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Colaborador</TableHead>
-                    <TableHead>Setor principal</TableHead>
-                    <TableHead>Setor secundário</TableHead>
-                    <TableHead>Atestado</TableHead>
+                    <TableHead>Setor</TableHead>
+                    <TableHead>Ocorrências</TableHead>
+                    <TableHead>Com atestado</TableHead>
+                    <TableHead>Sem atestado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {faltas.slice(0, 50).map((f, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{formatDate(f.date)}</TableCell>
-                      <TableCell>{f.employeeName}</TableCell>
-                      <TableCell>{f.setorPrincipal ?? "—"}</TableCell>
-                      <TableCell>{f.setorSecundario ?? "—"}</TableCell>
-                      <TableCell>
-                        {f.temAtestado ? <Badge variant="success">Sim</Badge> : <Badge variant="danger">Não</Badge>}
-                      </TableCell>
+                  {resumoSetorPrincipal.map((r) => (
+                    <TableRow key={r.setor}>
+                      <TableCell>{r.setor}</TableCell>
+                      <TableCell>{r.total}</TableCell>
+                      <TableCell><Badge variant="success">{r.comAtestado}</Badge></TableCell>
+                      <TableCell><Badge variant="danger">{r.semAtestado}</Badge></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Ocorrências por setor secundário</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {resumoSetorSecundario.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma ocorrência com setor secundário identificado.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Setor</TableHead>
+                    <TableHead>Ocorrências</TableHead>
+                    <TableHead>Com atestado</TableHead>
+                    <TableHead>Sem atestado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {resumoSetorSecundario.map((r) => (
+                    <TableRow key={r.setor}>
+                      <TableCell>{r.setor}</TableCell>
+                      <TableCell>{r.total}</TableCell>
+                      <TableCell><Badge variant="success">{r.comAtestado}</Badge></TableCell>
+                      <TableCell><Badge variant="danger">{r.semAtestado}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card id="ocorrencias">
+        <CardHeader className="flex-col items-start gap-3 space-y-0 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-1">
+            <CardTitle>Ocorrências detalhadas</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {ocorrenciasFiltradas.length} ocorrência(s) encontrada(s)
+              {ocorrenciasFiltradas.length > TAMANHO_PAGINA ? ` — mostrando as ${TAMANHO_PAGINA} mais recentes` : ""}.
+            </p>
           </div>
+          <OcorrenciasFilterBar months={resumoMensal.map((m) => ({ value: m.mes, label: m.label }))} />
+        </CardHeader>
+        <CardContent>
+          {ocorrenciasExibidas.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma ocorrência encontrada com esse filtro.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Colaborador</TableHead>
+                  <TableHead>Setor principal</TableHead>
+                  <TableHead>Setor secundário</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead>Entra no cálculo</TableHead>
+                  <TableHead>Atestado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ocorrenciasExibidas.map((o, i) => (
+                  <TableRow key={i}>
+                    <TableCell>{formatDate(o.date)}</TableCell>
+                    <TableCell>{o.employeeName}</TableCell>
+                    <TableCell>{o.setorPrincipal ?? "—"}</TableCell>
+                    <TableCell>{o.setorSecundario ?? "—"}</TableCell>
+                    <TableCell>{o.motivoLabel}</TableCell>
+                    <TableCell>
+                      {o.entraNoCalculo ? <Badge variant="warning">Sim</Badge> : <Badge variant="outline">Não</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      {!o.entraNoCalculo ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : o.hasCertificate ? (
+                        <Badge variant="success">Sim</Badge>
+                      ) : (
+                        <Badge variant="danger">Não</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
