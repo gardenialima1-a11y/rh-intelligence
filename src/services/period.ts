@@ -88,6 +88,22 @@ export function lastNMonthsKeys(n: number): string[] {
  * - Qualquer outro período: mantém o comportamento padrão de últimos 12 meses.
  */
 export function monthKeysForPeriod(period?: string): string[] {
+  if (period === OVERTIME_TRACKING_START_PERIOD) {
+    const now = new Date();
+    const keys: string[] = [];
+    let y = 2026;
+    let m = 0; // janeiro
+    while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
+      keys.push(`${y}-${String(m + 1).padStart(2, "0")}`);
+      m += 1;
+      if (m > 11) {
+        m = 0;
+        y += 1;
+      }
+    }
+    return keys;
+  }
+
   if (period && /^\d{4}$/.test(period)) {
     const year = Number(period);
     const now = new Date();
