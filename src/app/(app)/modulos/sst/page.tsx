@@ -9,6 +9,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { AbsenceFormDialog } from "@/components/admin/absence-form-dialog";
+import { AtestadosImportDialog } from "@/components/admin/atestados-import-dialog";
 import { AtestadosTable } from "@/components/admin/atestados-table";
 import { AtestadosRankingTable } from "@/components/dashboard/atestados-ranking-table";
 import { getCertificatedAbsences, getAtestadosRanking } from "@/actions/absences";
