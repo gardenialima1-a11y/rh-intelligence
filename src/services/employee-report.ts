@@ -32,6 +32,7 @@ export async function getEmployeeReportData(employeeId: string) {
   if (!employee) return null;
 
   const totalHoursLost = absences.reduce((acc, a) => acc + a.hoursLost, 0);
+  const totalComCertificado = absences.filter((a) => a.hasCertificate).length;
   const advertencias = complianceEvents.filter((e) => e.type === "ADVERTENCIA").length;
   const suspensoes = complianceEvents.filter((e) => e.type === "SUSPENSAO").length;
   const processos = complianceEvents.filter((e) => e.type === "PROCESSO").length;
@@ -41,7 +42,13 @@ export async function getEmployeeReportData(employeeId: string) {
     absences,
     complianceEvents,
     summary: {
-      totalAtestados: absences.length,
+      // Total de ausências registradas (qualquer motivo: atestado, falta
+      // injustificada, ausência pelo ponto, etc.) — antes isso era chamado
+      // erroneamente de "totalAtestados", o que inflava a contagem real de
+      // atestados médicos com faltas comuns.
+      totalOcorrencias: absences.length,
+      // Só as que realmente têm atestado médico (hasCertificate = true).
+      totalAtestados: totalComCertificado,
       totalHoursLost,
       advertencias,
       suspensoes,
