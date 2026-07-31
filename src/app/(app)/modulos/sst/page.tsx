@@ -10,11 +10,24 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { AbsenceFormDialog } from "@/components/admin/absence-form-dialog";
 import { AtestadosImportDialog } from "@/components/admin/atestados-import-dialog";
+import { SafetyIncidentsImportDialog } from "@/components/admin/safety-incidents-import-dialog";
 import { AtestadosTable } from "@/components/admin/atestados-table";
 import { AtestadosRankingTable } from "@/components/dashboard/atestados-ranking-table";
+import { DaysWithoutAccidentsCard } from "@/components/dashboard/days-without-accidents-card";
+import { AccidentStabilityTable } from "@/components/dashboard/accident-stability-table";
+import { IncidentsByTypeTable } from "@/components/dashboard/incidents-by-type-table";
 import { getCertificatedAbsences, getAtestadosRanking } from "@/actions/absences";
 import { prisma } from "@/lib/prisma";
-import { getSstKpis, getIncidentsTable, getIncidentsByType, getAbsenteeismInsights } from "@/services/sst";
+import {
+  getSstKpis,
+  getIncidentsTable,
+  getIncidentsByType,
+  getIncidentsByTypeBreakdown,
+  getAccidentStability,
+  getDaysWithoutAccidents,
+  getAbsenteeismInsights,
+  INCIDENT_TYPE_LABEL,
+} from "@/services/sst";
 import { AbsenteeismInsightsCard } from "@/components/dashboard/absenteeism-insights-card";
 // A importação de atestados processa vários dias por linha da planilha —
 // pode passar dos 10s padrão do Vercel em arquivos maiores.
@@ -28,22 +41,38 @@ export default async function SstPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byType, table, atestados, employees, reasons, atestadosRanking, absenteeismInsights] = await Promise.all([
+  const [
+    kpis,
+    byType,
+    byTypeBreakdown,
+    table,
+    atestados,
+    employees,
+    reasons,
+    atestadosRanking,
+    absenteeismInsights,
+    accidentStability,
+    daysWithoutAccidents,
+  ] = await Promise.all([
     getSstKpis(filters),
     getIncidentsByType(filters),
+    getIncidentsByTypeBreakdown(filters),
     getIncidentsTable(filters),
     getCertificatedAbsences(),
     prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.reason.findMany({ where: { category: "AFASTAMENTO" }, select: { id: true, label: true }, orderBy: { label: "asc" } }),
     getAtestadosRanking(),
     getAbsenteeismInsights(filters),
+    getAccidentStability(filters),
+    getDaysWithoutAccidents(filters),
   ]);
 
   const executive = (
     <div className="flex flex-col gap-4">
+      <DaysWithoutAccidentsCard info={daysWithoutAccidents} />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <KpiCard label="Acidentes no período" value={formatNumber(kpis.accidentsCount)} icon={ShieldAlert} accent="danger" />
-        <KpiCard label="Near miss reportados" value={formatNumber(kpis.nearMissesCount)} icon={FileWarning} accent="gold" />
+        <KpiCard label="Quase acidentes" value={formatNumber(kpis.nearMissesCount)} icon={FileWarning} accent="gold" />
         <KpiCard label="Taxa de frequência" value={kpis.frequencyRate.toFixed(2)} icon={Gauge} accent="navy" />
         <KpiCard label="Taxa de gravidade" value={kpis.severityRate.toFixed(2)} icon={Clock3} accent="danger" />
       </div>
@@ -71,10 +100,10 @@ export default async function SstPage({
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Distribuição de ocorrências</CardTitle>
+          <CardTitle>Levantamento por tipo de ocorrência</CardTitle>
         </CardHeader>
         <CardContent>
-          {byType.length > 0 ? <RankingBarChart data={byType} color="#B23A48" /> : <p className="text-sm text-muted-foreground">Sem dados.</p>}
+          <IncidentsByTypeTable rows={byTypeBreakdown} />
         </CardContent>
       </Card>
     </div>
@@ -83,8 +112,9 @@ export default async function SstPage({
   const operational = (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle>Ocorrências registradas</CardTitle>
+          <SafetyIncidentsImportDialog />
         </CardHeader>
         <CardContent>
           <Table>
@@ -105,7 +135,9 @@ export default async function SstPage({
                   <TableCell>{i.employee?.unit.name ?? "—"}</TableCell>
                   <TableCell>{formatDate(i.date)}</TableCell>
                   <TableCell>
-                    <Badge variant={i.type === "ACIDENTE" ? "danger" : "outline"}>{i.type === "ACIDENTE" ? "Acidente" : "Near Miss"}</Badge>
+                    <Badge variant={i.type === "ACIDENTE" ? "danger" : i.type === "NEAR_MISS" ? "warning" : "outline"}>
+                      {INCIDENT_TYPE_LABEL[i.type] ?? i.type}
+                    </Badge>
                   </TableCell>
                   <TableCell>{i.hasCAT ? <Badge variant="warning">Sim</Badge> : "—"}</TableCell>
                   <TableCell>{i.daysLost}</TableCell>
@@ -153,10 +185,33 @@ export default async function SstPage({
     </Card>
   );
 
+  const stability = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Estabilidade acidentária</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Colaboradores com acidente de trabalho (CAT emitida, 15 dias ou mais de afastamento) que estão dentro dos
+          12 meses de estabilidade contados a partir do retorno. Quando a data de retorno não foi informada na
+          ocorrência, o sistema estima como data do acidente + dias afastado — confirme sempre com o INSS/jurídico
+          antes de qualquer decisão, isso aqui é uma referência organizacional, não uma certidão legal.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <AccidentStabilityTable rows={accidentStability} />
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <ModuleHeader title="Saúde e Segurança do Trabalho" description="Acidentes, CAT, near miss e taxas legais de frequência e gravidade." moduleKey="sst" />
-      <ModuleViewTabs executive={executive} managerial={managerial} operational={operational} analytical={analytical} />
+      <ModuleViewTabs
+        executive={executive}
+        managerial={managerial}
+        operational={operational}
+        analytical={analytical}
+        extraTabs={[{ value: "estabilidade", label: "Estabilidade", content: stability }]}
+      />
     </div>
   );
 }
