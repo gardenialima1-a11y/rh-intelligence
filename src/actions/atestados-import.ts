@@ -79,6 +79,11 @@ export interface AtestadosImportSummary {
  * exemplo), e mantém consistência com o que a importação de ponto já criou:
  * se aquele dia já estava marcado como "falta injustificada" por não ter
  * atestado detectado na hora, essa importação corrige pra "com atestado".
+ *
+ * Busca tudo que precisa (jornadas e ausências já existentes) em blocos
+ * únicos ANTES de escrever, em vez de uma consulta por dia — com centenas de
+ * dias numa planilha grande, ida-e-volta ao banco um por um demorava
+ * minutos e travava a tela. Escreve em paralelo (em lotes) por segurança.
  */
 export async function importAtestados(
   rows: AtestadoImportRow[],
@@ -92,20 +97,6 @@ export async function importAtestados(
     const byName = new Map(employees.map((e) => [normalizeName(e.name), e]));
     const employeesById = new Map(employees.map((e) => [e.id, e]));
 
-    const reasonCache = new Map<string, string>();
-    async function ensureReason(label: string): Promise<string> {
-      const clean = label.trim() || "Doença não informada";
-      const cached = reasonCache.get(clean);
-      if (cached) return cached;
-      const reason = await prisma.reason.upsert({
-        where: { category_label: { category: "AFASTAMENTO", label: clean } },
-        create: { category: "AFASTAMENTO", label: clean },
-        update: {},
-      });
-      reasonCache.set(clean, reason.id);
-      return reason.id;
-    }
-
     const summary: AtestadosImportSummary = {
       linhasProcessadas: 0,
       ausenciasCriadas: 0,
@@ -113,6 +104,18 @@ export async function importAtestados(
       diasSemJornadaCadastrada: 0,
       nomesIgnorados: [],
     };
+
+    // 1) Monta a lista completa de dias a processar (um dia por linha da
+    // planilha × quantidade de dias do afastamento), já resolvendo o
+    // colaborador de cada um.
+    interface Entry {
+      employeeId: string;
+      date: Date;
+      dateKey: string;
+      doenca: string;
+      cid: string | null;
+    }
+    const entries: Entry[] = [];
 
     for (const row of rows) {
       const nomeRaw = row.nome.trim();
@@ -126,7 +129,6 @@ export async function importAtestados(
       const startDate = new Date(row.data + "T00:00:00");
       if (Number.isNaN(startDate.getTime())) continue;
       const dias = Math.max(1, Math.round(row.dias) || 1);
-      const reasonId = await ensureReason(row.doenca);
       const cid = row.cid.trim() && row.cid.trim().toUpperCase() !== "S/C" ? row.cid.trim() : null;
 
       summary.linhasProcessadas += 1;
@@ -134,46 +136,105 @@ export async function importAtestados(
       for (let i = 0; i < dias; i++) {
         const date = new Date(startDate);
         date.setDate(date.getDate() + i);
-
-        const timeEntry = await prisma.timeEntry.findUnique({
-          where: { date_employeeId: { date, employeeId: employee.id } },
-          select: { scheduledHours: true },
+        entries.push({
+          employeeId: employee.id,
+          date,
+          dateKey: date.toISOString().slice(0, 10),
+          doenca: row.doenca,
+          cid,
         });
-        if (!timeEntry || timeEntry.scheduledHours <= 0) {
-          summary.diasSemJornadaCadastrada += 1;
-          continue;
-        }
+      }
+    }
 
-        const existing = await prisma.absence.findFirst({
-          where: { employeeId: employee.id, date },
-          select: { id: true },
+    if (entries.length === 0) {
+      return { success: true, summary };
+    }
+
+    // 2) Garante os Reason (motivo = doença) de uma vez, um upsert por
+    // doença ÚNICA (não por linha) — normalmente são poucas dezenas.
+    const uniqueDiseases = Array.from(new Set(entries.map((e) => e.doenca.trim() || "Doença não informada")));
+    const reasonCache = new Map<string, string>();
+    await Promise.all(
+      uniqueDiseases.map(async (label) => {
+        const reason = await prisma.reason.upsert({
+          where: { category_label: { category: "AFASTAMENTO", label } },
+          create: { category: "AFASTAMENTO", label },
+          update: {},
         });
+        reasonCache.set(label, reason.id);
+      })
+    );
 
-        if (existing) {
-          await prisma.absence.update({
-            where: { id: existing.id },
-            data: { reasonId, cid, hasCertificate: true, hoursLost: timeEntry.scheduledHours, absenceType: "UM_DIA_OU_MAIS" },
-          });
-          summary.ausenciasAtualizadas += 1;
-        } else {
-          await prisma.absence.create({
-            data: {
-              employeeId: employee.id,
-              date,
-              reasonId,
-              cid,
-              hasCertificate: true,
-              hoursLost: timeEntry.scheduledHours,
-              absenceType: "UM_DIA_OU_MAIS",
-            },
-          });
-          summary.ausenciasCriadas += 1;
-        }
+    // 3) Busca de uma vez só a jornada (TimeEntry) e as ausências já
+    // existentes pra TODOS os colaboradores/dias envolvidos.
+    const employeeIds = Array.from(new Set(entries.map((e) => e.employeeId)));
+    const entryDates = entries.map((e) => e.date.getTime());
+    const minDate = new Date(Math.min(...entryDates));
+    const maxDate = new Date(Math.max(...entryDates));
 
-        await prisma.attendanceRecord.updateMany({
-          where: { employeeId: employee.id, date },
-          data: { status: "ATESTADO" },
-        });
+    const [timeEntries, existingAbsences] = await Promise.all([
+      prisma.timeEntry.findMany({
+        where: { employeeId: { in: employeeIds }, date: { gte: minDate, lte: maxDate } },
+        select: { employeeId: true, date: true, scheduledHours: true },
+      }),
+      prisma.absence.findMany({
+        where: { employeeId: { in: employeeIds }, date: { gte: minDate, lte: maxDate } },
+        select: { id: true, employeeId: true, date: true },
+      }),
+    ]);
+
+    const scheduledByKey = new Map(
+      timeEntries.map((t) => [`${t.employeeId}_${t.date.toISOString().slice(0, 10)}`, t.scheduledHours])
+    );
+    const absenceIdByKey = new Map(
+      existingAbsences.map((a) => [`${a.employeeId}_${a.date.toISOString().slice(0, 10)}`, a.id])
+    );
+
+    // 4) Escreve tudo em paralelo, em lotes (pra não abrir milhares de
+    // conexões simultâneas de uma vez só).
+    const WRITE_CHUNK = 25;
+    for (let i = 0; i < entries.length; i += WRITE_CHUNK) {
+      const chunk = entries.slice(i, i + WRITE_CHUNK);
+      const results = await Promise.all(
+        chunk.map(async (entry) => {
+          const key = `${entry.employeeId}_${entry.dateKey}`;
+          const scheduledHours = scheduledByKey.get(key);
+          if (!scheduledHours || scheduledHours <= 0) return "sem_jornada" as const;
+
+          const reasonId = reasonCache.get(entry.doenca.trim() || "Doença não informada")!;
+          const existingId = absenceIdByKey.get(key);
+
+          const writes: Promise<unknown>[] = [
+            existingId
+              ? prisma.absence.update({
+                  where: { id: existingId },
+                  data: { reasonId, cid: entry.cid, hasCertificate: true, hoursLost: scheduledHours, absenceType: "UM_DIA_OU_MAIS" },
+                })
+              : prisma.absence.create({
+                  data: {
+                    employeeId: entry.employeeId,
+                    date: entry.date,
+                    reasonId,
+                    cid: entry.cid,
+                    hasCertificate: true,
+                    hoursLost: scheduledHours,
+                    absenceType: "UM_DIA_OU_MAIS",
+                  },
+                }),
+            prisma.attendanceRecord.updateMany({
+              where: { employeeId: entry.employeeId, date: entry.date },
+              data: { status: "ATESTADO" },
+            }),
+          ];
+          await Promise.all(writes);
+          return existingId ? ("atualizada" as const) : ("criada" as const);
+        })
+      );
+
+      for (const r of results) {
+        if (r === "sem_jornada") summary.diasSemJornadaCadastrada += 1;
+        else if (r === "criada") summary.ausenciasCriadas += 1;
+        else summary.ausenciasAtualizadas += 1;
       }
     }
 
