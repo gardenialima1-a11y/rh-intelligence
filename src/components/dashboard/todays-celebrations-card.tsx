@@ -1,18 +1,45 @@
 import { PartyPopper, Cake, Award, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { TodayCelebration } from "@/services/aniversariantes";
 
 function CelebrationRow({ person, kind }: { person: TodayCelebration; kind: "birthday" | "anniversary" }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border/60 p-2.5">
-      {person.photoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={person.photoUrl} alt={person.name} className="h-11 w-11 shrink-0 rounded-full object-cover" />
-      ) : (
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy dark:bg-cream/10 dark:text-cream">
-          <User className="h-5 w-5" />
-        </div>
-      )}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="shrink-0 cursor-default rounded-full focus-visible:outline-none">
+            {person.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={person.photoUrl} alt={person.name} className="h-11 w-11 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-navy/10 text-navy dark:bg-cream/10 dark:text-cream">
+                <User className="h-5 w-5" />
+              </div>
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="w-56 rounded-xl border border-border bg-card p-3 text-foreground shadow-[var(--shadow-popover)]">
+          <div className="flex flex-col items-center gap-2 text-center">
+            {person.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={person.photoUrl} alt={person.name} className="h-24 w-24 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-navy/10 text-navy dark:bg-cream/10 dark:text-cream">
+                <User className="h-10 w-10" />
+              </div>
+            )}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold text-navy dark:text-cream">{person.name}</span>
+              <span className="text-xs text-muted-foreground">{person.position ?? "Função não informada"}</span>
+              <span className="text-xs text-muted-foreground">
+                {person.unit}
+                {person.secondarySector ? ` · ${person.secondarySector}` : ""}
+              </span>
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
       <div className="flex min-w-0 flex-col">
         <span className="truncate text-[13.5px] font-semibold text-navy dark:text-cream">{person.name}</span>
         <span className="truncate text-[12px] text-muted-foreground">
