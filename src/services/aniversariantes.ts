@@ -55,6 +55,7 @@ export interface TodayCelebration {
   photoUrl: string | null;
   position: string | null;
   unit: string;
+  secondarySector: string | null;
   years: number;
 }
 
@@ -78,6 +79,7 @@ export async function getTodaysCelebrations(): Promise<{ birthdays: TodayCelebra
       admissionDate: true,
       position: { select: { name: true } },
       unit: { select: { name: true } },
+      secondaryCostCenter: { select: { name: true } },
     },
   });
 
@@ -89,6 +91,7 @@ export async function getTodaysCelebrations(): Promise<{ birthdays: TodayCelebra
       photoUrl: e.photoUrl,
       position: e.position?.name ?? null,
       unit: e.unit.name,
+      secondarySector: e.secondaryCostCenter?.name ?? null,
       years: now.getFullYear() - e.birthDate!.getFullYear(),
     }));
 
@@ -105,6 +108,7 @@ export async function getTodaysCelebrations(): Promise<{ birthdays: TodayCelebra
       photoUrl: e.photoUrl,
       position: e.position?.name ?? null,
       unit: e.unit.name,
+      secondarySector: e.secondaryCostCenter?.name ?? null,
       years: now.getFullYear() - e.admissionDate.getFullYear(),
     }));
 
