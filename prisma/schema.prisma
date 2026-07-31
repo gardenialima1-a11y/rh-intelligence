@@ -588,14 +588,15 @@ model SafetyIncident {
   employeeId  String?
   employee    Employee? @relation(fields: [employeeId], references: [id])
   date        DateTime
-  type        String   // ACIDENTE | NEAR_MISS
+  type        String   // ACIDENTE | NEAR_MISS | INCIDENTE_DESVIO
   hasCAT      Boolean  @default(false)
   daysLost    Int      @default(0)
+  /** Data em que a pessoa voltou ao trabalho — usada pra calcular o fim da estabilidade acidentária (12 meses a partir do retorno). Se não informada, o sistema estima como data + dias afastado. */
+  returnDate  DateTime?
   description String?  @db.Text
 
   @@index([date])
 }
-
 model PayrollEntry {
   id            String   @id @default(cuid())
   employeeId    String
