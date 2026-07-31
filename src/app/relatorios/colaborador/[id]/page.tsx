@@ -5,6 +5,7 @@ import { formatDate, formatNumber } from "@/lib/utils";
 import { COMPLIANCE_TYPE_LABEL } from "@/lib/labels";
 import { ABSENCE_TYPE_LABEL } from "@/lib/validation/absence";
 import { PrintButton } from "@/components/print-button";
+import { CompanyLogo } from "@/components/layout/company-logo";
 
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RH", "DIRETORIA"];
 
@@ -30,9 +31,12 @@ export default async function EmployeeReportPage({ params }: { params: Promise<{
       </div>
 
       <header className="mb-8 flex items-center justify-between border-b-2 border-navy pb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-navy">Relatório do Colaborador</h1>
-          <p className="text-sm text-muted-foreground">Gerado em {formatDate(now)} por {session.user.name ?? session.user.email}</p>
+        <div className="flex items-center gap-3">
+          <CompanyLogo />
+          <div>
+            <h1 className="text-2xl font-bold text-navy">Relatório do Colaborador</h1>
+            <p className="text-sm text-muted-foreground">Gerado em {formatDate(now)} por {session.user.name ?? session.user.email}</p>
+          </div>
         </div>
       </header>
 
@@ -47,10 +51,14 @@ export default async function EmployeeReportPage({ params }: { params: Promise<{
         <div><span className="font-semibold">Admissão:</span> {formatDate(employee.admissionDate)}</div>
       </section>
 
-      <section className="mb-8 grid grid-cols-4 gap-3 text-center">
+      <section className="mb-8 grid grid-cols-5 gap-3 text-center">
+        <div className="rounded-lg bg-navy/10 p-3">
+          <p className="text-xl font-bold text-navy">{formatNumber(summary.totalOcorrencias)}</p>
+          <p className="text-xs text-muted-foreground">Ocorrências</p>
+        </div>
         <div className="rounded-lg bg-gold/10 p-3">
           <p className="text-xl font-bold text-gold-text">{formatNumber(summary.totalAtestados)}</p>
-          <p className="text-xs text-muted-foreground">Atestados</p>
+          <p className="text-xs text-muted-foreground">Com atestado médico</p>
         </div>
         <div className="rounded-lg bg-navy/10 p-3">
           <p className="text-xl font-bold text-navy">{formatNumber(summary.totalHoursLost)}h</p>
@@ -67,9 +75,9 @@ export default async function EmployeeReportPage({ params }: { params: Promise<{
       </section>
 
       <section className="mb-8 break-inside-avoid">
-        <h2 className="mb-2 border-b border-border pb-1 text-base font-bold text-navy">Histórico de atestados ({absences.length})</h2>
+        <h2 className="mb-2 border-b border-border pb-1 text-base font-bold text-navy">Histórico de ausências ({absences.length})</h2>
         {absences.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum atestado registrado.</p>
+          <p className="text-sm text-muted-foreground">Nenhuma ausência registrada.</p>
         ) : (
           <table className="w-full text-left text-xs">
             <thead>
@@ -79,6 +87,7 @@ export default async function EmployeeReportPage({ params }: { params: Promise<{
                 <th className="py-1.5 pr-2">Tipo</th>
                 <th className="py-1.5 pr-2">CID</th>
                 <th className="py-1.5 pr-2">Motivo</th>
+                <th className="py-1.5 pr-2">Atestado</th>
                 <th className="py-1.5 pr-2">Horas</th>
               </tr>
             </thead>
@@ -90,6 +99,7 @@ export default async function EmployeeReportPage({ params }: { params: Promise<{
                   <td className="py-1.5 pr-2">{a.absenceType ? ABSENCE_TYPE_LABEL[a.absenceType as keyof typeof ABSENCE_TYPE_LABEL] ?? a.absenceType : "—"}</td>
                   <td className="py-1.5 pr-2">{a.cid ?? "—"}</td>
                   <td className="py-1.5 pr-2">{a.reason?.label ?? "—"}</td>
+                  <td className="py-1.5 pr-2">{a.hasCertificate ? "Sim" : "Não"}</td>
                   <td className="py-1.5 pr-2">{a.hoursLost}h</td>
                 </tr>
               ))}
