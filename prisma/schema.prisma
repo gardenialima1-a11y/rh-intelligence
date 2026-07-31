@@ -591,7 +591,7 @@ model SafetyIncident {
   type        String   // ACIDENTE | NEAR_MISS | INCIDENTE_DESVIO
   hasCAT      Boolean  @default(false)
   daysLost    Int      @default(0)
-  /** Data em que a pessoa voltou ao trabalho — usada pra calcular o fim da estabilidade acidentária (12 meses a partir do retorno). Se não informada, o sistema estima como data + dias afastado. */
+  // Data em que a pessoa voltou ao trabalho — usada pra calcular o fim da estabilidade acidentária (12 meses a partir do retorno). Se não informada, o sistema estima como data + dias afastado.
   returnDate  DateTime?
   description String?  @db.Text
 
