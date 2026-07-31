@@ -16,6 +16,9 @@ import { getCertificatedAbsences, getAtestadosRanking } from "@/actions/absences
 import { prisma } from "@/lib/prisma";
 import { getSstKpis, getIncidentsTable, getIncidentsByType, getAbsenteeismInsights } from "@/services/sst";
 import { AbsenteeismInsightsCard } from "@/components/dashboard/absenteeism-insights-card";
+// A importação de atestados processa vários dias por linha da planilha —
+// pode passar dos 10s padrão do Vercel em arquivos maiores.
+export const maxDuration = 60;
 
 export default async function SstPage({
   searchParams,
