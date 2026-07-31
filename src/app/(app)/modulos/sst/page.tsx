@@ -119,7 +119,10 @@ export default async function SstPage({
             <CardTitle>Atestados médicos</CardTitle>
             <p className="text-xs text-muted-foreground">{atestados.length} atestado(s) registrado(s).</p>
           </div>
-          <AbsenceFormDialog employees={employees} reasons={reasons} mode="create" />
+         <div className="flex gap-2">
+            <AtestadosImportDialog />
+            <AbsenceFormDialog employees={employees} reasons={reasons} mode="create" />
+          </div>
         </CardHeader>
         <CardContent>
           {atestados.length === 0 ? (
