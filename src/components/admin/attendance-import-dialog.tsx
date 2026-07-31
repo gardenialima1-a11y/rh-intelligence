@@ -22,7 +22,7 @@ import {
   type AttendanceImportSummary,
 } from "@/actions/attendance-import";
 
-const BATCH_SIZE = 250;
+const BATCH_SIZE = 60;
 const IGNORE_VALUE = "__ignorar__";
 
 function emptySummary(): AttendanceImportSummary {
