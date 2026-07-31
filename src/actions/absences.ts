@@ -99,10 +99,15 @@ export interface AtestadoRankingRow {
 
 /**
  * Ranking de colaboradores por quantidade de atestados e horas perdidas
- * (histórico completo, não só o período filtrado no topo da página).
+ * (histórico completo, não só o período filtrado no topo da página). Conta
+ * só ausências com atestado médico de verdade (hasCertificate) — antes essa
+ * contagem incluía qualquer ausência (falta injustificada, ausência
+ * detectada pelo ponto etc.), o que inflava o número de "atestados" de cada
+ * colaborador com faltas que não eram atestado nenhum.
  */
 export async function getAtestadosRanking(): Promise<AtestadoRankingRow[]> {
   const absences = await prisma.absence.findMany({
+    where: { hasCertificate: true },
     include: { employee: { include: { unit: true } } },
     orderBy: { date: "asc" },
   });
