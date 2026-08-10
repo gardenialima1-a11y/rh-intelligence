@@ -24,10 +24,10 @@ export default async function PeriodoExperienciaPage() {
       />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Em período de experiência" value={formatNumber(emAndamento.length)} icon={UserCheck} accent="navy" />
-        <KpiCard label="Ainda em avaliação" value={formatNumber(inProgress)} icon={UserCheck} accent="gold" />
-        <KpiCard label="Prazo vencendo (≤10 dias)" value={formatNumber(emAlerta)} icon={Clock3} accent="gold" />
-        <KpiCard label="Prazo expirado sem avaliação" value={formatNumber(expiredNotEvaluated)} icon={AlertTriangle} accent="danger" />
+        <KpiCard label="Em período de experiência" value={formatNumber(emAndamento.length)} icon={UserCheck} accent="navy" tooltip={"Colaboradores ativos admitidos há menos de 90 dias, que ainda não passaram pelos dois checkpoints (30 e 90 dias)."} />
+        <KpiCard label="Ainda em avaliação" value={formatNumber(inProgress)} icon={UserCheck} accent="gold" tooltip={"Colaboradores em período de experiência cujo checkpoint final (90 dias) ainda está marcado como Em avaliação."} />
+        <KpiCard label="Prazo vencendo (≤10 dias)" value={formatNumber(emAlerta)} icon={Clock3} accent="gold" tooltip={"Colaboradores em período de experiência cujo próximo checkpoint (30 ou 90 dias) cai em até 10 dias a partir de hoje."} />
+        <KpiCard label="Prazo expirado sem avaliação" value={formatNumber(expiredNotEvaluated)} icon={AlertTriangle} accent="danger" tooltip={"Colaboradores cujo checkpoint de 30 ou 90 dias já passou da data, mas o status ainda não foi preenchido pelo gestor/avaliador."} />
       </div>
 
       <Card>
