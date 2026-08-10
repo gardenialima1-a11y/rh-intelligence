@@ -37,10 +37,10 @@ export default async function LiderancaPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Total de gestores" value={formatNumber(kpis.totalManagers)} icon={Trophy} accent="navy" />
-        <KpiCard label="Span of control médio" value={kpis.avgSpanOfControl.toFixed(1)} icon={Users} accent="gold" />
-        <KpiCard label="Desligamentos de liderança" value={formatNumber(kpis.managerTerminations)} icon={UserX} accent="danger" />
-        <KpiCard label="Alto potencial identificado" value={formatNumber(kpis.highPotential)} icon={Sparkles} accent="success" />
+        <KpiCard label="Total de gestores" value={formatNumber(kpis.totalManagers)} icon={Trophy} accent="navy" tooltip={"Quantidade de colaboradores que aparecem como gestor de pelo menos um colaborador ativo (nós de gestor no organograma)."} />
+        <KpiCard label="Span of control médio" value={kpis.avgSpanOfControl.toFixed(1)} icon={Users} accent="gold" tooltip={"Número médio de colaboradores diretos por gestor. Fórmula: total de colaboradores ativos / total de gestores."} />
+        <KpiCard label="Desligamentos de liderança" value={formatNumber(kpis.managerTerminations)} icon={UserX} accent="danger" tooltip={"Desligamentos registrados no período em que o gestor do colaborador desligado tem nível Gerência ou Liderança — ou seja, saídas de times liderados por lideranças (não conta desligamento do próprio líder)."} />
+        <KpiCard label="Alto potencial identificado" value={formatNumber(kpis.highPotential)} icon={Sparkles} accent="success" tooltip={"Avaliações do ciclo de desempenho atual cujo enquadramento na matriz 9-box contém \"Alto Potencial\"."} />
       </div>
       <Card>
         <CardHeader>
@@ -112,9 +112,9 @@ export default async function LiderancaPage({
   const analytical = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Taxa de mobilidade interna" value={formatPercent(mobility.mobilityRate)} icon={Repeat} accent="success" />
-        <KpiCard label="Promoções no período" value={formatNumber(mobility.promotions)} icon={ArrowUpRight} accent="gold" />
-        <KpiCard label="Transferências no período" value={formatNumber(mobility.transfers)} icon={Users} accent="navy" />
+        <KpiCard label="Taxa de mobilidade interna" value={formatPercent(mobility.mobilityRate)} icon={Repeat} accent="success" tooltip={"Soma de promoções e transferências no período dividida pelo headcount médio do mesmo período. Fórmula: (promoções + transferências) / headcount médio."} />
+        <KpiCard label="Promoções no período" value={formatNumber(mobility.promotions)} icon={ArrowUpRight} accent="gold" tooltip={"Total de movimentações do tipo Promoção registradas no período selecionado."} />
+        <KpiCard label="Transferências no período" value={formatNumber(mobility.transfers)} icon={Users} accent="navy" tooltip={"Total de movimentações do tipo Transferência registradas no período selecionado."} />
       </div>
       <Card>
         <CardHeader>
