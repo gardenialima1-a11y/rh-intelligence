@@ -163,6 +163,7 @@ export function EmployeesTable({
             <TableHead>E-mail</TableHead>
             <TableHead>Admissão</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Desligamento</TableHead>
             <TableHead>Ações</TableHead>
           </TableRow>
         </TableHeader>
@@ -190,6 +191,15 @@ export function EmployeesTable({
               <TableCell>{formatDate(e.admissionDate)}</TableCell>
               <TableCell>
                 {e.isActive ? <Badge variant="success">Ativo</Badge> : <Badge variant="outline">Desligado</Badge>}
+              </TableCell>
+              <TableCell>
+                {e.isActive ? (
+                  "—"
+                ) : e.terminationDate ? (
+                  formatDate(e.terminationDate)
+                ) : (
+                  <Badge variant="danger">Sem data cadastrada</Badge>
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex gap-2">
