@@ -74,9 +74,9 @@ export default async function AbsenteismoPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Taxa de absenteísmo" value={formatPercent(kpis.rate)} icon={AlertTriangle} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "negative" : "positive"} sparklineData={kpis.series} accent="gold" />
-        <KpiCard label="Horas perdidas" value={`${formatNumber(kpis.hoursLost)} h`} icon={Clock3} accent="danger" />
-        <KpiCard label="Ocorrências" value={formatNumber(kpis.occurrences)} icon={ListChecks} accent="navy" />
+        <KpiCard label="Taxa de absenteísmo" value={formatPercent(kpis.rate)} icon={AlertTriangle} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "negative" : "positive"} sparklineData={kpis.series} accent="gold" tooltip={"Soma de horas perdidas por faltas/atestados dividida pela soma de horas programadas de trabalho (jornada) no período. Considera apenas ocorrências que \"entram no cálculo\" (exclui férias, folga, feriado, sem jornada, cargo de confiança, abono, dispensa e curso/aprendizagem)."} />
+        <KpiCard label="Horas perdidas" value={`${formatNumber(kpis.hoursLost)} h`} icon={Clock3} accent="danger" tooltip={"Soma de todas as horas de ausência registradas no período (que entram no cálculo de absenteísmo), vindas da importação do relatório de ponto ou lançamento manual."} />
+        <KpiCard label="Ocorrências" value={formatNumber(kpis.occurrences)} icon={ListChecks} accent="navy" tooltip={"Quantidade total de dias de ausência registrados no período que entram no cálculo de absenteísmo (uma linha de ausência = uma ocorrência)."} />
         <KpiCard
           label="Custo estimado"
           value={formatCurrency(kpis.estimatedCost)}
@@ -352,9 +352,15 @@ export default async function AbsenteismoPage({
   const analytical = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Taxa de absenteísmo" value={formatPercent(kpis.rate)} icon={AlertTriangle} accent="gold" />
-        <KpiCard label="Custo estimado" value={formatCurrency(kpis.estimatedCost)} icon={Wallet} accent="danger" />
-        <KpiCard label="Colaboradores em nível crítico (Bradford)" value={formatNumber(criticalBradford.length)} icon={Gauge} accent="danger" />
+        <KpiCard label="Taxa de absenteísmo" value={formatPercent(kpis.rate)} icon={AlertTriangle} accent="gold" tooltip={"Soma de horas perdidas por faltas/atestados dividida pela soma de horas programadas de trabalho (jornada) no período. Considera apenas ocorrências que \"entram no cálculo\" (exclui férias, folga, feriado, sem jornada, cargo de confiança, abono, dispensa e curso/aprendizagem)."} />
+        <KpiCard
+          label="Custo estimado"
+          value={formatCurrency(kpis.estimatedCost)}
+          icon={Wallet}
+          accent="danger"
+          tooltip="Calculado a partir da faixa salarial do cargo de cada colaborador (piso/teto), convertida em valor-hora por uma jornada de 220h/mês, multiplicada pelas horas perdidas."
+        />
+        <KpiCard label="Colaboradores em nível crítico (Bradford)" value={formatNumber(criticalBradford.length)} icon={Gauge} accent="danger" tooltip={"Colaboradores cujo Bradford Score (ocorrências² × dias perdidos) ficou em 450 pontos ou mais — padrão de faltas curtas e frequentes, que costuma pesar mais do que um único afastamento longo."} />
       </div>
       <Card>
         <CardHeader>
