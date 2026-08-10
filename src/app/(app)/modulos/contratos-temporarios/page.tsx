@@ -32,10 +32,10 @@ export default async function ContratosTemporariosPage() {
       />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Total de contratos" value={formatNumber(contracts.length)} icon={Clock3} accent="navy" />
-        <KpiCard label="Vencem em até 30 dias" value={formatNumber(venceEm30)} icon={AlertTriangle} accent="gold" />
-        <KpiCard label="Já vencidos" value={formatNumber(vencidos)} icon={AlertTriangle} accent="danger" />
-        <KpiCard label="Sem data cadastrada" value={formatNumber(semData)} icon={Clock3} accent="gold" />
+        <KpiCard label="Total de contratos" value={formatNumber(contracts.length)} icon={Clock3} accent="navy" tooltip={"Total de colaboradores ativos com contrato Jovem Aprendiz, Estágio ou Temporário."} />
+        <KpiCard label="Vencem em até 30 dias" value={formatNumber(venceEm30)} icon={AlertTriangle} accent="gold" tooltip={"Contratos cuja data de término está cadastrada e cai dentro dos próximos 30 dias a partir de hoje."} />
+        <KpiCard label="Já vencidos" value={formatNumber(vencidos)} icon={AlertTriangle} accent="danger" tooltip={"Contratos cuja data de término cadastrada já passou, mas o colaborador ainda consta como ativo — normalmente sinal de que falta efetivar, renovar ou desligar."} />
+        <KpiCard label="Sem data cadastrada" value={formatNumber(semData)} icon={Clock3} accent="gold" tooltip={"Contratos por prazo determinado sem data de término preenchida no cadastro do colaborador."} />
       </div>
 
       <Card>
