@@ -32,10 +32,10 @@ export default async function AdministracaoPage() {
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Usuários ativos" value={formatNumber(users.length)} icon={Users} accent="navy" />
-        <KpiCard label="Metas cadastradas" value={formatNumber(goals.length)} icon={Target} accent="gold" />
-        <KpiCard label="Perfis de acesso" value="7" icon={ShieldCheck} accent="success" />
-        <KpiCard label="Fontes monitoradas" value={formatNumber(freshness.length)} icon={RefreshCw} accent="navy" />
+        <KpiCard label="Usuários ativos" value={formatNumber(users.length)} icon={Users} accent="navy" tooltip={"Total de contas de usuário cadastradas com acesso à plataforma (tela Usuários da plataforma, aba Operacional)."} />
+        <KpiCard label="Metas cadastradas" value={formatNumber(goals.length)} icon={Target} accent="gold" tooltip={"Total de metas cadastradas no painel de Metas (aba Gerencial), de qualquer módulo e status."} />
+        <KpiCard label="Perfis de acesso" value="7" icon={ShieldCheck} accent="success" tooltip={"Número fixo de perfis de permissão disponíveis no sistema (ex.: Administrador, RH, Gestor etc.)."} />
+        <KpiCard label="Fontes monitoradas" value={formatNumber(freshness.length)} icon={RefreshCw} accent="navy" tooltip={"Quantidade de fontes de dados acompanhadas na tabela \"Última atualização por fonte de dados\" abaixo (ex.: ponto, folha, pesquisa de clima)."} />
       </div>
       <Card>
         <CardHeader>
