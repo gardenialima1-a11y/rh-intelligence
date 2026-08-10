@@ -360,14 +360,16 @@ enum ProbationStatus {
 // não duplicado aqui) — só a decisão de cada avaliação e as observações
 // ficam guardadas nesta tabela, uma linha por colaborador.
 model ProbationTracking {
-  id         String          @id @default(cuid())
-  employeeId String          @unique
-  employee   Employee        @relation(fields: [employeeId], references: [id])
-  avaliador  String?
-  status30   ProbationStatus @default(EM_AVALIACAO)
-  status60   ProbationStatus @default(EM_AVALIACAO)
-  notes      String?         @db.Text
-  updatedAt  DateTime        @updatedAt
+  id             String          @id @default(cuid())
+  employeeId     String          @unique
+  employee       Employee        @relation(fields: [employeeId], references: [id])
+  avaliador      String?
+  status30       ProbationStatus @default(EM_AVALIACAO)
+  status60       ProbationStatus @default(EM_AVALIACAO)
+  foraDoPrazo30  Boolean         @default(false)
+  foraDoPrazo60  Boolean         @default(false)
+  notes          String?         @db.Text
+  updatedAt      DateTime        @updatedAt
 }
 
 enum AttendanceStatus {
