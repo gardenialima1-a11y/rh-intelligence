@@ -33,10 +33,10 @@ export default async function AdmissoesPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Admissões no período" value={formatNumber(kpis.current)} icon={DoorOpen} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment="neutral" sparklineData={kpis.series} accent="navy" />
-        <KpiCard label="Qualidade de contratação" value={formatPercent(kpis.qualityRate)} icon={ShieldCheck} accent="success" />
-        <KpiCard label="Total admitidos (base)" value={formatNumber(kpis.totalAdmitted)} icon={Users2} accent="gold" />
-        <KpiCard label="Tendência" value={formatNumber(kpis.current)} icon={TrendingUp} accent="navy" />
+        <KpiCard label="Admissões no período" value={formatNumber(kpis.current)} icon={DoorOpen} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment="neutral" sparklineData={kpis.series} accent="navy" tooltip={"Total de colaboradores com data de admissão dentro do período selecionado (filtro global de período/unidade)."} />
+        <KpiCard label="Qualidade de contratação" value={formatPercent(kpis.qualityRate)} icon={ShieldCheck} accent="success" tooltip={"Percentual de admitidos no período que NÃO se desligaram em até 90 dias. Fórmula: 1 - (desligados em até 90 dias / total admitidos no período)."} />
+        <KpiCard label="Total admitidos (base)" value={formatNumber(kpis.totalAdmitted)} icon={Users2} accent="gold" tooltip={"Quantidade de colaboradores admitidos no período, usada como base para calcular a Qualidade de contratação."} />
+        <KpiCard label="Tendência" value={formatNumber(kpis.current)} icon={TrendingUp} accent="navy" tooltip={"Mesmo número de Admissões no período, plotado no gráfico de evolução dos últimos 12 meses."} />
       </div>
       <Card>
         <CardHeader>
@@ -139,9 +139,9 @@ export default async function AdmissoesPage({
         <CardTitle>Indicadores de qualidade de contratação</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Qualidade (sem saída em 90d)" value={formatPercent(kpis.qualityRate)} icon={ShieldCheck} accent="success" />
-        <KpiCard label="Base analisada" value={formatNumber(kpis.totalAdmitted)} icon={Users2} accent="navy" />
-        <KpiCard label="Admissões no período" value={formatNumber(kpis.current)} icon={DoorOpen} accent="gold" />
+        <KpiCard label="Qualidade (sem saída em 90d)" value={formatPercent(kpis.qualityRate)} icon={ShieldCheck} accent="success" tooltip={"Percentual de admitidos no período que continuaram na empresa por mais de 90 dias após a admissão. Fórmula: 1 - (desligados em até 90 dias / total admitidos)."} />
+        <KpiCard label="Base analisada" value={formatNumber(kpis.totalAdmitted)} icon={Users2} accent="navy" tooltip={"Quantidade de colaboradores admitidos no período, usada como base para o cálculo de qualidade de contratação."} />
+        <KpiCard label="Admissões no período" value={formatNumber(kpis.current)} icon={DoorOpen} accent="gold" tooltip={"Total de colaboradores com data de admissão dentro do período selecionado (filtro global de período/unidade)."} />
       </CardContent>
     </Card>
   );
