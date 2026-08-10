@@ -27,10 +27,10 @@ export default async function TreinamentoPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Horas de treinamento" value={`${formatNumber(kpis.totalHours)} h`} icon={BookOpen} accent="navy" />
-        <KpiCard label="Custo total" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="gold" />
-        <KpiCard label="Eficácia média" value={kpis.avgEffectiveness.toFixed(1)} icon={Star} accent="success" />
-        <KpiCard label="Vencendo em 30 dias" value={formatNumber(kpis.expiringSoon)} icon={AlertTriangle} accent="danger" />
+        <KpiCard label="Horas de treinamento" value={`${formatNumber(kpis.totalHours)} h`} icon={BookOpen} accent="navy" tooltip={"Soma das horas de todos os treinamentos lançados no período selecionado."} />
+        <KpiCard label="Custo total" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="gold" tooltip={"Soma do campo Custo de todos os treinamentos lançados no período."} />
+        <KpiCard label="Eficácia média" value={kpis.avgEffectiveness.toFixed(1)} icon={Star} accent="success" tooltip={"Média da nota de eficácia (effectivenessScore) preenchida nos treinamentos, considerando só os registros que têm essa nota."} />
+        <KpiCard label="Vencendo em 30 dias" value={formatNumber(kpis.expiringSoon)} icon={AlertTriangle} accent="danger" tooltip={"Treinamentos marcados como Obrigatório cuja data de validade (expiresAt) cai nos próximos 30 dias a partir de hoje."} />
       </div>
       <Card>
         <CardHeader>
@@ -94,9 +94,9 @@ export default async function TreinamentoPage({
         <CardTitle>Indicadores analíticos</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Horas por colaborador" value={`${kpis.hoursPerEmployee.toFixed(1)} h`} icon={BookOpen} accent="navy" />
-        <KpiCard label="ROI (eficácia/custo)" value={kpis.totalCost > 0 ? (kpis.avgEffectiveness / (kpis.totalCost / 1000)).toFixed(2) : "—"} icon={Star} accent="success" />
-        <KpiCard label="Registros no período" value={formatNumber(kpis.totalRecords)} icon={BookOpen} accent="gold" />
+        <KpiCard label="Horas por colaborador" value={`${kpis.hoursPerEmployee.toFixed(1)} h`} icon={BookOpen} accent="navy" tooltip={"Total de horas de treinamento no período dividido pelo número de colaboradores ativos."} />
+        <KpiCard label="ROI (eficácia/custo)" value={kpis.totalCost > 0 ? (kpis.avgEffectiveness / (kpis.totalCost / 1000)).toFixed(2) : "—"} icon={Star} accent="success" tooltip={"Indicador simplificado: eficácia média dividida pelo custo total (em milhares de reais). Quanto maior, mais eficácia por real investido — não é um ROI financeiro formal."} />
+        <KpiCard label="Registros no período" value={formatNumber(kpis.totalRecords)} icon={BookOpen} accent="gold" tooltip={"Quantidade total de lançamentos de treinamento no período selecionado (uma linha por colaborador/treinamento)."} />
       </CardContent>
     </Card>
   );
