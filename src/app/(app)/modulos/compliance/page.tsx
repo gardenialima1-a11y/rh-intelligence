@@ -40,10 +40,10 @@ export default async function CompliancePage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Advertências" value={formatNumber(kpis.advertencias)} icon={FileText} accent="gold" />
-        <KpiCard label="Suspensões" value={formatNumber(kpis.suspensoes)} icon={AlertOctagon} accent="danger" />
-        <KpiCard label="Processos trabalhistas" value={formatNumber(kpis.processos)} icon={Gavel} accent="danger" />
-        <KpiCard label="Passivo estimado" value={formatCurrency(kpis.estimatedLiability)} icon={Wallet} accent="danger" />
+        <KpiCard label="Advertências" value={formatNumber(kpis.advertencias)} icon={FileText} accent="gold" tooltip={"Total de ocorrências do tipo Advertência registradas no período selecionado."} />
+        <KpiCard label="Suspensões" value={formatNumber(kpis.suspensoes)} icon={AlertOctagon} accent="danger" tooltip={"Total de ocorrências do tipo Suspensão registradas no período selecionado."} />
+        <KpiCard label="Processos trabalhistas" value={formatNumber(kpis.processos)} icon={Gavel} accent="danger" tooltip={"Total de ocorrências do tipo Processo registradas no período selecionado."} />
+        <KpiCard label="Passivo estimado" value={formatCurrency(kpis.estimatedLiability)} icon={Wallet} accent="danger" tooltip={"Soma do custo estimado (campo preenchido no cadastro da ocorrência) de todas as ocorrências de compliance do período."} />
       </div>
       <Card>
         <CardHeader>
@@ -120,9 +120,9 @@ export default async function CompliancePage({
         <CardTitle>Indicadores de risco</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Passivo estimado" value={formatCurrency(kpis.estimatedLiability)} icon={Wallet} accent="danger" />
-        <KpiCard label="Processos ativos" value={formatNumber(kpis.processos)} icon={Gavel} accent="danger" />
-        <KpiCard label="Total de ocorrências" value={formatNumber(kpis.total)} icon={FileText} accent="navy" />
+        <KpiCard label="Passivo estimado" value={formatCurrency(kpis.estimatedLiability)} icon={Wallet} accent="danger" tooltip={"Soma do custo estimado (campo preenchido no cadastro da ocorrência) de todas as ocorrências de compliance do período."} />
+        <KpiCard label="Processos ativos" value={formatNumber(kpis.processos)} icon={Gavel} accent="danger" tooltip={"Total de ocorrências do tipo Processo registradas no período selecionado."} />
+        <KpiCard label="Total de ocorrências" value={formatNumber(kpis.total)} icon={FileText} accent="navy" tooltip={"Total de ocorrências de compliance (advertências, suspensões e processos somados) registradas no período."} />
       </CardContent>
     </Card>
   );
