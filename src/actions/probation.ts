@@ -30,12 +30,16 @@ export async function upsertProbationTracking(employeeId: string, raw: unknown):
         avaliador: data.avaliador || null,
         status30: data.status30,
         status60: data.status60,
+        foraDoPrazo30: data.foraDoPrazo30 ?? false,
+        foraDoPrazo60: data.foraDoPrazo60 ?? false,
         notes: data.notes || null,
       },
       update: {
         avaliador: data.avaliador || null,
         status30: data.status30,
         status60: data.status60,
+        foraDoPrazo30: data.foraDoPrazo30 ?? false,
+        foraDoPrazo60: data.foraDoPrazo60 ?? false,
         notes: data.notes || null,
       },
     });
@@ -63,6 +67,8 @@ export interface ProbationCandidate {
     avaliador: string | null;
     status30: string;
     status60: string;
+    foraDoPrazo30: boolean;
+    foraDoPrazo60: boolean;
     notes: string | null;
   } | null;
 }
