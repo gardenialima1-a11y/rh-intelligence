@@ -37,10 +37,10 @@ export default async function DesligamentosPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Desligamentos no período" value={formatNumber(kpis.current)} icon={UserX} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "negative" : "positive"} sparklineData={kpis.series} accent="danger" />
-        <KpiCard label="Custo rescisório total" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="danger" />
-        <KpiCard label="Custo médio por desligamento" value={formatCurrency(kpis.avgCost)} icon={Wallet} accent="gold" />
-        <KpiCard label="Voluntário x Involuntário" value={`${kpis.voluntaryCount} / ${kpis.involuntaryCount}`} icon={TrendingDown} accent="navy" />
+        <KpiCard label="Desligamentos no período" value={formatNumber(kpis.current)} icon={UserX} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "negative" : "positive"} sparklineData={kpis.series} accent="danger" tooltip={"Total de movimentações do tipo Desligamento registradas dentro do período selecionado."} />
+        <KpiCard label="Custo rescisório total" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="danger" tooltip={"Soma do campo Custo de todos os desligamentos do período (valor preenchido manualmente no cadastro de cada desligamento)."} />
+        <KpiCard label="Custo médio por desligamento" value={formatCurrency(kpis.avgCost)} icon={Wallet} accent="gold" tooltip={"Custo rescisório total dividido pelo número de desligamentos que têm valor de custo preenchido."} />
+        <KpiCard label="Voluntário x Involuntário" value={`${kpis.voluntaryCount} / ${kpis.involuntaryCount}`} icon={TrendingDown} accent="navy" tooltip={"Contagem de desligamentos marcados como Voluntário (pedido do colaborador) versus Involuntário (decisão da empresa) no período."} />
       </div>
       <Card>
         <CardHeader>
@@ -205,9 +205,9 @@ export default async function DesligamentosPage({
         <CardTitle>Indicadores de custo e risco</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Custo total" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="danger" />
-        <KpiCard label="Custo médio" value={formatCurrency(kpis.avgCost)} icon={Wallet} accent="gold" />
-        <KpiCard label="Involuntários" value={formatNumber(kpis.involuntaryCount)} icon={ShieldAlert} accent="navy" />
+        <KpiCard label="Custo total" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="danger" tooltip={"Soma do campo Custo de todos os desligamentos do período."} />
+        <KpiCard label="Custo médio" value={formatCurrency(kpis.avgCost)} icon={Wallet} accent="gold" tooltip={"Custo rescisório total dividido pelo número de desligamentos que têm valor de custo preenchido."} />
+        <KpiCard label="Involuntários" value={formatNumber(kpis.involuntaryCount)} icon={ShieldAlert} accent="navy" tooltip={"Total de desligamentos marcados como Involuntário (decisão da empresa) no período."} />
       </CardContent>
     </Card>
   );
