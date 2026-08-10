@@ -39,9 +39,9 @@ export default async function PeopleAnalyticsPage({
         <NarrativeCard key={i} text={text} />
       ))}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        <KpiCard label="Colaboradores em risco alto" value={formatNumber(flightRisk.highRiskCount)} icon={ShieldAlert} accent="danger" />
-        <KpiCard label="Colaboradores em risco médio" value={formatNumber(flightRisk.mediumRiskCount)} icon={AlertTriangle} accent="gold" />
-        <KpiCard label="Total sinalizado pelo modelo" value={formatNumber(flightRisk.totalFlagged)} icon={Users} accent="navy" />
+        <KpiCard label="Colaboradores em risco alto" value={formatNumber(flightRisk.highRiskCount)} icon={ShieldAlert} accent="danger" tooltip={"Colaboradores ativos cujo score de Flight Risk somou 60 pontos ou mais. O score soma pontos por: desempenho abaixo do esperado, muitas horas de afastamento, excesso de horas extras, tempo parado sem promoção/movimentação, e alto performer sem reconhecimento recente."} />
+        <KpiCard label="Colaboradores em risco médio" value={formatNumber(flightRisk.mediumRiskCount)} icon={AlertTriangle} accent="gold" tooltip={"Colaboradores ativos cujo score de Flight Risk ficou entre 30 e 59 pontos."} />
+        <KpiCard label="Total sinalizado pelo modelo" value={formatNumber(flightRisk.totalFlagged)} icon={Users} accent="navy" tooltip={"Total de colaboradores ativos com pelo menos um fator de risco identificado (score de Flight Risk maior que zero), somando os níveis Baixo, Médio e Alto."} />
       </div>
       <Card>
         <CardHeader>
