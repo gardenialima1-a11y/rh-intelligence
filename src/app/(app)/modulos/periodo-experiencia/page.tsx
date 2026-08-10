@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { TableCardHeader } from "@/components/dashboard/table-card-header";
 import { ProbationTable } from "@/components/admin/probation-table";
-import { TableTopScrollbar } from "@/components/dashboard/table-top-scrollbar";
 import { getProbationOverview } from "@/actions/probation";
 import { formatNumber } from "@/lib/utils";
 
@@ -53,9 +52,7 @@ export default async function PeriodoExperienciaPage() {
               Nenhum colaborador em período de experiência no momento.
             </p>
           ) : (
-            <TableTopScrollbar>
-              <ProbationTable rows={emAndamento} variant="andamento" showManagerFilter />
-            </TableTopScrollbar>
+            <ProbationTable rows={emAndamento} variant="andamento" showManagerFilter />
           )}
         </CardContent>
       </Card>
@@ -97,9 +94,7 @@ export default async function PeriodoExperienciaPage() {
               Ninguém completou o período de experiência ainda (dentro da janela de histórico de 2 anos).
             </p>
           ) : (
-            <TableTopScrollbar>
-              <ProbationTable rows={historico} variant="historico" />
-            </TableTopScrollbar>
+            <ProbationTable rows={historico} variant="historico" />
           )}
         </CardContent>
       </Card>
