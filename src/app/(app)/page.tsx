@@ -60,7 +60,8 @@ export default async function HomePage({
           deltaSentiment={narrative.headcount.delta >= 0 ? "positive" : "negative"}
           sparklineData={narrative.headcount.series}
           accent="navy"
-        />
+        tooltip={"Total de colaboradores com status ativo no cadastro (isActive = sim), na data de hoje. A variação compara com o headcount no início do período selecionado."}
+      />
         <KpiCard
           label="Turnover (período)"
           value={formatPercent(narrative.turnover.current)}
@@ -70,7 +71,8 @@ export default async function HomePage({
           deltaSentiment={narrative.turnover.delta >= 0 ? "negative" : "positive"}
           sparklineData={narrative.turnover.series}
           accent="danger"
-        />
+        tooltip={"Número de desligamentos no período dividido pelo headcount médio do mesmo período (média entre início e fim). A variação compara com o período anterior de mesma duração."}
+      />
         <KpiCard
           label="Absenteísmo"
           value={formatPercent(narrative.absenteeism.current)}
@@ -79,7 +81,8 @@ export default async function HomePage({
           deltaDirection={narrative.absenteeism.delta >= 0 ? "up" : "down"}
           deltaSentiment={narrative.absenteeism.delta >= 0 ? "negative" : "positive"}
           accent="gold"
-        />
+        tooltip={"Soma de horas perdidas por faltas/atestados dividida pela soma de horas programadas de trabalho no período (jornada). Vem dos módulos de Absenteísmo e Jornada."}
+      />
         <KpiCard
           label="eNPS"
           value={narrative.enps.current.toFixed(0)}
@@ -87,7 +90,8 @@ export default async function HomePage({
           deltaLabel={narrative.enps.cycle ?? "sem ciclo"}
           deltaDirection="flat"
           accent="success"
-        />
+        tooltip={"Calculado a partir das respostas da pergunta Recomendaria a Empresa no último ciclo da Pesquisa de Clima: nota 9 a 10 conta como promotor, 0 a 6 como detrator. Fórmula: ((promotores - detratores) / total de respostas) x 100."}
+      />
         <KpiCard
           label="Vagas em aberto"
           value={formatNumber(narrative.vacancies)}
@@ -112,7 +116,7 @@ export default async function HomePage({
           Indicadores estratégicos de capital humano
         </p>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <KpiCard label="Receita por colaborador" value={formatCurrency(hcEfficiency.revenuePerEmployee)} icon={LineChart} accent="navy" />
+          <KpiCard label="Receita por colaborador" value={formatCurrency(hcEfficiency.revenuePerEmployee)} icon={LineChart} accent="navy" tooltip={"Receita total cadastrada no período dividida pelo headcount médio (média entre início e fim do período)."} />
           <KpiCard
             label="HCROI"
             value={hcEfficiency.hcroiApprox !== null ? hcEfficiency.hcroiApprox.toFixed(2) : "—"}
@@ -120,8 +124,8 @@ export default async function HomePage({
             accent={hcEfficiency.hcroiApprox !== null && hcEfficiency.hcroiApprox > 1 ? "success" : "gold"}
             tooltip="Human Capital ROI: quanto a empresa ganha em receita para cada R$1 investido em pessoal. Fórmula aproximada: (Receita - Custo de Pessoal) / Custo de Pessoal. Ex.: 1,00 significa que cada R$1 gasto com pessoal retornou R$1 de lucro além do próprio custo."
           />
-          <KpiCard label="Colaboradores em risco alto" value={formatNumber(flightRisk.highRiskCount)} icon={ShieldAlert} accent="danger" />
-          <KpiCard label="Sinalizados pelo Flight Risk" value={formatNumber(flightRisk.totalFlagged)} icon={AlertTriangle} accent="gold" />
+          <KpiCard label="Colaboradores em risco alto" value={formatNumber(flightRisk.highRiskCount)} icon={ShieldAlert} accent="danger" tooltip={"Colaboradores ativos cujo score de Flight Risk somou 60 pontos ou mais. O score soma pontos por: nota de desempenho baixa, muitas horas de afastamento, excesso de horas extras, tempo parado sem promoção/movimentação, e alto performer sem reconhecimento recente."} />
+          <KpiCard label="Sinalizados pelo Flight Risk" value={formatNumber(flightRisk.totalFlagged)} icon={AlertTriangle} accent="gold" tooltip={"Total de colaboradores ativos com pelo menos um fator de risco identificado (score de Flight Risk maior que zero), somando os níveis Baixo, Médio e Alto."} />
         </div>
       </div>
 
