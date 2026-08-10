@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogTrigger,
@@ -49,7 +50,13 @@ export function ProbationFormDialog({ employeeId, employeeName, managerName, def
     formState: { errors },
   } = useForm<ProbationFormValues>({
     resolver: zodResolver(probationFormSchema),
-    defaultValues: defaultValues ?? { status30: "EM_AVALIACAO", status60: "EM_AVALIACAO", avaliador: managerName ?? null },
+    defaultValues: defaultValues ?? {
+      status30: "EM_AVALIACAO",
+      status60: "EM_AVALIACAO",
+      foraDoPrazo30: false,
+      foraDoPrazo60: false,
+      avaliador: managerName ?? null,
+    },
   });
 
   async function onSubmit(values: ProbationFormValues) {
@@ -103,6 +110,16 @@ export function ProbationFormDialog({ employeeId, employeeName, managerName, def
                 </Select>
               )}
             />
+            <Controller
+              control={control}
+              name="foraDoPrazo30"
+              render={({ field }) => (
+                <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+                  <Checkbox checked={field.value ?? false} onCheckedChange={(v) => field.onChange(v === true)} />
+                  Avaliação chegou fora do prazo
+                </label>
+              )}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -119,6 +136,16 @@ export function ProbationFormDialog({ employeeId, employeeName, managerName, def
                     ))}
                   </SelectContent>
                 </Select>
+              )}
+            />
+            <Controller
+              control={control}
+              name="foraDoPrazo60"
+              render={({ field }) => (
+                <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+                  <Checkbox checked={field.value ?? false} onCheckedChange={(v) => field.onChange(v === true)} />
+                  Avaliação chegou fora do prazo
+                </label>
               )}
             />
           </div>
