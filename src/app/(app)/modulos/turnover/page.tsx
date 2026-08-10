@@ -40,11 +40,11 @@ export default async function TurnoverPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        <KpiCard label="Turnover geral" value={formatPercent(kpis.current.rate)} icon={TrendingUp} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "negative" : "positive"} sparklineData={kpis.series} accent="danger" />
-        <KpiCard label="Turnover voluntário" value={formatPercent(kpis.current.voluntaryRate)} icon={TrendingDown} accent="gold" />
-        <KpiCard label="Turnover involuntário" value={formatPercent(kpis.current.involuntaryRate)} icon={UserX} accent="navy" />
-        <KpiCard label="Custo de turnover" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="danger" />
-        <KpiCard label="Turnover 1º ano" value={formatPercent(early.withinYearRate)} icon={Timer} accent="gold" />
+        <KpiCard label="Turnover geral" value={formatPercent(kpis.current.rate)} icon={TrendingUp} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "negative" : "positive"} sparklineData={kpis.series} accent="danger" tooltip={"Total de desligamentos no período dividido pelo headcount médio do mesmo período (média entre início e fim). Inclui voluntários e involuntários."} />
+        <KpiCard label="Turnover voluntário" value={formatPercent(kpis.current.voluntaryRate)} icon={TrendingDown} accent="gold" tooltip={"Desligamentos marcados como Voluntário (pedido do colaborador) no período, divididos pelo headcount médio do mesmo período."} />
+        <KpiCard label="Turnover involuntário" value={formatPercent(kpis.current.involuntaryRate)} icon={UserX} accent="navy" tooltip={"Desligamentos marcados como Involuntário (decisão da empresa) no período, divididos pelo headcount médio do mesmo período."} />
+        <KpiCard label="Custo de turnover" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="danger" tooltip={"Soma do campo Custo de todos os desligamentos do período (valor preenchido manualmente no cadastro de cada desligamento)."} />
+        <KpiCard label="Turnover 1º ano" value={formatPercent(early.withinYearRate)} icon={Timer} accent="gold" tooltip={"Entre os desligados no período, o percentual que saiu com até 365 dias de casa (data de desligamento - data de admissão)."} />
       </div>
       <Card>
         <CardHeader>
@@ -142,9 +142,9 @@ export default async function TurnoverPage({
   const analytical = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Desligamentos primeiros 90 dias" value={String(early.within90)} icon={Timer} accent="danger" />
-        <KpiCard label="Desligamentos no 1º ano" value={String(early.withinYear)} icon={Timer} accent="gold" />
-        <KpiCard label="Total de desligamentos analisados" value={String(early.total)} icon={UserX} accent="navy" />
+        <KpiCard label="Desligamentos primeiros 90 dias" value={String(early.within90)} icon={Timer} accent="danger" tooltip={"Quantidade de desligados no período que saíram com até 90 dias de casa (data de desligamento - data de admissão)."} />
+        <KpiCard label="Desligamentos no 1º ano" value={String(early.withinYear)} icon={Timer} accent="gold" tooltip={"Quantidade de desligados no período que saíram com até 365 dias de casa."} />
+        <KpiCard label="Total de desligamentos analisados" value={String(early.total)} icon={UserX} accent="navy" tooltip={"Total de colaboradores desligados no período, usado como base para calcular os percentuais de turnover precoce (90 dias e 1º ano)."} />
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <KpiCard
@@ -152,9 +152,10 @@ export default async function TurnoverPage({
           value={formatPercent(forecast.projectedRate3Months)}
           icon={ForecastIcon}
           accent={forecast.direction === "up" ? "danger" : forecast.direction === "down" ? "success" : "navy"}
-        />
-        <KpiCard label="Tendência" value={forecast.direction === "up" ? "Piora" : forecast.direction === "down" ? "Melhora" : "Estável"} icon={ForecastIcon} accent="gold" />
-        <KpiCard label="Turnover atual (base do forecast)" value={formatPercent(kpis.current.rate)} icon={TrendingUp} accent="navy" />
+        tooltip={"Taxa de turnover estimada para os próximos 3 meses, calculada por regressão linear sobre a série histórica dos últimos 6 meses. É uma projeção estatística, não uma meta."}
+      />
+        <KpiCard label="Tendência" value={forecast.direction === "up" ? "Piora" : forecast.direction === "down" ? "Melhora" : "Estável"} icon={ForecastIcon} accent="gold" tooltip={"Direção da projeção de turnover (piora, melhora ou estável), com base na mesma regressão linear dos últimos 6 meses."} />
+        <KpiCard label="Turnover atual (base do forecast)" value={formatPercent(kpis.current.rate)} icon={TrendingUp} accent="navy" tooltip={"Taxa de turnover do período atual, usada como ponto de partida da projeção de 3 meses."} />
       </div>
       <Card>
         <CardHeader>
