@@ -43,10 +43,10 @@ export default async function CatracaPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Tempo total fora do posto" value={`${kpis.totalHours.toFixed(0)} h`} icon={Clock3} accent="gold" />
-        <KpiCard label="Ocorrências" value={formatNumber(kpis.totalOccurrences)} icon={ListChecks} accent="navy" />
-        <KpiCard label="Média por colaborador" value={`${kpis.avgMinutesPerEmployee.toFixed(0)} min`} icon={ScanFace} accent="gold" />
-        <KpiCard label="Colaboradores críticos" value={formatNumber(kpis.criticalEmployees)} icon={AlertOctagon} accent="danger" />
+        <KpiCard label="Tempo total fora do posto" value={`${kpis.totalHours.toFixed(0)} h`} icon={Clock3} accent="gold" tooltip={"Soma de todos os minutos que os colaboradores ficaram fora do posto entre entradas e saídas registradas na catraca no período, convertida em horas."} />
+        <KpiCard label="Ocorrências" value={formatNumber(kpis.totalOccurrences)} icon={ListChecks} accent="navy" tooltip={"Total de saídas registradas pela catraca (cada entrada/saída identificada conta como uma ocorrência) no período."} />
+        <KpiCard label="Média por colaborador" value={`${kpis.avgMinutesPerEmployee.toFixed(0)} min`} icon={ScanFace} accent="gold" tooltip={"Tempo total fora do posto (em minutos) dividido pelo número de colaboradores com ao menos um registro de catraca no período."} />
+        <KpiCard label="Colaboradores críticos" value={formatNumber(kpis.criticalEmployees)} icon={AlertOctagon} accent="danger" tooltip={"Colaboradores cujo total de minutos fora do posto no período passou de 120 minutos."} />
       </div>
       <AttentionPointsCard points={attentionPoints} />
       <Card>
@@ -131,9 +131,9 @@ export default async function CatracaPage({
         <CardTitle>Indicadores analíticos</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Tempo total" value={`${kpis.totalHours.toFixed(0)} h`} icon={Clock3} accent="gold" />
-        <KpiCard label="Colaboradores críticos" value={formatNumber(kpis.criticalEmployees)} icon={AlertOctagon} accent="danger" />
-        <KpiCard label="Média por colaborador" value={`${kpis.avgMinutesPerEmployee.toFixed(0)} min`} icon={ScanFace} accent="navy" />
+        <KpiCard label="Tempo total" value={`${kpis.totalHours.toFixed(0)} h`} icon={Clock3} accent="gold" tooltip={"Soma de todos os minutos que os colaboradores ficaram fora do posto no período, convertida em horas."} />
+        <KpiCard label="Colaboradores críticos" value={formatNumber(kpis.criticalEmployees)} icon={AlertOctagon} accent="danger" tooltip={"Colaboradores cujo total de minutos fora do posto no período passou de 120 minutos."} />
+        <KpiCard label="Média por colaborador" value={`${kpis.avgMinutesPerEmployee.toFixed(0)} min`} icon={ScanFace} accent="navy" tooltip={"Tempo total fora do posto (em minutos) dividido pelo número de colaboradores com ao menos um registro de catraca no período."} />
       </CardContent>
     </Card>
   );
