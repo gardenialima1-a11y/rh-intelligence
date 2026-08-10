@@ -86,7 +86,7 @@ export function ProbationTable({
         </div>
       )}
 
-      <Table>
+      <Table containerClassName="max-h-[65vh]">
       <TableHeader>
         <TableRow>
           <TableHead>Colaborador</TableHead>
