@@ -1,8 +1,14 @@
+"use client";
+
+import * as React from "react";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { ProbationFormDialog } from "@/components/admin/probation-form-dialog";
 import { computeProbationDates, resolveDisplayStatus, computeProbationAlert, type StoredProbationStatus } from "@/lib/analytics/probation";
 import { formatDate } from "@/lib/utils";
+
+const ALL_MANAGERS = "__todos__";
 
 interface ProbationRow {
   id: string;
@@ -17,6 +23,8 @@ interface ProbationRow {
     avaliador: string | null;
     status30: string;
     status60: string;
+    foraDoPrazo30?: boolean;
+    foraDoPrazo60?: boolean;
     notes: string | null;
   } | null;
 }
@@ -40,9 +48,45 @@ function PrazoBadge({ diasRestantes, alerta }: { diasRestantes: number; alerta: 
   return <span className="text-xs text-muted-foreground">{diasRestantes} dias restantes</span>;
 }
 
-export function ProbationTable({ rows, variant = "andamento" }: { rows: ProbationRow[]; variant?: "andamento" | "historico" }) {
+export function ProbationTable({
+  rows,
+  variant = "andamento",
+  showManagerFilter = false,
+}: {
+  rows: ProbationRow[];
+  variant?: "andamento" | "historico";
+  showManagerFilter?: boolean;
+}) {
+  const [managerFilter, setManagerFilter] = React.useState(ALL_MANAGERS);
+
+  const managers = React.useMemo(
+    () => Array.from(new Set(rows.map((r) => r.manager?.name).filter((n): n is string => !!n))).sort(),
+    [rows]
+  );
+
+  const filteredRows =
+    showManagerFilter && managerFilter !== ALL_MANAGERS
+      ? rows.filter((r) => r.manager?.name === managerFilter)
+      : rows;
+
   return (
-    <Table>
+    <div className="flex flex-col gap-3">
+      {showManagerFilter && managers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={managerFilter} onValueChange={setManagerFilter}>
+            <SelectTrigger className="w-[220px]"><SelectValue placeholder="Filtrar por gestor" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_MANAGERS}>Todos os gestores</SelectItem>
+              {managers.map((m) => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground">{filteredRows.length} de {rows.length}</span>
+        </div>
+      )}
+
+      <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Colaborador</TableHead>
@@ -59,7 +103,7 @@ export function ProbationTable({ rows, variant = "andamento" }: { rows: Probatio
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((r) => {
+        {filteredRows.map((r) => {
           const dates = computeProbationDates(r.admissionDate);
           const status30 = resolveDisplayStatus((r.probationTracking?.status30 ?? "EM_AVALIACAO") as StoredProbationStatus, dates.checkpoint1);
           const status60 = resolveDisplayStatus((r.probationTracking?.status60 ?? "EM_AVALIACAO") as StoredProbationStatus, dates.checkpoint2);
@@ -76,12 +120,14 @@ export function ProbationTable({ rows, variant = "andamento" }: { rows: Probatio
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-muted-foreground">{formatDate(dates.checkpoint1)}</span>
                   <StatusBadge status={status30} />
+                  {r.probationTracking?.foraDoPrazo30 && <Badge variant="gold">Avaliado fora do prazo</Badge>}
                 </div>
               </TableCell>
               <TableCell>
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-muted-foreground">{formatDate(dates.checkpoint2)}</span>
                   <StatusBadge status={status60} />
+                  {r.probationTracking?.foraDoPrazo60 && <Badge variant="gold">Avaliado fora do prazo</Badge>}
                 </div>
               </TableCell>
               {variant === "andamento" && (
@@ -108,6 +154,8 @@ export function ProbationTable({ rows, variant = "andamento" }: { rows: Probatio
                     avaliador: r.probationTracking?.avaliador ?? r.manager?.name ?? null,
                     status30: (r.probationTracking?.status30 as "EM_AVALIACAO" | "APROVADO" | "REPROVADO") ?? "EM_AVALIACAO",
                     status60: (r.probationTracking?.status60 as "EM_AVALIACAO" | "APROVADO" | "REPROVADO") ?? "EM_AVALIACAO",
+                    foraDoPrazo30: r.probationTracking?.foraDoPrazo30 ?? false,
+                    foraDoPrazo60: r.probationTracking?.foraDoPrazo60 ?? false,
                     notes: r.probationTracking?.notes ?? null,
                   }}
                 />
@@ -116,6 +164,7 @@ export function ProbationTable({ rows, variant = "andamento" }: { rows: Probatio
           );
         })}
       </TableBody>
-    </Table>
+      </Table>
+    </div>
   );
 }
