@@ -32,9 +32,9 @@ export default async function AfastamentosInssPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        <KpiCard label="Afastados no momento" value={formatNumber(ongoing.length)} icon={HeartPulse} accent="danger" />
-        <KpiCard label="Total de registros" value={formatNumber(leaves.length)} icon={AlertTriangle} accent="navy" />
-        <KpiCard label="Média de dias afastado (em curso)" value={avgDaysLabel} icon={HeartPulse} accent="gold" />
+        <KpiCard label="Afastados no momento" value={formatNumber(ongoing.length)} icon={HeartPulse} accent="danger" tooltip={"Quantidade de afastamentos sem data de retorno preenchida (isOngoing = sim), ou seja, colaboradores ainda afastados hoje."} />
+        <KpiCard label="Total de registros" value={formatNumber(leaves.length)} icon={AlertTriangle} accent="navy" tooltip={"Total de afastamentos INSS já lançados na tela, incluindo os que já retornaram."} />
+        <KpiCard label="Média de dias afastado (em curso)" value={avgDaysLabel} icon={HeartPulse} accent="gold" tooltip={"Média de dias entre a data de saída e hoje, considerando apenas os afastamentos ainda em curso (sem retorno cadastrado)."} />
       </div>
 
       <Card>
