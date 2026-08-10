@@ -29,20 +29,22 @@ export default async function DiversidadePage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Mulheres no quadro" value={formatPercent(kpis.womenRate)} icon={Users} accent="gold" />
-        <KpiCard label="Mulheres em liderança" value={formatPercent(kpis.womenInLeadershipRate)} icon={Trophy} accent="navy" />
+        <KpiCard label="Mulheres no quadro" value={formatPercent(kpis.womenRate)} icon={Users} accent="gold" tooltip={"Colaboradoras ativas com gênero Feminino no cadastro, dividido pelo total de colaboradores ativos."} />
+        <KpiCard label="Mulheres em liderança" value={formatPercent(kpis.womenInLeadershipRate)} icon={Trophy} accent="navy" tooltip={"Colaboradoras ativas com gênero Feminino em cargos de nível Liderança ou Gerência, dividido pelo total de colaboradores ativos nesses mesmos níveis."} />
         <KpiCard
           label="Gap salarial de gênero (média)"
           value={formatPercent(overallGap.overallGapPercent / 100)}
           icon={Scale}
           accent={overallGap.overallGapPercent > 5 ? "danger" : "success"}
-        />
+        tooltip={"Média da diferença percentual entre o salário médio de homens e mulheres, considerando só os cargos com pelo menos um colaborador de cada gênero. Gap positivo indica que mulheres recebem menos, em média, no mesmo cargo."}
+      />
         <KpiCard
           label="Cota PCD (atual x legal)"
           value={`${formatPercent(kpis.pcdRate)} / ${formatPercent(kpis.pcdLegalTarget)}`}
           icon={ShieldCheck}
           accent={kpis.pcdRate >= kpis.pcdLegalTarget ? "success" : "danger"}
-        />
+        tooltip={"Percentual de colaboradores ativos marcados como PCD no cadastro, comparado com a cota legal mínima de 5% (Lei de Cotas, empresas com 1000+ empregados; ajuste a meta se sua faixa de empregados for diferente)."}
+      />
       </div>
       <Card>
         <CardHeader>
@@ -73,8 +75,8 @@ export default async function DiversidadePage({
           <CardTitle>Conformidade de cotas legais</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <KpiCard label="PCD — atual x meta legal" value={`${formatPercent(kpis.pcdRate)} / ${formatPercent(kpis.pcdLegalTarget)}`} icon={ShieldCheck} accent={kpis.pcdRate >= kpis.pcdLegalTarget ? "success" : "danger"} />
-          <KpiCard label="Jovem Aprendiz — atual x meta legal" value={`${formatPercent(kpis.apprenticeRate)} / ${formatPercent(kpis.apprenticeLegalTarget)}`} icon={Fingerprint} accent={kpis.apprenticeRate >= kpis.apprenticeLegalTarget ? "success" : "danger"} />
+          <KpiCard label="PCD — atual x meta legal" value={`${formatPercent(kpis.pcdRate)} / ${formatPercent(kpis.pcdLegalTarget)}`} icon={ShieldCheck} accent={kpis.pcdRate >= kpis.pcdLegalTarget ? "success" : "danger"} tooltip={"Percentual de colaboradores ativos marcados como PCD no cadastro, comparado com a meta legal de 5% usada como referência no sistema."} />
+          <KpiCard label="Jovem Aprendiz — atual x meta legal" value={`${formatPercent(kpis.apprenticeRate)} / ${formatPercent(kpis.apprenticeLegalTarget)}`} icon={Fingerprint} accent={kpis.apprenticeRate >= kpis.apprenticeLegalTarget ? "success" : "danger"} tooltip={"Percentual de colaboradores ativos com contrato Jovem Aprendiz, comparado com a meta legal de 5% usada como referência no sistema."} />
         </CardContent>
       </Card>
       <Card>
@@ -130,9 +132,9 @@ export default async function DiversidadePage({
         <CardTitle>Indicadores analíticos</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Mulheres no quadro" value={formatPercent(kpis.womenRate)} icon={Users} accent="gold" />
-        <KpiCard label="Cargos com gap > 5%" value={String(overallGap.positionsWithGap)} icon={Scale} accent="danger" />
-        <KpiCard label="Cargos analisados" value={String(overallGap.positionsAnalyzed)} icon={ShieldCheck} accent="navy" />
+        <KpiCard label="Mulheres no quadro" value={formatPercent(kpis.womenRate)} icon={Users} accent="gold" tooltip={"Colaboradoras ativas com gênero Feminino no cadastro, dividido pelo total de colaboradores ativos."} />
+        <KpiCard label="Cargos com gap > 5%" value={String(overallGap.positionsWithGap)} icon={Scale} accent="danger" tooltip={"Quantidade de cargos em que a diferença salarial média entre homens e mulheres passou de 5%, entre os cargos com colaboradores de ambos os gêneros."} />
+        <KpiCard label="Cargos analisados" value={String(overallGap.positionsAnalyzed)} icon={ShieldCheck} accent="navy" tooltip={"Quantidade de cargos que têm pelo menos um homem e uma mulher ativos, permitindo comparar o salário médio entre gêneros."} />
       </CardContent>
     </Card>
   );
