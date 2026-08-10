@@ -33,10 +33,10 @@ export default async function DesempenhoPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Colaboradores avaliados" value={formatPercent(kpis.coverageRate)} icon={ClipboardCheck} accent="navy" />
-        <KpiCard label="Nota média" value={kpis.avgScore.toFixed(1)} icon={Star} accent="gold" />
-        <KpiCard label="PDIs concluídos" value={formatNumber(kpis.pdiConcluded)} icon={Target} accent="success" />
-        <KpiCard label="PDIs pendentes" value={formatNumber(kpis.pdiPending)} icon={Target} accent="danger" />
+        <KpiCard label="Colaboradores avaliados" value={formatPercent(kpis.coverageRate)} icon={ClipboardCheck} accent="navy" tooltip={"Número de avaliações lançadas no ciclo atual dividido pelo total de colaboradores ativos. Fórmula: avaliações do ciclo / headcount ativo."} />
+        <KpiCard label="Nota média" value={kpis.avgScore.toFixed(1)} icon={Star} accent="gold" tooltip={"Média simples das notas de todas as avaliações lançadas no ciclo atual."} />
+        <KpiCard label="PDIs concluídos" value={formatNumber(kpis.pdiConcluded)} icon={Target} accent="success" tooltip={"Quantidade de avaliações do ciclo cujo Plano de Desenvolvimento Individual está marcado como Concluído."} />
+        <KpiCard label="PDIs pendentes" value={formatNumber(kpis.pdiPending)} icon={Target} accent="danger" tooltip={"Quantidade de avaliações do ciclo cujo Plano de Desenvolvimento Individual ainda está marcado como Pendente (não iniciado)."} />
       </div>
       <Card>
         <CardHeader>
@@ -104,9 +104,9 @@ export default async function DesempenhoPage({
         <CardTitle>Indicadores analíticos</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Cobertura do ciclo" value={formatPercent(kpis.coverageRate)} icon={ClipboardCheck} accent="navy" />
-        <KpiCard label="Nota média" value={kpis.avgScore.toFixed(1)} icon={BarChart3} accent="gold" />
-        <KpiCard label="PDIs em andamento" value={formatNumber(kpis.pdiInProgress)} icon={Target} accent="gold" />
+        <KpiCard label="Cobertura do ciclo" value={formatPercent(kpis.coverageRate)} icon={ClipboardCheck} accent="navy" tooltip={"Número de avaliações lançadas no ciclo atual dividido pelo total de colaboradores ativos."} />
+        <KpiCard label="Nota média" value={kpis.avgScore.toFixed(1)} icon={BarChart3} accent="gold" tooltip={"Média simples das notas de todas as avaliações lançadas no ciclo atual."} />
+        <KpiCard label="PDIs em andamento" value={formatNumber(kpis.pdiInProgress)} icon={Target} accent="gold" tooltip={"Quantidade de avaliações do ciclo cujo Plano de Desenvolvimento Individual está marcado como Em andamento."} />
       </CardContent>
     </Card>
   );
