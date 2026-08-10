@@ -55,11 +55,11 @@ export default async function HeadcountPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        <KpiCard label="Headcount atual" value={formatNumber(kpis.current)} icon={Users} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "positive" : "negative"} sparklineData={kpis.series} accent="navy" />
-        <KpiCard label="Admissões no período" value={formatNumber(kpis.admissions)} icon={UserPlus} accent="success" />
-        <KpiCard label="Desligamentos no período" value={formatNumber(kpis.terminations)} icon={UserMinus} accent="danger" />
-        <KpiCard label="Variação líquida" value={formatNumber(kpis.netChange)} icon={ArrowLeftRight} accent={kpis.netChange >= 0 ? "success" : "danger"} />
-        <KpiCard label="Tempo médio de casa" value={`${(avgTenure / 12).toFixed(1)} anos`} icon={Clock3} accent="gold" />
+        <KpiCard label="Headcount atual" value={formatNumber(kpis.current)} icon={Users} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "positive" : "negative"} sparklineData={kpis.series} accent="navy" tooltip={"Total de colaboradores com status ativo no cadastro, na data de hoje. A variação compara com o headcount no início do período selecionado."} />
+        <KpiCard label="Admissões no período" value={formatNumber(kpis.admissions)} icon={UserPlus} accent="success" tooltip={"Total de colaboradores com data de admissão dentro do período selecionado."} />
+        <KpiCard label="Desligamentos no período" value={formatNumber(kpis.terminations)} icon={UserMinus} accent="danger" tooltip={"Total de movimentações do tipo Desligamento registradas dentro do período selecionado."} />
+        <KpiCard label="Variação líquida" value={formatNumber(kpis.netChange)} icon={ArrowLeftRight} accent={kpis.netChange >= 0 ? "success" : "danger"} tooltip={"Admissões menos desligamentos no período. Fórmula: Admissões - Desligamentos."} />
+        <KpiCard label="Tempo médio de casa" value={`${(avgTenure / 12).toFixed(1)} anos`} icon={Clock3} accent="gold" tooltip={"Média, em meses (convertida em anos), do tempo entre a admissão e hoje (ou entre admissão e desligamento, para quem já saiu), considerando os colaboradores do filtro atual."} />
       </div>
       <Card>
         <CardHeader>
@@ -192,9 +192,10 @@ export default async function HeadcountPage({
           value={formatNumber(forecast.projected3Months)}
           icon={ForecastIcon}
           accent={forecast.direction === "up" ? "success" : forecast.direction === "down" ? "danger" : "navy"}
-        />
-        <KpiCard label="Tendência" value={forecast.direction === "up" ? "Crescimento" : forecast.direction === "down" ? "Redução" : "Estável"} icon={ForecastIcon} accent="gold" />
-        <KpiCard label="Headcount atual (base do forecast)" value={formatNumber(kpis.current)} icon={Users} accent="navy" />
+        tooltip={"Headcount estimado daqui a 3 meses, calculado por regressão linear sobre a série histórica dos últimos 6 meses. É uma projeção estatística, não uma meta ou orçamento oficial."}
+      />
+        <KpiCard label="Tendência" value={forecast.direction === "up" ? "Crescimento" : forecast.direction === "down" ? "Redução" : "Estável"} icon={ForecastIcon} accent="gold" tooltip={"Direção da projeção de headcount (crescimento, redução ou estável), com base na mesma regressão linear dos últimos 6 meses."} />
+        <KpiCard label="Headcount atual (base do forecast)" value={formatNumber(kpis.current)} icon={Users} accent="navy" tooltip={"Total de colaboradores ativos hoje, usado como ponto de partida da projeção de 3 meses."} />
       </div>
       <Card>
         <CardHeader>
