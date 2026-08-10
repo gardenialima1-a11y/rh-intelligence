@@ -44,10 +44,10 @@ export default async function JornadaPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Horas extras (período)" value={`${formatNumber(kpis.overtimeHours)} h`} icon={Clock3} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "negative" : "positive"} sparklineData={kpis.series} accent="gold" />
-        <KpiCard label="Custo de horas extras" value={formatCurrency(kpis.overtimeCost)} icon={Wallet} accent="danger" />
-        <KpiCard label="Saldo de banco de horas" value={`${formatNumber(kpis.bankBalance)} h`} icon={Timer} accent="navy" />
-        <KpiCard label="Excesso de jornada" value={formatPercent(kpis.excessRate)} icon={Gauge} accent="danger" />
+        <KpiCard label="Horas extras (período)" value={`${formatNumber(kpis.overtimeHours)} h`} icon={Clock3} deltaLabel={formatPercent(Math.abs(kpis.delta))} deltaDirection={kpis.delta >= 0 ? "up" : "down"} deltaSentiment={kpis.delta >= 0 ? "negative" : "positive"} sparklineData={kpis.series} accent="gold" tooltip={"Soma de todas as horas extras lançadas (via importação de ponto, PDF de folha ou lançamento manual) no período selecionado."} />
+        <KpiCard label="Custo de horas extras" value={formatCurrency(kpis.overtimeCost)} icon={Wallet} accent="danger" tooltip={"Soma do custo de horas extras (campo overtimeCost) de todos os lançamentos do período, vindo da importação/lançamento de jornada."} />
+        <KpiCard label="Saldo de banco de horas" value={`${formatNumber(kpis.bankBalance)} h`} icon={Timer} accent="navy" tooltip={"Soma da variação de banco de horas (horas a mais ou a menos) de todos os lançamentos do período — positivo é saldo credor, negativo é devedor."} />
+        <KpiCard label="Excesso de jornada" value={formatPercent(kpis.excessRate)} icon={Gauge} accent="danger" tooltip={"Horas extras totais divididas pelas horas programadas totais (jornada) no período. Fórmula: horas extras / horas programadas."} />
       </div>
       <Card>
         <CardHeader>
@@ -142,9 +142,9 @@ export default async function JornadaPage({
         <CardTitle>Indicadores de risco de jornada</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Taxa de excesso" value={formatPercent(kpis.excessRate)} icon={Gauge} accent="danger" />
-        <KpiCard label="Custo de HE" value={formatCurrency(kpis.overtimeCost)} icon={Wallet} accent="gold" />
-        <KpiCard label="Saldo de banco de horas" value={`${formatNumber(kpis.bankBalance)} h`} icon={Timer} accent="navy" />
+        <KpiCard label="Taxa de excesso" value={formatPercent(kpis.excessRate)} icon={Gauge} accent="danger" tooltip={"Horas extras totais divididas pelas horas programadas totais (jornada) no período."} />
+        <KpiCard label="Custo de HE" value={formatCurrency(kpis.overtimeCost)} icon={Wallet} accent="gold" tooltip={"Soma do custo de horas extras de todos os lançamentos do período."} />
+        <KpiCard label="Saldo de banco de horas" value={`${formatNumber(kpis.bankBalance)} h`} icon={Timer} accent="navy" tooltip={"Soma da variação de banco de horas (horas a mais ou a menos) de todos os lançamentos do período — positivo é saldo credor, negativo é devedor."} />
       </CardContent>
     </Card>
   );
