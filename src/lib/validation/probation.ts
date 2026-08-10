@@ -6,8 +6,8 @@ export const probationFormSchema = z.object({
   avaliador: z.string().trim().max(120).optional().nullable(),
   status30: z.enum(PROBATION_STATUS_OPTIONS),
   status60: z.enum(PROBATION_STATUS_OPTIONS),
-  foraDoPrazo30: z.boolean().optional().default(false),
-  foraDoPrazo60: z.boolean().optional().default(false),
+  foraDoPrazo30: z.boolean().optional(),
+  foraDoPrazo60: z.boolean().optional(),
   notes: z.string().trim().max(4000, "Máximo de 4000 caracteres").optional().nullable(),
 });
 
