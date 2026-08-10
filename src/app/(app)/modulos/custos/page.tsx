@@ -37,10 +37,10 @@ export default async function CustosPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Folha salarial total" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="navy" />
-        <KpiCard label="Custo / Receita" value={kpis.costToRevenueRatio ? formatPercent(kpis.costToRevenueRatio) : "sem receita"} icon={Percent} accent="gold" />
-        <KpiCard label="Custo por headcount" value={formatCurrency(kpis.costPerHeadcount)} icon={Users} accent="gold" />
-        <KpiCard label="Receita no período" value={formatCurrency(kpis.totalRevenue)} icon={TrendingUp} accent="success" />
+        <KpiCard label="Folha salarial total" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="navy" tooltip={"Soma do campo Custo Total de cada lançamento de folha (Salário Base + Benefícios + Encargos) de colaboradores ativos no período selecionado."} />
+        <KpiCard label="Custo / Receita" value={kpis.costToRevenueRatio ? formatPercent(kpis.costToRevenueRatio) : "sem receita"} icon={Percent} accent="gold" tooltip={"Folha salarial total dividida pela Receita cadastrada no mesmo período (painel Receita, na aba Administração). Mostra \"sem receita\" quando não há valor de receita lançado."} />
+        <KpiCard label="Custo por headcount" value={formatCurrency(kpis.costPerHeadcount)} icon={Users} accent="gold" tooltip={"Folha salarial total dividida pelo número de colaboradores ativos no período."} />
+        <KpiCard label="Receita no período" value={formatCurrency(kpis.totalRevenue)} icon={TrendingUp} accent="success" tooltip={"Soma dos lançamentos de Receita cadastrados manualmente no painel Receita (aba Administração) para o período selecionado."} />
       </div>
       <Card>
         <CardHeader>
@@ -80,9 +80,9 @@ export default async function CustosPage({
         <CardTitle>Composição do custo de pessoal</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Salário base" value={formatCurrency(kpis.baseSalaryTotal)} icon={Wallet} accent="navy" />
-        <KpiCard label="Benefícios" value={formatCurrency(kpis.benefitsCost)} icon={Wallet} accent="gold" />
-        <KpiCard label="Encargos" value={formatCurrency(kpis.chargesCost)} icon={Wallet} accent="danger" />
+        <KpiCard label="Salário base" value={formatCurrency(kpis.baseSalaryTotal)} icon={Wallet} accent="navy" tooltip={"Soma do campo Salário Base de todos os lançamentos de folha no período, sem benefícios nem encargos."} />
+        <KpiCard label="Benefícios" value={formatCurrency(kpis.benefitsCost)} icon={Wallet} accent="gold" tooltip={"Soma do campo Benefícios de todos os lançamentos de folha no período."} />
+        <KpiCard label="Encargos" value={formatCurrency(kpis.chargesCost)} icon={Wallet} accent="danger" tooltip={"Soma do campo Encargos de todos os lançamentos de folha no período (INSS, FGTS e demais encargos sobre a folha)."} />
       </CardContent>
     </Card>
   );
@@ -90,20 +90,22 @@ export default async function CustosPage({
   const analytical = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Custo / Receita" value={kpis.costToRevenueRatio ? formatPercent(kpis.costToRevenueRatio) : "—"} icon={Percent} accent="gold" />
-        <KpiCard label="Custo por headcount" value={formatCurrency(kpis.costPerHeadcount)} icon={Users} accent="navy" />
+        <KpiCard label="Custo / Receita" value={kpis.costToRevenueRatio ? formatPercent(kpis.costToRevenueRatio) : "—"} icon={Percent} accent="gold" tooltip={"Folha salarial total dividida pela Receita cadastrada no mesmo período (painel Receita, na aba Administração). Mostra \"sem receita\" quando não há valor de receita lançado."} />
+        <KpiCard label="Custo por headcount" value={formatCurrency(kpis.costPerHeadcount)} icon={Users} accent="navy" tooltip={"Folha salarial total dividida pelo número de colaboradores ativos no período."} />
         <KpiCard
           label="Cargos abaixo do mercado"
           value={String(benchmarkSummary.positionsBelowMarket)}
           icon={ArrowDownRight}
           accent={benchmarkSummary.positionsBelowMarket > 0 ? "danger" : "success"}
-        />
+        tooltip={"Quantidade de cargos cujo salário médio pago pela empresa ficou mais de 5% abaixo da média de mercado cadastrada no Benchmarking Salarial."}
+      />
         <KpiCard
           label="Gap médio vs. mercado"
           value={benchmarkSummary.positionsComparable > 0 ? formatPercent(benchmarkSummary.avgGapPercent / 100) : "sem dados"}
           icon={Scale}
           accent="gold"
-        />
+        tooltip={"Média da diferença percentual entre o salário médio da empresa e a média de mercado, considerando só os cargos que têm as duas referências cadastradas. Fórmula por cargo: ((salário empresa - salário mercado) / salário mercado) x 100."}
+      />
       </div>
 
       <Card>
