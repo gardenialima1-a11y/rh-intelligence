@@ -56,11 +56,11 @@ export default async function RecrutamentoPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        <KpiCard label="Vagas abertas" value={formatNumber(kpis.openVacancies)} icon={Target} accent="navy" />
-        <KpiCard label="Vagas críticas" value={formatNumber(kpis.criticalVacancies)} icon={AlertTriangle} accent="danger" />
-        <KpiCard label="Tempo médio de contratação" value={`${kpis.avgTimeToHire.toFixed(0)} dias`} icon={Timer} accent="gold" />
-        <KpiCard label="Custo por contratação" value={formatCurrency(kpis.avgCostToHire)} icon={Wallet} accent="gold" />
-        <KpiCard label="Contratados no período" value={formatNumber(kpis.hiredCount)} icon={Users} accent="success" />
+        <KpiCard label="Vagas abertas" value={formatNumber(kpis.openVacancies)} icon={Target} accent="navy" tooltip={"Total de vagas com status Aberta ou Em andamento, contado direto do cadastro de vagas (mesma fonte da aba Operacional)."} />
+        <KpiCard label="Vagas críticas" value={formatNumber(kpis.criticalVacancies)} icon={AlertTriangle} accent="danger" tooltip={"Entre as vagas abertas/em andamento, quantas foram marcadas como Crítica no cadastro da vaga."} />
+        <KpiCard label="Tempo médio de contratação" value={`${kpis.avgTimeToHire.toFixed(0)} dias`} icon={Timer} accent="gold" tooltip={"Média de dias entre a abertura do candidato no funil (openedAt) e a data em que foi marcado como Contratado (hiredAt), considerando os contratados no período."} />
+        <KpiCard label="Custo por contratação" value={formatCurrency(kpis.avgCostToHire)} icon={Wallet} accent="gold" tooltip={"Média do campo Custo de Contratação preenchido nos candidatos marcados como Contratado no período (só considera quem tem esse valor preenchido)."} />
+        <KpiCard label="Contratados no período" value={formatNumber(kpis.hiredCount)} icon={Users} accent="success" tooltip={"Total de candidatos com etapa do funil igual a Contratado e data de contratação dentro do período selecionado."} />
       </div>
       <Card>
         <CardHeader>
@@ -155,9 +155,9 @@ export default async function RecrutamentoPage({
   const analytical = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Tempo médio de contratação" value={`${kpis.avgTimeToHire.toFixed(0)} dias`} icon={Timer} accent="gold" />
-        <KpiCard label="Custo médio por contratação" value={formatCurrency(kpis.avgCostToHire)} icon={Wallet} accent="navy" />
-        <KpiCard label="Custo total de vacância (posições em aberto)" value={formatCurrency(totalVacancyCost)} icon={AlertTriangle} accent="danger" />
+        <KpiCard label="Tempo médio de contratação" value={`${kpis.avgTimeToHire.toFixed(0)} dias`} icon={Timer} accent="gold" tooltip={"Média de dias entre a abertura do candidato no funil (openedAt) e a data em que foi marcado como Contratado (hiredAt), considerando os contratados no período."} />
+        <KpiCard label="Custo médio por contratação" value={formatCurrency(kpis.avgCostToHire)} icon={Wallet} accent="navy" tooltip={"Média do campo Custo de Contratação preenchido nos candidatos marcados como Contratado no período."} />
+        <KpiCard label="Custo total de vacância (posições em aberto)" value={formatCurrency(totalVacancyCost)} icon={AlertTriangle} accent="danger" tooltip={"Soma do Custo de Vacância estimado (metodologia SHRM/Bersin: ponto médio salarial do cargo x 1,4 / 21 dias úteis x dias em aberto) de todas as vagas abertas hoje."} />
       </div>
       <Card>
         <CardHeader>
