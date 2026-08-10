@@ -28,14 +28,15 @@ export default async function ClimaPage({
   const executive = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        <KpiCard label="Favorabilidade geral" value={formatPercent(kpis.favorability)} icon={Smile} accent="success" />
-        <KpiCard label="eNPS" value={kpis.enps.toFixed(0)} icon={Heart} accent="gold" />
+        <KpiCard label="Favorabilidade geral" value={formatPercent(kpis.favorability)} icon={Smile} accent="success" tooltip={"Percentual de respostas com nota 7 ou mais (em escala de 0 a 10), somando todas as dimensões da pesquisa de clima do ciclo atual (PCO 2026)."} />
+        <KpiCard label="eNPS" value={kpis.enps.toFixed(0)} icon={Heart} accent="gold" tooltip={"Calculado só com as respostas da pergunta Recomendaria a Empresa: nota 9-10 conta como promotor, 0-6 como detrator. Fórmula: ((promotores - detratores) / total de respostas dessa pergunta) x 100."} />
         <KpiCard
           label="Respondentes"
           value={kpis.totalInvited ? formatNumber(kpis.totalRespondents) + " (" + formatPercent(kpis.participationRate ?? 0) + ")" : formatNumber(kpis.totalRespondents)}
           icon={MessageSquare}
           accent="navy"
-        />
+        tooltip={"Total de pessoas que responderam a pesquisa de clima no ciclo atual. Quando o total de convidados está cadastrado, mostra também a taxa de participação (respondentes / convidados)."}
+      />
       </div>
       <Card>
         <CardHeader>
@@ -73,9 +74,9 @@ export default async function ClimaPage({
   const analytical = (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Favorabilidade" value={formatPercent(kpis.favorability)} icon={Smile} accent="success" />
-        <KpiCard label="eNPS" value={kpis.enps.toFixed(0)} icon={Heart} accent="gold" />
-        <KpiCard label="Ciclo atual" value={kpis.cycle} icon={MessageSquare} accent="navy" />
+        <KpiCard label="Favorabilidade" value={formatPercent(kpis.favorability)} icon={Smile} accent="success" tooltip={"Percentual de respostas com nota 7 ou mais (em escala de 0 a 10), somando todas as dimensões da pesquisa de clima do ciclo atual."} />
+        <KpiCard label="eNPS" value={kpis.enps.toFixed(0)} icon={Heart} accent="gold" tooltip={"Calculado só com as respostas da pergunta Recomendaria a Empresa: nota 9-10 conta como promotor, 0-6 como detrator. Fórmula: ((promotores - detratores) / total de respostas dessa pergunta) x 100."} />
+        <KpiCard label="Ciclo atual" value={kpis.cycle} icon={MessageSquare} accent="navy" tooltip={"Nome do ciclo de pesquisa de clima em vigor no momento (ex.: PCO 2026)."} />
       </div>
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
