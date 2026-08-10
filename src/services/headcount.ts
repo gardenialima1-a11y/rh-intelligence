@@ -3,12 +3,12 @@ import { MovementType } from "@prisma/client";
 import { resolvePeriod, previousPeriod, percentDelta, lastNMonthsKeys } from "@/services/period";
 import { linearForecast, trendDirection } from "@/services/forecast";
 import type { ExecutiveFilters } from "@/services/dashboard-executivo";
-import { activePresentEmployeeWhere } from "@/lib/employee-filters";
+import { activePresentEmployeeWhere, presentAtDateWhere } from "@/lib/employee-filters";
 
 async function activeCountAt(date: Date, unitId?: string) {
   return prisma.employee.count({
     where: {
-      ...activePresentEmployeeWhere(date),
+      ...presentAtDateWhere(date),
       admissionDate: { lte: date },
       OR: [{ terminationDate: null }, { terminationDate: { gt: date } }],
       ...(unitId ? { unitId } : {}),
