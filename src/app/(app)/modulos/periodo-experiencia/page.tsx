@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { TableCardHeader } from "@/components/dashboard/table-card-header";
 import { ProbationTable } from "@/components/admin/probation-table";
+import { TableTopScrollbar } from "@/components/dashboard/table-top-scrollbar";
 import { getProbationOverview } from "@/actions/probation";
 import { formatNumber } from "@/lib/utils";
 
@@ -52,7 +53,9 @@ export default async function PeriodoExperienciaPage() {
               Nenhum colaborador em período de experiência no momento.
             </p>
           ) : (
-            <ProbationTable rows={emAndamento} variant="andamento" />
+            <TableTopScrollbar>
+              <ProbationTable rows={emAndamento} variant="andamento" showManagerFilter />
+            </TableTopScrollbar>
           )}
         </CardContent>
       </Card>
@@ -70,6 +73,7 @@ export default async function PeriodoExperienciaPage() {
             admissao: c.admissionDate,
             checkpoint_90d: c.dates.checkpoint2,
             status_90d: c.status60,
+            fora_do_prazo_90d: c.probationTracking?.foraDoPrazo60 ? "Sim" : "Não",
             situacao_atual: c.isActive ? "Ativo" : "Inativo",
             avaliador: c.probationTracking?.avaliador ?? c.manager?.name ?? "",
           }))}
@@ -82,6 +86,7 @@ export default async function PeriodoExperienciaPage() {
             { key: "admissao", label: "Admissão" },
             { key: "checkpoint_90d", label: "Checkpoint 90d" },
             { key: "status_90d", label: "Status 90d" },
+            { key: "fora_do_prazo_90d", label: "Avaliado fora do prazo (90d)" },
             { key: "situacao_atual", label: "Situação atual" },
             { key: "avaliador", label: "Avaliador" },
           ]}
@@ -92,7 +97,9 @@ export default async function PeriodoExperienciaPage() {
               Ninguém completou o período de experiência ainda (dentro da janela de histórico de 2 anos).
             </p>
           ) : (
-            <ProbationTable rows={historico} variant="historico" />
+            <TableTopScrollbar>
+              <ProbationTable rows={historico} variant="historico" />
+            </TableTopScrollbar>
           )}
         </CardContent>
       </Card>
