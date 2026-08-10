@@ -71,10 +71,10 @@ export default async function SstPage({
     <div className="flex flex-col gap-4">
       <DaysWithoutAccidentsCard info={daysWithoutAccidents} />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Acidentes no período" value={formatNumber(kpis.accidentsCount)} icon={ShieldAlert} accent="danger" />
-        <KpiCard label="Quase acidentes" value={formatNumber(kpis.nearMissesCount)} icon={FileWarning} accent="gold" />
-        <KpiCard label="Taxa de frequência" value={kpis.frequencyRate.toFixed(2)} icon={Gauge} accent="navy" />
-        <KpiCard label="Taxa de gravidade" value={kpis.severityRate.toFixed(2)} icon={Clock3} accent="danger" />
+        <KpiCard label="Acidentes no período" value={formatNumber(kpis.accidentsCount)} icon={ShieldAlert} accent="danger" tooltip={"Total de ocorrências do tipo Acidente registradas no período selecionado."} />
+        <KpiCard label="Quase acidentes" value={formatNumber(kpis.nearMissesCount)} icon={FileWarning} accent="gold" tooltip={"Total de ocorrências do tipo Quase acidente (near miss) registradas no período — situações de risco que não chegaram a causar lesão."} />
+        <KpiCard label="Taxa de frequência" value={kpis.frequencyRate.toFixed(2)} icon={Gauge} accent="navy" tooltip={"Fórmula legal padrão: (número de acidentes x 1.000.000) / horas-homem trabalhadas estimadas (headcount ativo x 8h x 22 dias úteis x meses do período). Mede acidentes por milhão de horas trabalhadas."} />
+        <KpiCard label="Taxa de gravidade" value={kpis.severityRate.toFixed(2)} icon={Clock3} accent="danger" tooltip={"Fórmula legal padrão: (total de dias perdidos por acidentes x 1.000.000) / horas-homem trabalhadas estimadas. Mede a severidade dos acidentes, não só a quantidade."} />
       </div>
       <Card>
         <CardHeader>
@@ -178,9 +178,9 @@ export default async function SstPage({
         <CardTitle>Indicadores legais</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard label="Taxa de frequência" value={kpis.frequencyRate.toFixed(2)} icon={Gauge} accent="navy" />
-        <KpiCard label="Taxa de gravidade" value={kpis.severityRate.toFixed(2)} icon={Clock3} accent="danger" />
-        <KpiCard label="CAT emitidas" value={formatNumber(kpis.withCAT)} icon={FileWarning} accent="gold" />
+        <KpiCard label="Taxa de frequência" value={kpis.frequencyRate.toFixed(2)} icon={Gauge} accent="navy" tooltip={"Fórmula legal padrão: (número de acidentes x 1.000.000) / horas-homem trabalhadas estimadas (headcount ativo x 8h x 22 dias úteis x meses do período). Mede acidentes por milhão de horas trabalhadas."} />
+        <KpiCard label="Taxa de gravidade" value={kpis.severityRate.toFixed(2)} icon={Clock3} accent="danger" tooltip={"Fórmula legal padrão: (total de dias perdidos por acidentes x 1.000.000) / horas-homem trabalhadas estimadas. Mede a severidade dos acidentes, não só a quantidade."} />
+        <KpiCard label="CAT emitidas" value={formatNumber(kpis.withCAT)} icon={FileWarning} accent="gold" tooltip={"Total de ocorrências (de qualquer tipo) no período que tiveram Comunicação de Acidente de Trabalho (CAT) emitida."} />
       </CardContent>
     </Card>
   );
