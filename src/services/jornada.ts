@@ -42,15 +42,16 @@ export async function getJornadaKpis(filters: ExecutiveFilters) {
   const [current, previous] = await Promise.all([stats(range.start, range.end), stats(prev.start, prev.end)]);
 
   const months = monthKeysForPeriod(filters.period);
-  const series = await Promise.all(
+  const monthlyStats = await Promise.all(
     months.map(async (key) => {
       const [y, m] = key.split("-").map(Number);
       const start = new Date(y, m - 1, 1);
       const end = new Date(y, m, 0, 23, 59, 59);
-      const s = await stats(start, end);
-      return s.overtime;
+      return stats(start, end);
     })
   );
+  const series = monthlyStats.map((s) => s.overtime);
+  const costSeries = monthlyStats.map((s) => s.overtimeCost);
 
   const overtimeCost = current.overtimeCost;
 
@@ -61,6 +62,7 @@ export async function getJornadaKpis(filters: ExecutiveFilters) {
     excessRate: current.scheduled > 0 ? current.overtime / current.scheduled : 0,
     delta: percentDelta(current.overtime, previous.overtime),
     series,
+    costSeries,
   };
 }
 
