@@ -20,6 +20,24 @@
 
 const OVERTIME_VERBA_CODES = new Set(["150", "200", "357"]);
 
+// Padrões de descrição usados pra reconhecer a linha de "Salário Base" entre
+// os proventos — o código da verba (nº) varia de empresa pra empresa, então
+// reconhecemos pelo texto, não pelo número. Confirmado com um relatório real
+// da Gosto Mineiro: verba 1 = "SALARIO MENSAL" (CLT normal), verba 5 =
+// "SALARIO JOVEM APRENDIZ" (aprendizes), 8797 = "BOLSA ESTAGIO" (estagiários).
+// NÃO inclui "SALARIO FAMILIA" (2401) — é um benefício do INSS, não parte do
+// salário base do colaborador.
+const BASE_SALARY_DESC_PATTERNS = [
+  /SAL[AÁ]RIO\s*BASE/i,
+  /SAL[AÁ]RIO\s*MENSAL/i,
+  /SAL[AÁ]RIO\s*NORMAL/i,
+  /SAL[AÁ]RIO\s*CONTRATUAL/i,
+  /SAL[AÁ]RIO\s*MENSALISTA/i,
+  /SAL[AÁ]RIO\s*JOVEM\s*APRENDIZ/i,
+  /BOLSA\s*EST[AÁ]GIO/i,
+  /^ORDENADO/i,
+];
+
 async function loadPdfjs() {
   const globalScope = globalThis as unknown as { DOMMatrix?: unknown };
   if (typeof globalScope.DOMMatrix === "undefined") {
@@ -54,6 +72,30 @@ export interface PayrollParseResult {
   competencia: string | null;
   dataFolha: string | null;
   rows: PayrollOvertimeRow[];
+}
+
+export interface PayrollBaseSalaryProvento {
+  verba: string;
+  descricao: string;
+  valor: number | null;
+}
+
+export interface PayrollBaseSalaryRow {
+  matricula: string;
+  nome: string;
+  cpf: string | null;
+  /** null quando nenhuma linha bateu com os padrões de "salário base" — precisa conferir/preencher manualmente. */
+  baseSalary: number | null;
+  /** Todos os proventos do colaborador na folha, pra ela conferir/escolher manualmente se a detecção automática errar. */
+  proventos: PayrollBaseSalaryProvento[];
+  /** Valor de FGTS do colaborador no mês, lido direto do rodapé do bloco (campo "Valor FGTS:"). É o encargo real, não uma estimativa. */
+  fgtsValue: number | null;
+}
+
+export interface PayrollBaseSalaryParseResult {
+  competencia: string | null;
+  dataFolha: string | null;
+  rows: PayrollBaseSalaryRow[];
 }
 
 interface PositionedWord {
@@ -181,4 +223,110 @@ export async function parsePayrollPdf(data: Uint8Array): Promise<PayrollParseRes
     }));
 
   return { competencia, dataFolha, rows };
+}
+
+/**
+ * Mesmo relatório de folha, mas lendo o Salário Base de cada colaborador em
+ * vez de horas extras — usado pra alimentar o módulo de Custos. Reconhece a
+ * linha pela descrição do provento (ver BASE_SALARY_DESC_PATTERNS); quando
+ * nenhuma linha bate, devolve baseSalary: null e a lista de proventos crus
+ * pra conferência manual na tela de importação.
+ */
+export async function parsePayrollBaseSalaries(data: Uint8Array): Promise<PayrollBaseSalaryParseResult> {
+  const { getDocument } = await loadPdfjs();
+  const doc = await getDocument({ data }).promise;
+  const employees = new Map<string, PayrollBaseSalaryRow>();
+  let current: PayrollBaseSalaryRow | null = null;
+  let inTable = false;
+  let dataFolha: string | null = null;
+  let competencia: string | null = null;
+
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    const viewport = page.getViewport({ scale: 1 });
+    const words: PositionedWord[] = content.items
+      .map((it) => {
+        const item = it as { str?: string; transform: number[] };
+        return { text: item.str ?? "", x: item.transform[4], y: viewport.height - item.transform[5] };
+      })
+      .filter((w) => w.text.trim() !== "");
+
+    if (!dataFolha) {
+      const full = words.map((w) => w.text).join(" ");
+      const m = full.match(/Data da Folha:\s*(\d{2}\/\d{2}\/\d{4})/);
+      if (m) dataFolha = m[1];
+      const mc = full.match(/M[êe]s e Ano:\s*([A-Za-zçÇ]+\/\d{4})/);
+      if (mc) competencia = mc[1];
+    }
+
+    const rows = groupIntoRows(words);
+
+    for (const row of rows) {
+      const items = row.items.sort((a, b) => a.x - b.x);
+
+      const matriculaTok = items.find((i) => i.x >= 65 && i.x <= 82 && /^\d{4,7}$/.test(i.text));
+      const nomeTok = items.find((i) => i.x >= 108 && i.x <= 125 && /^[A-ZÀ-Ú].*[A-ZÀ-Ú]$/.test(i.text));
+      if (matriculaTok && nomeTok) {
+        current = employees.get(matriculaTok.text) ?? {
+          matricula: matriculaTok.text,
+          nome: nomeTok.text,
+          cpf: null,
+          baseSalary: null,
+          proventos: [],
+          fgtsValue: null,
+        };
+        employees.set(matriculaTok.text, current);
+        inTable = false;
+      }
+
+      if (current && !current.cpf) {
+        const cpfLabel = items.find((i) => i.x >= 244 && i.x <= 250 && i.text === "CPF:");
+        if (cpfLabel) {
+          const cpfVal = items.find((i) => i.x >= 258 && i.x <= 268);
+          if (cpfVal) current.cpf = cpfVal.text;
+        }
+      }
+
+      // O rodapé do bloco do colaborador (mesma linha de "Base INSS:") também traz
+      // "Valor FGTS:" — é o encargo real de FGTS daquele mês, não uma estimativa.
+      if (current && current.fgtsValue === null) {
+        const fgtsLabelIdx = items.findIndex((i) => i.text === "Valor FGTS:");
+        if (fgtsLabelIdx !== -1 && items[fgtsLabelIdx + 1]) {
+          const val = parseNum(items[fgtsLabelIdx + 1].text);
+          if (val != null) current.fgtsValue = val;
+        }
+      }
+
+      if (items.some((i) => i.x >= 27 && i.x <= 32 && i.text === "Verba")) {
+        inTable = true;
+        continue;
+      }
+
+      if (inTable && items.some((i) => i.x >= 27 && i.x <= 33 && /^Base/.test(i.text))) {
+        inTable = false;
+        current = null;
+        continue;
+      }
+
+      if (inTable && current) {
+        const provVerba = items.find((i) => i.x >= 30 && i.x < 45);
+        const provDesc = items
+          .filter((i) => i.x >= 45 && i.x < 225)
+          .map((i) => i.text)
+          .join(" ");
+        const provValor = items.find((i) => i.x >= 262 && i.x < 300);
+
+        if (provVerba && provDesc && !/M[ÉE]DIA/i.test(provDesc)) {
+          const valor = parseNum(provValor?.text);
+          current.proventos.push({ verba: provVerba.text, descricao: provDesc, valor });
+          if (current.baseSalary === null && valor != null && BASE_SALARY_DESC_PATTERNS.some((re) => re.test(provDesc))) {
+            current.baseSalary = valor;
+          }
+        }
+      }
+    }
+  }
+
+  return { competencia, dataFolha, rows: [...employees.values()] };
 }
