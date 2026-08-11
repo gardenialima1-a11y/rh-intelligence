@@ -13,6 +13,9 @@ import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { getCustosKpis, getCostTrend, getCostByCostCenter, getAverageSalaryByPosition } from "@/services/custos";
 import { getSalaryBenchmarkComparison, getBenchmarkSummary } from "@/services/salary-benchmark";
 import { getPositionsWithoutBenchmark } from "@/actions/salary-benchmark";
+import { PayrollImportDialog } from "@/components/admin/payroll-import-dialog";
+import { PayrollPdfImportDialog } from "@/components/admin/payroll-pdf-import-dialog";
+import { prisma } from "@/lib/prisma";
 
 export default async function CustosPage({
   searchParams,
@@ -22,7 +25,7 @@ export default async function CustosPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, trend, byCostCenter, avgSalaryByPosition, benchmarkRows, benchmarkSummary, positionsWithoutBenchmark] = await Promise.all([
+  const [kpis, trend, byCostCenter, avgSalaryByPosition, benchmarkRows, benchmarkSummary, positionsWithoutBenchmark, employees] = await Promise.all([
     getCustosKpis(filters),
     getCostTrend(filters),
     getCostByCostCenter(filters),
@@ -30,6 +33,7 @@ export default async function CustosPage({
     getSalaryBenchmarkComparison(),
     getBenchmarkSummary(),
     getPositionsWithoutBenchmark(),
+    prisma.employee.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
@@ -76,8 +80,12 @@ export default async function CustosPage({
 
   const operational = (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-col items-start gap-3 space-y-0 md:flex-row md:items-center md:justify-between">
         <CardTitle>Composição do custo de pessoal</CardTitle>
+        <div className="flex flex-wrap gap-2">
+          <PayrollPdfImportDialog employees={employees} />
+          <PayrollImportDialog />
+        </div>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <KpiCard label="Salário base" value={formatCurrency(kpis.baseSalaryTotal)} icon={Wallet} accent="navy" tooltip={"Soma do campo Salário Base de todos os lançamentos de folha no período, sem benefícios nem encargos."} />
