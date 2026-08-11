@@ -54,7 +54,16 @@ export default async function JornadaPage({
           <CardTitle>Horas extras — desde jan/2026</CardTitle>
         </CardHeader>
         <CardContent>
-          <TrendChart data={kpis.series} labels={monthLabels} color="#C9922E" />
+          <TrendChart
+            data={kpis.series}
+            labels={monthLabels}
+            color="#C9922E"
+            format="hours"
+            primaryLabel="Horas extras"
+            secondaryData={kpis.costSeries}
+            secondaryLabel="Custo"
+            secondaryFormat="currency"
+          />
         </CardContent>
       </Card>
     </div>
