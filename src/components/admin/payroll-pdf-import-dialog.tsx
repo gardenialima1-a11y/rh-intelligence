@@ -98,6 +98,8 @@ export function PayrollPdfImportDialog({ employees }: { employees: { id: string;
         nome: r.nome,
         baseSalary: effectiveSalary(r),
         fgtsValue: r.fgtsValue,
+        proventos: r.proventos,
+        descontos: r.descontos,
       }))
       .filter((r): r is typeof r & { employeeId: string } => !!r.employeeId && !!r.baseSalary && Number(r.baseSalary) > 0);
 
