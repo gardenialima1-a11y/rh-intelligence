@@ -600,6 +600,7 @@ model SafetyIncident {
 
   @@index([date])
 }
+
 model PayrollEntry {
   id            String   @id @default(cuid())
   employeeId    String
@@ -608,7 +609,7 @@ model PayrollEntry {
   baseSalary    Float
   benefitsCost  Float    @default(0)
   chargesCost   Float    @default(0)
-  /** FGTS real do mês, quando lido diretamente do PDF da folha (fica null quando o lançamento veio de outra fonte, ex. planilha, sem essa informação). */
+  /// FGTS real do mês, quando lido diretamente do PDF da folha (fica null quando o lançamento veio de outra fonte, ex. planilha, sem essa informação).
   fgtsValue     Float?
   totalCost     Float
 
