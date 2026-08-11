@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { resolveScopedFilters } from "@/lib/scope";
-import { Wallet, TrendingUp, Percent, Users, Scale, ArrowDownRight } from "lucide-react";
+import { Wallet, TrendingUp, Percent, Users, Scale, ArrowDownRight, ListTree } from "lucide-react";
 import { ModuleHeader } from "@/components/dashboard/module-header";
 import { ModuleViewTabs } from "@/components/dashboard/module-view-tabs";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -83,6 +84,12 @@ export default async function CustosPage({
       <CardHeader className="flex-col items-start gap-3 space-y-0 md:flex-row md:items-center md:justify-between">
         <CardTitle>Composição do custo de pessoal</CardTitle>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href="/modulos/custos/detalhamento"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            <ListTree className="h-4 w-4" /> Ver detalhamento completo
+          </Link>
           <PayrollPdfImportDialog employees={employees} />
           <PayrollImportDialog />
         </div>
