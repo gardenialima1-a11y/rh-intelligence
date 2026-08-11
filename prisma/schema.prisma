@@ -271,6 +271,7 @@ model Employee {
   reviews            PerformanceReview[]
   safetyIncidents    SafetyIncident[]
   payrolls           PayrollEntry[]
+  payrollLineItems   PayrollLineItem[]
   complianceEvents   ComplianceEvent[]
 
   createdAt DateTime @default(now())
@@ -607,9 +608,30 @@ model PayrollEntry {
   baseSalary    Float
   benefitsCost  Float    @default(0)
   chargesCost   Float    @default(0)
+  /** FGTS real do mês, quando lido diretamente do PDF da folha (fica null quando o lançamento veio de outra fonte, ex. planilha, sem essa informação). */
+  fgtsValue     Float?
   totalCost     Float
 
   @@unique([employeeId, competence])
+  @@index([competence])
+}
+
+// Detalhamento linha a linha da folha (todos os proventos e descontos de cada
+// colaborador, verba por verba) — usado pelo relatório detalhado de custos
+// (periculosidade, insalubridade, encargos, descontos, etc). Alimentado pela
+// importação de PDF da folha; re-importar o mesmo mês substitui as linhas
+// antigas daquele colaborador.
+model PayrollLineItem {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  competence DateTime
+  tipo       String // "PROVENTO" ou "DESCONTO"
+  verba      String
+  descricao  String
+  valor      Float
+
+  @@index([employeeId, competence])
   @@index([competence])
 }
 
