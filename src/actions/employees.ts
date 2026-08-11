@@ -129,8 +129,24 @@ export async function updateEmployee(employeeId: string, raw: unknown): Promise<
       },
     });
 
+    // Se um salário foi informado na edição, grava/atualiza o custo do mês
+    // atual para esse colaborador — sem isso, o campo de salário na edição
+    // não tinha efeito nenhum no custo de pessoal.
+    if (parseSalaryValue(data.baseSalary) !== null) {
+      const salary = parseSalaryValue(data.baseSalary)!;
+      const competence = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const benefitsCost = salary * 0.18;
+      const chargesCost = salary * 0.42;
+      await prisma.payrollEntry.upsert({
+        where: { employeeId_competence: { employeeId, competence } },
+        create: { employeeId, competence, baseSalary: salary, benefitsCost, chargesCost, totalCost: salary + benefitsCost + chargesCost },
+        update: { baseSalary: salary, benefitsCost, chargesCost, totalCost: salary + benefitsCost + chargesCost },
+      });
+    }
+
     revalidatePath("/modulos/colaboradores");
     revalidatePath("/modulos/headcount");
+    revalidatePath("/modulos/custos");
     revalidatePath("/");
     return { success: true };
   } catch (err) {
