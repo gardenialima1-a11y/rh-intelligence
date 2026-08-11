@@ -78,6 +78,38 @@ export async function getCostByCostCenter(filters: ExecutiveFilters) {
     .sort((a, b) => b.value - a.value);
 }
 
+/** Mesmo cálculo de getCostByCostCenter, mas agrupando pelo centro de custo SECUNDÁRIO do colaborador. */
+export async function getCostBySecondaryCostCenter(filters: ExecutiveFilters) {
+  const range = resolvePeriod(filters.period);
+
+  const employees = await prisma.employee.findMany({
+    where: filters.unitId ? { unitId: filters.unitId } : {},
+    select: { id: true, secondaryCostCenter: { select: { name: true } } },
+  });
+  const costCenterByEmployee = new Map(employees.map((e) => [e.id, e.secondaryCostCenter?.name ?? null]));
+
+  const grouped = await prisma.payrollEntry.groupBy({
+    by: ["employeeId"],
+    _sum: { totalCost: true },
+    where: {
+      competence: { gte: range.start, lte: range.end },
+      employeeId: { in: employees.map((e) => e.id) },
+    },
+  });
+
+  const totals = new Map<string, number>();
+  for (const row of grouped) {
+    const ccName = costCenterByEmployee.get(row.employeeId);
+    if (!ccName) continue; // sem centro de custo secundário: não entra nesse gráfico
+    totals.set(ccName, (totals.get(ccName) ?? 0) + (row._sum.totalCost ?? 0));
+  }
+
+  return Array.from(totals.entries())
+    .map(([name, value]) => ({ name, value: Math.round(value) }))
+    .filter((c) => c.value > 0)
+    .sort((a, b) => b.value - a.value);
+}
+
 export async function getAverageSalaryByPosition(filters: ExecutiveFilters) {
   const positions = await prisma.position.findMany({
     select: {
