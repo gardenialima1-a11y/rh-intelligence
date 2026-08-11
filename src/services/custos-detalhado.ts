@@ -119,3 +119,51 @@ export async function getPayrollDetailReport(filters: PayrollDetailFilters): Pro
 
   return { competenceKey, rows };
 }
+
+export interface PayrollDetailTotalItem {
+  verba: string;
+  label: string;
+  total: number;
+  count: number;
+}
+
+/**
+ * Remove a parte variável da descrição (nº de parcela e nº do contrato de
+ * empréstimo consignado) pra agrupar tudo sob o mesmo rótulo — sem isso,
+ * cada empréstimo vira um card diferente ("EMPRÉSTIMO CONSIGNADO 8/36 - C:571",
+ * "EMPRÉSTIMO CONSIGNADO 2/12 - C:1432", etc).
+ */
+function canonicalLabel(descricao: string): string {
+  return descricao
+    .replace(/\d+\/\d+\s*-\s*C:\d+/gi, "")
+    .replace(/-\s*C:\d+/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/** Totais de cada tipo de provento e desconto (agrupados por verba), pra montar um card por tipo. */
+export function getPayrollDetailTotals(rows: PayrollDetailRow[]): {
+  proventoTotals: PayrollDetailTotalItem[];
+  descontoTotals: PayrollDetailTotalItem[];
+} {
+  function aggregate(pick: (r: PayrollDetailRow) => PayrollDetailLineItem[]): PayrollDetailTotalItem[] {
+    const byVerba = new Map<string, PayrollDetailTotalItem>();
+    for (const row of rows) {
+      for (const item of pick(row)) {
+        const existing = byVerba.get(item.verba);
+        if (existing) {
+          existing.total += item.valor;
+          existing.count += 1;
+        } else {
+          byVerba.set(item.verba, { verba: item.verba, label: canonicalLabel(item.descricao), total: item.valor, count: 1 });
+        }
+      }
+    }
+    return Array.from(byVerba.values()).sort((a, b) => b.total - a.total);
+  }
+
+  return {
+    proventoTotals: aggregate((r) => r.proventos),
+    descontoTotals: aggregate((r) => r.descontos),
+  };
+}
