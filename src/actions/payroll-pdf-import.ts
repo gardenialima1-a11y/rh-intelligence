@@ -31,6 +31,7 @@ export interface PayrollPdfPreviewRow {
   cpf: string | null;
   baseSalary: number | null;
   proventos: PayrollBaseSalaryProvento[];
+  descontos: PayrollBaseSalaryProvento[];
   /** FGTS real do mês, lido da folha (não é estimativa). Usado como parte do encargo ao confirmar. */
   fgtsValue: number | null;
   employeeId: string | null;
@@ -112,6 +113,7 @@ export async function extractPayrollCostsPdf(base64Pdf: string): Promise<Payroll
         cpf: r.cpf,
         baseSalary: r.baseSalary,
         proventos: r.proventos,
+        descontos: r.descontos,
         fgtsValue: r.fgtsValue,
         employeeId,
         matched: employeeId != null,
@@ -163,13 +165,30 @@ export async function confirmPayrollPdfImport(raw: unknown): Promise<ConfirmPayr
 
       await prisma.payrollEntry.upsert({
         where: { employeeId_competence: { employeeId: row.employeeId, competence } },
-        create: { employeeId: row.employeeId, competence, baseSalary, benefitsCost, chargesCost, totalCost },
-        update: { baseSalary, benefitsCost, chargesCost, totalCost },
+        create: { employeeId: row.employeeId, competence, baseSalary, benefitsCost, chargesCost, totalCost, fgtsValue: fgtsReal },
+        update: { baseSalary, benefitsCost, chargesCost, totalCost, fgtsValue: fgtsReal },
       });
+
+      // Substitui o detalhamento linha a linha desse colaborador nesse mês
+      // (reimportar o mesmo mês sempre deixa o detalhamento atualizado, sem duplicar).
+      await prisma.payrollLineItem.deleteMany({ where: { employeeId: row.employeeId, competence } });
+      const lineItems = [
+        ...row.proventos
+          .filter((p) => p.valor != null)
+          .map((p) => ({ employeeId: row.employeeId, competence, tipo: "PROVENTO", verba: p.verba, descricao: p.descricao, valor: p.valor! })),
+        ...row.descontos
+          .filter((d) => d.valor != null)
+          .map((d) => ({ employeeId: row.employeeId, competence, tipo: "DESCONTO", verba: d.verba, descricao: d.descricao, valor: d.valor! })),
+      ];
+      if (lineItems.length > 0) {
+        await prisma.payrollLineItem.createMany({ data: lineItems });
+      }
+
       importedCount += 1;
     }
 
     revalidatePath("/modulos/custos");
+    revalidatePath("/modulos/custos/detalhamento");
     revalidatePath("/modulos/beneficios");
     revalidatePath("/modulos/jornada");
     revalidatePath("/modulos/administracao");
