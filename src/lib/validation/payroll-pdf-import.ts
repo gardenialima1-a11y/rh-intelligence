@@ -1,11 +1,19 @@
 import { z } from "zod";
 
+const lineItemSchema = z.object({
+  verba: z.string(),
+  descricao: z.string(),
+  valor: z.number().nullable(),
+});
+
 export const confirmPayrollPdfRowSchema = z.object({
   employeeId: z.string().min(1),
   matricula: z.string(),
   nome: z.string(),
   baseSalary: z.union([z.string(), z.number()]),
   fgtsValue: z.union([z.string(), z.number()]).nullable().optional(),
+  proventos: z.array(lineItemSchema).optional().default([]),
+  descontos: z.array(lineItemSchema).optional().default([]),
 });
 
 export const confirmPayrollPdfImportSchema = z.object({
@@ -14,3 +22,4 @@ export const confirmPayrollPdfImportSchema = z.object({
 });
 
 export type ConfirmPayrollPdfRow = z.infer<typeof confirmPayrollPdfRowSchema>;
+
