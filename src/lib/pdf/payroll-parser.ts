@@ -86,8 +86,10 @@ export interface PayrollBaseSalaryRow {
   cpf: string | null;
   /** null quando nenhuma linha bateu com os padrões de "salário base" — precisa conferir/preencher manualmente. */
   baseSalary: number | null;
-  /** Todos os proventos do colaborador na folha, pra ela conferir/escolher manualmente se a detecção automática errar. */
+  /** Todos os proventos do colaborador na folha (inclui periculosidade, insalubridade, horas extras, etc). */
   proventos: PayrollBaseSalaryProvento[];
+  /** Todos os descontos do colaborador na folha (INSS, vale-transporte, empréstimos consignados, planos, etc). */
+  descontos: PayrollBaseSalaryProvento[];
   /** Valor de FGTS do colaborador no mês, lido direto do rodapé do bloco (campo "Valor FGTS:"). É o encargo real, não uma estimativa. */
   fgtsValue: number | null;
 }
@@ -274,6 +276,7 @@ export async function parsePayrollBaseSalaries(data: Uint8Array): Promise<Payrol
           cpf: null,
           baseSalary: null,
           proventos: [],
+          descontos: [],
           fgtsValue: null,
         };
         employees.set(matriculaTok.text, current);
@@ -323,6 +326,19 @@ export async function parsePayrollBaseSalaries(data: Uint8Array): Promise<Payrol
           if (current.baseSalary === null && valor != null && BASE_SALARY_DESC_PATTERNS.some((re) => re.test(provDesc))) {
             current.baseSalary = valor;
           }
+        }
+
+        // Coluna de Descontos, à direita da de Proventos na mesma linha da tabela.
+        const descVerba = items.find((i) => i.x >= 300 && i.x < 315);
+        const descDesc = items
+          .filter((i) => i.x >= 315 && i.x < 498)
+          .map((i) => i.text)
+          .join(" ");
+        const descValor = items.find((i) => i.x >= 533 && i.x < 590);
+
+        if (descVerba && descDesc && !/M[ÉE]DIA/i.test(descDesc)) {
+          const valor = parseNum(descValor?.text);
+          current.descontos.push({ verba: descVerba.text, descricao: descDesc, valor });
         }
       }
     }
