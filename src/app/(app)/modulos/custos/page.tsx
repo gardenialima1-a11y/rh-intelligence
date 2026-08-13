@@ -18,6 +18,7 @@ import { getSalaryBenchmarkComparison, getBenchmarkSummary } from "@/services/sa
 import { getPositionsWithoutBenchmark } from "@/actions/salary-benchmark";
 import { PayrollImportDialog } from "@/components/admin/payroll-import-dialog";
 import { PayrollPdfImportDialog } from "@/components/admin/payroll-pdf-import-dialog";
+import { ExtraBenefitsImportDialog } from "@/components/admin/extra-benefits-import-dialog";
 import { prisma } from "@/lib/prisma";
 
 export default async function CustosPage({
@@ -60,7 +61,7 @@ export default async function CustosPage({
     secondaryCostCenterId: filters.secondaryCostCenterId,
     employeeId: params.colaborador,
   });
-  const { proventoTotals, descontoTotals } = getPayrollDetailTotals(detailRows);
+  const { proventoTotals, descontoTotals, extraBenefitTotals } = getPayrollDetailTotals(detailRows);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
 
@@ -126,12 +127,14 @@ export default async function CustosPage({
           <div className="flex flex-wrap gap-2">
             <PayrollPdfImportDialog employees={employees} />
             <PayrollImportDialog />
+            <ExtraBenefitsImportDialog />
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <KpiCard label="Salário base" value={formatCurrency(kpis.baseSalaryTotal)} icon={Wallet} accent="navy" tooltip={"Soma do campo Salário Base de todos os lançamentos de folha no período, sem benefícios nem encargos."} />
-          <KpiCard label="Benefícios" value={formatCurrency(kpis.benefitsCost)} icon={Wallet} accent="gold" tooltip={"Soma do campo Benefícios de todos os lançamentos de folha no período."} />
+          <KpiCard label="Benefícios" value={formatCurrency(kpis.benefitsCost)} icon={Wallet} accent="gold" tooltip={"Soma do campo Benefícios de todos os lançamentos de folha no período, somada aos benefícios pagos fora da folha (auxílio combustível, cesta básica, premiações, etc)."} />
           <KpiCard label="Encargos" value={formatCurrency(kpis.chargesCost)} icon={Wallet} accent="danger" tooltip={"Soma do campo Encargos de todos os lançamentos de folha no período (INSS, FGTS e demais encargos sobre a folha)."} />
+          <KpiCard label="Benefícios extra-folha" value={formatCurrency(kpis.extraBenefitsTotal)} icon={Wallet} accent="success" tooltip={"Soma de tudo que foi importado como benefício pago fora da folha (auxílio combustível, ajuda de custo, cesta básica, vale alimentação, premiações, salário 2, vale transporte) no período."} />
         </CardContent>
       </Card>
 
@@ -199,6 +202,30 @@ export default async function CustosPage({
 
           <Card>
             <CardHeader>
+              <CardTitle>Benefícios extra-folha — todos os tipos ({extraBenefitTotals.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {extraBenefitTotals.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum benefício extra-folha importado pra esse mês ainda. Use &quot;Importar benefícios
+                  extra-folha&quot; no topo da página.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+                  {extraBenefitTotals.map((t) => (
+                    <div key={t.verba} className="flex flex-col gap-0.5 rounded-lg border border-border p-2.5">
+                      <span className="text-[11px] leading-tight text-muted-foreground">{t.label}</span>
+                      <span className="text-sm font-medium text-navy dark:text-cream">{formatCurrency(t.total)}</span>
+                      <span className="text-[10px] text-muted-foreground">{t.count} colaborador(es)</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>{detailRows.length} colaborador(es)</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
@@ -216,11 +243,11 @@ export default async function CustosPage({
                         </span>
                       </div>
                       <span className="text-sm font-medium text-navy dark:text-cream">
-                        Custo total: {formatCurrency(r.totalProventos)}
+                        Custo total: {formatCurrency(r.grandTotal)}
                       </span>
                     </summary>
 
-                    <div className="grid grid-cols-1 gap-4 border-t border-border p-3 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 border-t border-border p-3 md:grid-cols-3">
                       <div>
                         <p className="mb-1 text-xs font-medium text-muted-foreground">Proventos ({formatCurrency(r.totalProventos)})</p>
                         <div className="flex flex-col gap-1">
@@ -241,6 +268,21 @@ export default async function CustosPage({
                               <span>{formatCurrency(d.valor)}</span>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs font-medium text-muted-foreground">Benefícios extra-folha ({formatCurrency(r.extraBenefitsTotal)})</p>
+                        <div className="flex flex-col gap-1">
+                          {r.extraBenefits.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">Nenhum importado pra esse mês.</p>
+                          ) : (
+                            r.extraBenefits.map((b, i) => (
+                              <div key={i} className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">{b.categoria}</span>
+                                <span>{formatCurrency(b.valor)}</span>
+                              </div>
+                            ))
+                          )}
                         </div>
                       </div>
                     </div>
