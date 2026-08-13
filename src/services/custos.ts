@@ -5,9 +5,13 @@ import type { ExecutiveFilters } from "@/services/dashboard-executivo";
 export async function getCustosKpis(filters: ExecutiveFilters) {
   const range = resolvePeriod(filters.period);
 
-  const [payrollAgg, revenueAgg, headcount] = await Promise.all([
+  const [payrollAgg, extraBenefitAgg, revenueAgg, headcount] = await Promise.all([
     prisma.payrollEntry.aggregate({
       _sum: { totalCost: true, baseSalary: true, benefitsCost: true, chargesCost: true },
+      where: { competence: { gte: range.start, lte: range.end }, ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}) },
+    }),
+    prisma.extraBenefit.aggregate({
+      _sum: { valor: true },
       where: { competence: { gte: range.start, lte: range.end }, ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}) },
     }),
     prisma.revenueEntry.aggregate({
@@ -17,13 +21,17 @@ export async function getCustosKpis(filters: ExecutiveFilters) {
     prisma.employee.count({ where: { isActive: true, ...(filters.unitId ? { unitId: filters.unitId } : {}) } }),
   ]);
 
-  const totalCost = payrollAgg._sum.totalCost ?? 0;
+  const extraBenefitsTotal = extraBenefitAgg._sum.valor ?? 0;
+  const totalCost = (payrollAgg._sum.totalCost ?? 0) + extraBenefitsTotal;
   const totalRevenue = revenueAgg._sum.amount ?? 0;
 
   return {
     totalCost,
     baseSalaryTotal: payrollAgg._sum.baseSalary ?? 0,
-    benefitsCost: payrollAgg._sum.benefitsCost ?? 0,
+    // "Benefícios" já soma o que vem estimado/importado na folha (vale-transporte, plano de saúde etc.)
+    // com o que é pago por fora (auxílio combustível, cesta básica, premiações...).
+    benefitsCost: (payrollAgg._sum.benefitsCost ?? 0) + extraBenefitsTotal,
+    extraBenefitsTotal,
     chargesCost: payrollAgg._sum.chargesCost ?? 0,
     totalRevenue,
     costToRevenueRatio: totalRevenue > 0 ? totalCost / totalRevenue : null,
@@ -38,11 +46,17 @@ export async function getCostTrend(filters: ExecutiveFilters) {
       const [y, m] = key.split("-").map(Number);
       const start = new Date(y, m - 1, 1);
       const end = new Date(y, m, 0, 23, 59, 59);
-      const agg = await prisma.payrollEntry.aggregate({
-        _sum: { totalCost: true },
-        where: { competence: { gte: start, lte: end }, ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}) },
-      });
-      return agg._sum.totalCost ?? 0;
+      const [payrollAgg, extraBenefitAgg] = await Promise.all([
+        prisma.payrollEntry.aggregate({
+          _sum: { totalCost: true },
+          where: { competence: { gte: start, lte: end }, ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}) },
+        }),
+        prisma.extraBenefit.aggregate({
+          _sum: { valor: true },
+          where: { competence: { gte: start, lte: end }, ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}) },
+        }),
+      ]);
+      return (payrollAgg._sum.totalCost ?? 0) + (extraBenefitAgg._sum.valor ?? 0);
     })
   );
 }
