@@ -39,6 +39,8 @@ export interface PayrollImportSummary {
   estimatedCount: number;
   unmatchedNames: string[];
   invalidRows: number;
+  /** Colaboradores já desligados no cadastro — não importados aqui (sem detalhamento pra calcular rescisão). Use o PDF da folha ou lance o custo de rescisão direto no desligamento. */
+  inactiveSkipped: string[];
 }
 
 /**
@@ -59,7 +61,7 @@ export async function importPayrollReport(
     const [, yStr, mStr] = match;
     const competence = new Date(Number(yStr), Number(mStr) - 1, 1);
 
-    const employees = await prisma.employee.findMany({ select: { id: true, registration: true, name: true } });
+    const employees = await prisma.employee.findMany({ select: { id: true, registration: true, name: true, isActive: true } });
     const byRegistration = new Map(employees.map((e) => [e.registration.trim(), e]));
     const byName = new Map(employees.map((e) => [normalizeName(e.name), e]));
 
@@ -70,6 +72,7 @@ export async function importPayrollReport(
       estimatedCount: 0,
       unmatchedNames: [],
       invalidRows: 0,
+      inactiveSkipped: [],
     };
 
     for (const row of rows) {
@@ -80,6 +83,14 @@ export async function importPayrollReport(
       const employee = (registration && byRegistration.get(registration)) || (name && byName.get(normalizeName(name)));
       if (!employee) {
         if (name) summary.unmatchedNames.push(name);
+        continue;
+      }
+
+      // Colaborador já desligado: essa planilha não tem o detalhamento (proventos linha a
+      // linha) pra calcular o valor de rescisão, então não dá pra separar automaticamente
+      // como no import de PDF — melhor pular e avisar, do que criar um custo de folha errado.
+      if (!employee.isActive) {
+        summary.inactiveSkipped.push(employee.name);
         continue;
       }
 
