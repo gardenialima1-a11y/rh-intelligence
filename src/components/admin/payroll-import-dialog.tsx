@@ -157,6 +157,18 @@ export function PayrollImportDialog() {
                 <AlertTriangle className="h-4 w-4" /> {summary.invalidRows} linha(s) sem salário válido foram ignoradas.
               </p>
             )}
+            {summary.inactiveSkipped.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <p className="flex items-center gap-2 text-sm text-warning-text">
+                  <AlertTriangle className="h-4 w-4" /> {summary.inactiveSkipped.length} colaborador(es) já desligado(s) não
+                  foram importados aqui (use o PDF da folha pra separar automaticamente o custo de rescisão, ou lance
+                  manualmente no desligamento deles):
+                </p>
+                <div className="max-h-28 overflow-y-auto rounded-lg border border-border p-2 text-xs text-muted-foreground">
+                  {summary.inactiveSkipped.map((n, i) => <p key={i}>{n}</p>)}
+                </div>
+              </div>
+            )}
             {summary.unmatchedNames.length > 0 && (
               <div className="flex flex-col gap-1">
                 <p className="flex items-center gap-2 text-sm text-warning-text">
