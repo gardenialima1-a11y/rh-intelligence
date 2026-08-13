@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, FileUp, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, FileUp, AlertTriangle, CheckCircle2, XCircle, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,13 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { extractPayrollCostsPdf, confirmPayrollPdfImport, type PayrollPdfPreviewRow } from "@/actions/payroll-pdf-import";
+import { formatCurrency } from "@/lib/utils";
+import {
+  extractPayrollCostsPdf,
+  confirmPayrollPdfImport,
+  type PayrollPdfPreviewRow,
+  type ConfirmPayrollPdfImportResult,
+} from "@/actions/payroll-pdf-import";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -46,7 +52,7 @@ export function PayrollPdfImportDialog({ employees }: { employees: { id: string;
   const [overrides, setOverrides] = React.useState<Record<string, string>>({}); // matricula -> employeeId escolhido manualmente
   const [salaryOverrides, setSalaryOverrides] = React.useState<Record<string, string>>({}); // matricula -> salário digitado manualmente
   const [excluded, setExcluded] = React.useState<Set<string>>(new Set());
-  const [result, setResult] = React.useState<string | null>(null);
+  const [result, setResult] = React.useState<ConfirmPayrollPdfImportResult | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -92,15 +98,21 @@ export function PayrollPdfImportDialog({ employees }: { employees: { id: string;
     }
     const toImport = rows
       .filter((r) => !excluded.has(r.matricula))
-      .map((r) => ({
-        employeeId: overrides[r.matricula] ?? r.employeeId,
-        matricula: r.matricula,
-        nome: r.nome,
-        baseSalary: effectiveSalary(r),
-        fgtsValue: r.fgtsValue,
-        proventos: r.proventos,
-        descontos: r.descontos,
-      }))
+      .map((r) => {
+        const isRescisao = r.employeeIsActive === false;
+        const rescisaoTotal = r.proventos.reduce((s, p) => s + (p.valor ?? 0), 0);
+        return {
+          employeeId: overrides[r.matricula] ?? r.employeeId,
+          matricula: r.matricula,
+          nome: r.nome,
+          // Pra rescisão, o servidor ignora esse valor e usa a soma dos proventos —
+          // aqui é só pra passar na validação (nunca fica vazio nesse caso).
+          baseSalary: isRescisao ? String(rescisaoTotal || 0) : effectiveSalary(r),
+          fgtsValue: r.fgtsValue,
+          proventos: r.proventos,
+          descontos: r.descontos,
+        };
+      })
       .filter((r): r is typeof r & { employeeId: string } => !!r.employeeId && !!r.baseSalary && Number(r.baseSalary) > 0);
 
     if (toImport.length === 0) {
@@ -115,13 +127,19 @@ export function PayrollPdfImportDialog({ employees }: { employees: { id: string;
       setError(res.error ?? "Não foi possível importar.");
       return;
     }
-    setResult(`${res.importedCount} lançamento(s) de custo importado(s) com sucesso.`);
+    setResult(res);
     setRows(null);
     router.refresh();
   }
 
   const readyCount =
-    rows?.filter((r) => (overrides[r.matricula] ?? r.employeeId) && !!effectiveSalary(r) && !excluded.has(r.matricula)).length ?? 0;
+    rows?.filter((r) => {
+      if (excluded.has(r.matricula)) return false;
+      const employeeId = overrides[r.matricula] ?? r.employeeId;
+      if (!employeeId) return false;
+      if (r.employeeIsActive === false) return r.proventos.some((p) => (p.valor ?? 0) > 0);
+      return !!effectiveSalary(r);
+    }).length ?? 0;
 
   return (
     <Dialog
@@ -142,7 +160,8 @@ export function PayrollPdfImportDialog({ employees }: { employees: { id: string;
           <DialogDescription>
             Suba o relatório de folha de pagamento em PDF. O sistema tenta identificar sozinho a linha de
             &quot;Salário Base&quot; de cada colaborador. Confira a prévia abaixo — você pode corrigir o valor ou o
-            colaborador vinculado antes de confirmar.
+            colaborador vinculado antes de confirmar. Colaboradores já desligados no cadastro são tratados como
+            rescisão: o valor pago vai pro custo de desligamento (módulo Turnover), não entra na folha.
           </DialogDescription>
         </DialogHeader>
 
@@ -176,9 +195,29 @@ export function PayrollPdfImportDialog({ employees }: { employees: { id: string;
         )}
 
         {result && (
-          <p className="flex items-center gap-2 text-sm text-success">
-            <CheckCircle2 className="h-4 w-4" /> {result}
-          </p>
+          <div className="flex flex-col gap-2">
+            <p className="flex items-center gap-2 text-sm text-success">
+              <CheckCircle2 className="h-4 w-4" /> {result.importedCount ?? 0} lançamento(s) de folha importado(s).
+            </p>
+            {(result.rescisaoCount ?? 0) > 0 && (
+              <p className="flex items-center gap-2 text-sm text-navy dark:text-cream">
+                <Scale className="h-4 w-4" /> {result.rescisaoCount} rescisão(ões) somando {formatCurrency(result.rescisaoTotal ?? 0)} —
+                enviadas pro custo de desligamento (módulo Turnover), não entraram na folha.
+              </p>
+            )}
+            {result.rescisaoSemMovimento && result.rescisaoSemMovimento.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <p className="flex items-center gap-2 text-sm text-warning-text">
+                  <AlertTriangle className="h-4 w-4" /> {result.rescisaoSemMovimento.length} colaborador(es) desligado(s) sem
+                  movimento de desligamento registrado — o custo de rescisão não pôde ser salvo. Registre o desligamento deles
+                  no módulo de Colaboradores e reimporte esse mês.
+                </p>
+                <div className="max-h-28 overflow-y-auto rounded-lg border border-border p-2 text-xs text-muted-foreground">
+                  {result.rescisaoSemMovimento.map((n, i) => <p key={i}>{n}</p>)}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {rows && (
@@ -215,27 +254,38 @@ export function PayrollPdfImportDialog({ employees }: { employees: { id: string;
                   {rows.map((r) => {
                     const isExcluded = excluded.has(r.matricula);
                     const effectiveEmployeeId = overrides[r.matricula] ?? r.employeeId;
-                    const salaryNotDetected = r.baseSalary === null && !salaryOverrides[r.matricula];
+                    const isRescisao = r.employeeIsActive === false;
+                    const salaryNotDetected = !isRescisao && r.baseSalary === null && !salaryOverrides[r.matricula];
                     return (
                       <tr key={r.matricula} className={`border-t border-border ${isExcluded ? "opacity-40" : ""}`}>
                         <td className="p-2">{r.nome}</td>
                         <td className="p-2">{r.matricula}</td>
                         <td className="p-2 text-right">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={effectiveSalary(r)}
-                            onChange={(e) => setSalaryOverrides((prev) => ({ ...prev, [r.matricula]: e.target.value }))}
-                            placeholder="Digite o valor"
-                            className={`h-8 w-28 rounded-md border px-2 text-right text-sm ${
-                              salaryNotDetected ? "border-danger" : "border-border"
-                            }`}
-                          />
+                          {isRescisao ? (
+                            <span className="text-xs text-muted-foreground">
+                              {formatCurrency(r.proventos.reduce((s, p) => s + (p.valor ?? 0), 0))} (total pago)
+                            </span>
+                          ) : (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={effectiveSalary(r)}
+                              onChange={(e) => setSalaryOverrides((prev) => ({ ...prev, [r.matricula]: e.target.value }))}
+                              placeholder="Digite o valor"
+                              className={`h-8 w-28 rounded-md border px-2 text-right text-sm ${
+                                salaryNotDetected ? "border-danger" : "border-border"
+                              }`}
+                            />
+                          )}
                         </td>
                         <td className="p-2">
                           {!effectiveEmployeeId ? (
                             <span className="flex items-center gap-1 text-danger">
                               <XCircle className="h-3.5 w-3.5" /> Não encontrado
+                            </span>
+                          ) : isRescisao ? (
+                            <span className="flex items-center gap-1 text-navy dark:text-cream" title="Colaborador desligado no cadastro — o valor vai pro custo de rescisão, não pra folha">
+                              <Scale className="h-3.5 w-3.5" /> Rescisão
                             </span>
                           ) : salaryNotDetected ? (
                             <span className="flex items-center gap-1 text-warning">
