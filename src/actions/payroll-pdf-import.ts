@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { MovementType } from "@prisma/client";
 import { parsePayrollBaseSalaries, type PayrollBaseSalaryProvento } from "@/lib/pdf/payroll-parser";
 import { confirmPayrollPdfImportSchema } from "@/lib/validation/payroll-pdf-import";
 
@@ -37,6 +38,8 @@ export interface PayrollPdfPreviewRow {
   employeeId: string | null;
   matched: boolean;
   matchType: "registration" | "name" | null;
+  /** Colaborador já está desligado no cadastro — esse valor vira custo de rescisão, não entra na folha. */
+  employeeIsActive: boolean | null;
 }
 
 export interface PayrollPdfPreviewResult {
@@ -79,13 +82,13 @@ export async function extractPayrollCostsPdf(base64Pdf: string): Promise<Payroll
       };
     }
 
-    const allEmployees = await prisma.employee.findMany({ select: { id: true, name: true, registration: true } });
-    const byRegistration = new Map(allEmployees.map((e) => [e.registration.trim(), e.id]));
-    const byNormalizedName = new Map<string, string[]>();
+    const allEmployees = await prisma.employee.findMany({ select: { id: true, name: true, registration: true, isActive: true } });
+    const byRegistration = new Map(allEmployees.map((e) => [e.registration.trim(), e]));
+    const byNormalizedName = new Map<string, (typeof allEmployees)[number][]>();
     for (const e of allEmployees) {
       const key = normalizeName(e.name);
       const list = byNormalizedName.get(key) ?? [];
-      list.push(e.id);
+      list.push(e);
       byNormalizedName.set(key, list);
     }
 
@@ -93,18 +96,18 @@ export async function extractPayrollCostsPdf(base64Pdf: string): Promise<Payroll
     let noSalaryCount = 0;
 
     const rows: PayrollPdfPreviewRow[] = parsed.rows.map((r) => {
-      let employeeId: string | null = byRegistration.get(r.matricula.trim()) ?? null;
-      let matchType: PayrollPdfPreviewRow["matchType"] = employeeId ? "registration" : null;
+      let employee = byRegistration.get(r.matricula.trim()) ?? null;
+      let matchType: PayrollPdfPreviewRow["matchType"] = employee ? "registration" : null;
 
-      if (!employeeId) {
+      if (!employee) {
         const candidates = byNormalizedName.get(normalizeName(r.nome));
         if (candidates && candidates.length === 1) {
-          employeeId = candidates[0];
+          employee = candidates[0];
           matchType = "name";
         }
       }
 
-      if (!employeeId) unmatchedCount += 1;
+      if (!employee) unmatchedCount += 1;
       if (r.baseSalary === null) noSalaryCount += 1;
 
       return {
@@ -115,9 +118,10 @@ export async function extractPayrollCostsPdf(base64Pdf: string): Promise<Payroll
         proventos: r.proventos,
         descontos: r.descontos,
         fgtsValue: r.fgtsValue,
-        employeeId,
-        matched: employeeId != null,
+        employeeId: employee?.id ?? null,
+        matched: employee != null,
         matchType,
+        employeeIsActive: employee?.isActive ?? null,
       };
     });
 
@@ -139,6 +143,9 @@ export interface ConfirmPayrollPdfImportResult {
   success: boolean;
   error?: string;
   importedCount?: number;
+  rescisaoCount?: number;
+  rescisaoTotal?: number;
+  rescisaoSemMovimento?: string[];
 }
 
 /** Grava os lançamentos de custo confirmados na prévia, um por colaborador, no mês escolhido. */
@@ -151,8 +158,57 @@ export async function confirmPayrollPdfImport(raw: unknown): Promise<ConfirmPayr
     const [yStr, mStr] = parsed.data.competence.split("-");
     const competence = new Date(Number(yStr), Number(mStr) - 1, 1);
 
+    const employeeIds = parsed.data.rows.map((r) => r.employeeId);
+    const employees = await prisma.employee.findMany({
+      where: { id: { in: employeeIds } },
+      select: { id: true, isActive: true, name: true },
+    });
+    const employeeById = new Map(employees.map((e) => [e.id, e]));
+
     let importedCount = 0;
+    let rescisaoCount = 0;
+    let rescisaoTotal = 0;
+    const rescisaoSemMovimento: string[] = [];
+
     for (const row of parsed.data.rows) {
+      const employee = employeeById.get(row.employeeId);
+
+      // Colaborador desligado: o valor pago naquele mês é custo de rescisão, não de
+      // folha corrente — vai pro campo de custo do desligamento (módulo Turnover),
+      // e NÃO cria PayrollEntry/PayrollLineItem pra esse colaborador nesse mês.
+      // Verificado ANTES de exigir salário base, porque rescisão muitas vezes não
+      // tem linha de "Salário Mensal" — só verbas de rescisão mesmo.
+      if (employee && !employee.isActive) {
+        const rescisaoValor =
+          Math.round(row.proventos.reduce((s, p) => s + (p.valor ?? 0), 0) * 100) / 100;
+
+        if (rescisaoValor <= 0) continue;
+
+        const movement = await prisma.movement.findFirst({
+          where: { employeeId: row.employeeId, type: MovementType.DESLIGAMENTO },
+          orderBy: { date: "desc" },
+        });
+
+        if (!movement) {
+          rescisaoSemMovimento.push(row.nome);
+          continue;
+        }
+
+        await prisma.movement.update({
+          where: { id: movement.id },
+          data: { costValue: rescisaoValor },
+        });
+
+        // Remove eventual lançamento de folha antigo desse colaborador nesse mês
+        // (ex.: se ele foi importado como ativo antes de o desligamento ser registrado).
+        await prisma.payrollEntry.deleteMany({ where: { employeeId: row.employeeId, competence } });
+        await prisma.payrollLineItem.deleteMany({ where: { employeeId: row.employeeId, competence } });
+
+        rescisaoCount += 1;
+        rescisaoTotal += rescisaoValor;
+        continue;
+      }
+
       const baseSalary = Number(row.baseSalary);
       if (Number.isNaN(baseSalary) || baseSalary <= 0) continue;
 
@@ -192,8 +248,16 @@ export async function confirmPayrollPdfImport(raw: unknown): Promise<ConfirmPayr
     revalidatePath("/modulos/beneficios");
     revalidatePath("/modulos/jornada");
     revalidatePath("/modulos/administracao");
+    revalidatePath("/modulos/turnover");
+    revalidatePath("/modulos/desligamentos");
     revalidatePath("/");
-    return { success: true, importedCount };
+    return {
+      success: true,
+      importedCount,
+      rescisaoCount,
+      rescisaoTotal: Math.round(rescisaoTotal * 100) / 100,
+      rescisaoSemMovimento,
+    };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao importar os lançamentos." };
   }
