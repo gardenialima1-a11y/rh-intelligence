@@ -1,5 +1,5 @@
 import { resolveScopedFilters } from "@/lib/scope";
-import { Wallet, TrendingUp, Percent, Users, Scale, ArrowDownRight } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, Percent, Users, Scale, ArrowDownRight, UserPlus, UserMinus, ArrowUpCircle, Clock, Package, Gift, Sparkles } from "lucide-react";
 import { ModuleHeader } from "@/components/dashboard/module-header";
 import { ModuleViewTabs } from "@/components/dashboard/module-view-tabs";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -14,6 +14,7 @@ import { formatCurrency, formatPercent } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { getCustosKpis, getCostTrend, getCostByCostCenter, getCostBySecondaryCostCenter, getAverageSalaryByPosition } from "@/services/custos";
 import { getAvailableDetailCompetences, getPayrollDetailReport, getPayrollDetailTotals } from "@/services/custos-detalhado";
+import { getCostInsights, formatMonthNamePtBR as monthLabelPtBR } from "@/services/custos-insights";
 import { getSalaryBenchmarkComparison, getBenchmarkSummary } from "@/services/salary-benchmark";
 import { getPositionsWithoutBenchmark } from "@/actions/salary-benchmark";
 import { PayrollImportDialog } from "@/components/admin/payroll-import-dialog";
@@ -62,11 +63,153 @@ export default async function CustosPage({
     employeeId: params.colaborador,
   });
   const { proventoTotals, descontoTotals, extraBenefitTotals } = getPayrollDetailTotals(detailRows);
+  const insights = await getCostInsights(params.mes);
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
 
   const executive = (
     <div className="flex flex-col gap-4">
+      <Card className="border-gold/40">
+        <CardHeader className="flex-row items-center gap-2 space-y-0">
+          <Sparkles className="h-4 w-4 text-gold-text" />
+          <CardTitle>
+            Insights estratégicos
+            {insights.currentCompetence && insights.previousCompetence
+              ? ` — ${monthLabelPtBR(insights.currentCompetence)} vs ${monthLabelPtBR(insights.previousCompetence)}`
+              : ""}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            {insights.narrative.map((line, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                {i === 0 ? (
+                  insights.delta >= 0 ? (
+                    <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                  ) : (
+                    <TrendingDown className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                  )
+                ) : (
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
+                )}
+                <span className={i === 0 ? "font-medium text-navy dark:text-cream" : "text-muted-foreground"}>{line}</span>
+              </div>
+            ))}
+          </div>
+
+          {insights.hasPreviousData && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {insights.admissoes.length > 0 && (
+                <details className="rounded-lg border border-border p-2.5">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
+                    <UserPlus className="h-3.5 w-3.5" /> Admissões ({insights.admissoes.length})
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {insights.admissoes.map((a, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{a.employeeName}{a.costCenterName ? ` · ${a.costCenterName}` : ""}</span>
+                        <span>{formatCurrency(a.valor)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {insights.saidas.length > 0 && (
+                <details className="rounded-lg border border-border p-2.5">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
+                    <UserMinus className="h-3.5 w-3.5" /> Saídas da folha ({insights.saidas.length})
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {insights.saidas.map((s, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {s.employeeName}{s.costCenterName ? ` · ${s.costCenterName}` : ""}
+                          {s.virouRescisao ? " (rescisão)" : " (sem desligamento registrado)"}
+                        </span>
+                        <span>{formatCurrency(s.valorAnterior)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {insights.reajustes.length > 0 && (
+                <details className="rounded-lg border border-border p-2.5">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
+                    <ArrowUpCircle className="h-3.5 w-3.5" /> Reajustes salariais ({insights.reajustes.length})
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {insights.reajustes.map((r, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{r.employeeName}{r.costCenterName ? ` · ${r.costCenterName}` : ""}</span>
+                        <span className={r.delta >= 0 ? "text-danger" : "text-success"}>
+                          {formatCurrency(r.salarioAnterior)} → {formatCurrency(r.salarioAtual)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {insights.horasExtrasByCostCenter.length > 0 && (
+                <details className="rounded-lg border border-border p-2.5">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
+                    <Clock className="h-3.5 w-3.5" /> Hora extra por centro de custo
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {insights.horasExtrasByCostCenter.map((h, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{h.label}</span>
+                        <span className={h.delta >= 0 ? "text-danger" : "text-success"}>
+                          {formatCurrency(h.anterior)} → {formatCurrency(h.atual)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {insights.outrosProventos.length > 0 && (
+                <details className="rounded-lg border border-border p-2.5">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
+                    <Package className="h-3.5 w-3.5" /> Outros proventos que mais mudaram
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {insights.outrosProventos.map((o, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{o.label}</span>
+                        <span className={o.delta >= 0 ? "text-danger" : "text-success"}>
+                          {formatCurrency(o.anterior)} → {formatCurrency(o.atual)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {insights.beneficiosExtra.length > 0 && (
+                <details className="rounded-lg border border-border p-2.5">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
+                    <Gift className="h-3.5 w-3.5" /> Benefícios extra-folha
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {insights.beneficiosExtra.map((b, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{b.label}</span>
+                        <span className={b.delta >= 0 ? "text-danger" : "text-success"}>
+                          {formatCurrency(b.anterior)} → {formatCurrency(b.atual)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <KpiCard label="Folha salarial total" value={formatCurrency(kpis.totalCost)} icon={Wallet} accent="navy" tooltip={"Soma do campo Custo Total de cada lançamento de folha (Salário Base + Benefícios + Encargos) de colaboradores ativos no período selecionado."} />
         <KpiCard label="Custo / Receita" value={kpis.costToRevenueRatio ? formatPercent(kpis.costToRevenueRatio) : "sem receita"} icon={Percent} accent="gold" tooltip={"Folha salarial total dividida pela Receita cadastrada no mesmo período (painel Receita, na aba Administração). Mostra \"sem receita\" quando não há valor de receita lançado."} />
