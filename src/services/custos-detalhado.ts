@@ -31,16 +31,21 @@ export interface PayrollDetailRow {
   totalDescontos: number;
   proventos: PayrollDetailLineItem[];
   descontos: PayrollDetailLineItem[];
+  /** Benefícios pagos fora da folha (auxílio combustível, cesta básica, premiações, etc), importados à parte. */
+  extraBenefits: { categoria: string; valor: number }[];
+  extraBenefitsTotal: number;
+  /** totalProventos + extraBenefitsTotal — o número que representa o custo total do colaborador no mês. */
+  grandTotal: number;
 }
 
-/** Meses (YYYY-MM, mais recente primeiro) que já têm detalhamento de folha importado. */
+/** Meses (YYYY-MM, mais recente primeiro) que já têm detalhamento de folha OU benefícios extra-folha importados. */
 export async function getAvailableDetailCompetences(): Promise<string[]> {
-  const rows = await prisma.payrollLineItem.findMany({
-    select: { competence: true },
-    distinct: ["competence"],
-    orderBy: { competence: "desc" },
-  });
-  return rows.map((r) => monthKey(r.competence));
+  const [lineItemMonths, extraBenefitMonths] = await Promise.all([
+    prisma.payrollLineItem.findMany({ select: { competence: true }, distinct: ["competence"] }),
+    prisma.extraBenefit.findMany({ select: { competence: true }, distinct: ["competence"] }),
+  ]);
+  const keys = new Set([...lineItemMonths, ...extraBenefitMonths].map((r) => monthKey(r.competence)));
+  return Array.from(keys).sort((a, b) => (a < b ? 1 : -1));
 }
 
 function competenceKeyToDate(key: string): Date {
@@ -67,7 +72,7 @@ export async function getPayrollDetailReport(filters: PayrollDetailFilters): Pro
     ...(filters.employeeId ? { id: filters.employeeId } : {}),
   };
 
-  const [employees, lineItems, payrollEntries] = await Promise.all([
+  const [employees, lineItems, payrollEntries, extraBenefits] = await Promise.all([
     prisma.employee.findMany({
       where: employeeWhere,
       select: { id: true, name: true, registration: true, costCenter: { select: { name: true } }, secondaryCostCenter: { select: { name: true } } },
@@ -80,6 +85,9 @@ export async function getPayrollDetailReport(filters: PayrollDetailFilters): Pro
       where: { competence, ...(Object.keys(employeeWhere).length > 0 ? { employee: employeeWhere } : {}) },
       select: { employeeId: true, baseSalary: true, fgtsValue: true },
     }),
+    prisma.extraBenefit.findMany({
+      where: { competence, ...(Object.keys(employeeWhere).length > 0 ? { employee: employeeWhere } : {}) },
+    }),
   ]);
 
   const payrollEntryByEmployee = new Map(payrollEntries.map((p) => [p.employeeId, p]));
@@ -89,16 +97,26 @@ export async function getPayrollDetailReport(filters: PayrollDetailFilters): Pro
     list.push(item);
     itemsByEmployee.set(item.employeeId, list);
   }
+  const extraBenefitsByEmployee = new Map<string, typeof extraBenefits>();
+  for (const item of extraBenefits) {
+    const list = extraBenefitsByEmployee.get(item.employeeId) ?? [];
+    list.push(item);
+    extraBenefitsByEmployee.set(item.employeeId, list);
+  }
 
   const rows: PayrollDetailRow[] = employees
-    .filter((e) => itemsByEmployee.has(e.id) || payrollEntryByEmployee.has(e.id))
+    .filter((e) => itemsByEmployee.has(e.id) || payrollEntryByEmployee.has(e.id) || extraBenefitsByEmployee.has(e.id))
     .map((e) => {
       const items = itemsByEmployee.get(e.id) ?? [];
       const proventos = items.filter((i) => i.tipo === "PROVENTO");
       const descontos = items.filter((i) => i.tipo === "DESCONTO");
+      const employeeExtraBenefits = extraBenefitsByEmployee.get(e.id) ?? [];
 
       const periculosidadeItems = proventos.filter((i) => /PERICULOSIDADE/i.test(i.descricao));
       const insalubridadeItems = proventos.filter((i) => /INSALUBRIDADE/i.test(i.descricao));
+
+      const totalProventos = proventos.reduce((s, i) => s + i.valor, 0);
+      const extraBenefitsTotal = employeeExtraBenefits.reduce((s, i) => s + i.valor, 0);
 
       return {
         employeeId: e.id,
@@ -110,10 +128,13 @@ export async function getPayrollDetailReport(filters: PayrollDetailFilters): Pro
         fgtsValue: payrollEntryByEmployee.get(e.id)?.fgtsValue ?? null,
         periculosidadeValue: periculosidadeItems.length > 0 ? periculosidadeItems.reduce((s, i) => s + i.valor, 0) : null,
         insalubridadeValue: insalubridadeItems.length > 0 ? insalubridadeItems.reduce((s, i) => s + i.valor, 0) : null,
-        totalProventos: proventos.reduce((s, i) => s + i.valor, 0),
+        totalProventos,
         totalDescontos: descontos.reduce((s, i) => s + i.valor, 0),
         proventos: proventos.map((i) => ({ verba: i.verba, descricao: i.descricao, valor: i.valor })),
         descontos: descontos.map((i) => ({ verba: i.verba, descricao: i.descricao, valor: i.valor })),
+        extraBenefits: employeeExtraBenefits.map((i) => ({ categoria: i.categoria, valor: i.valor })),
+        extraBenefitsTotal,
+        grandTotal: totalProventos + extraBenefitsTotal,
       };
     });
 
@@ -141,10 +162,11 @@ function canonicalLabel(descricao: string): string {
     .trim();
 }
 
-/** Totais de cada tipo de provento e desconto (agrupados por verba), pra montar um card por tipo. */
+/** Totais de cada tipo de provento, desconto e benefício extra-folha (agrupados), pra montar um card por tipo. */
 export function getPayrollDetailTotals(rows: PayrollDetailRow[]): {
   proventoTotals: PayrollDetailTotalItem[];
   descontoTotals: PayrollDetailTotalItem[];
+  extraBenefitTotals: PayrollDetailTotalItem[];
 } {
   function aggregate(pick: (r: PayrollDetailRow) => PayrollDetailLineItem[]): PayrollDetailTotalItem[] {
     const byVerba = new Map<string, PayrollDetailTotalItem>();
@@ -162,8 +184,25 @@ export function getPayrollDetailTotals(rows: PayrollDetailRow[]): {
     return Array.from(byVerba.values()).sort((a, b) => b.total - a.total);
   }
 
+  const extraBenefitTotals = (() => {
+    const byCategoria = new Map<string, PayrollDetailTotalItem>();
+    for (const row of rows) {
+      for (const item of row.extraBenefits) {
+        const existing = byCategoria.get(item.categoria);
+        if (existing) {
+          existing.total += item.valor;
+          existing.count += 1;
+        } else {
+          byCategoria.set(item.categoria, { verba: item.categoria, label: item.categoria, total: item.valor, count: 1 });
+        }
+      }
+    }
+    return Array.from(byCategoria.values()).sort((a, b) => b.total - a.total);
+  })();
+
   return {
     proventoTotals: aggregate((r) => r.proventos),
     descontoTotals: aggregate((r) => r.descontos),
+    extraBenefitTotals,
   };
 }
