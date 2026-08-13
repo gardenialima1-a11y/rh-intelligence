@@ -272,6 +272,7 @@ model Employee {
   safetyIncidents    SafetyIncident[]
   payrolls           PayrollEntry[]
   payrollLineItems   PayrollLineItem[]
+  extraBenefits      ExtraBenefit[]
   complianceEvents   ComplianceEvent[]
 
   createdAt DateTime @default(now())
@@ -632,6 +633,24 @@ model PayrollLineItem {
   descricao  String
   valor      Float
 
+  @@index([employeeId, competence])
+  @@index([competence])
+}
+
+// Benefícios pagos por fora da folha de pagamento (não aparecem no PDF da
+// folha) — ex.: auxílio combustível, ajuda de custo, cesta básica, vale
+// alimentação, premiação comercial/frota, salário 2 (gratificação), vale
+// transporte. Importados manualmente mês a mês via planilha; somam-se ao
+// custo total do colaborador junto com o que vem da folha.
+model ExtraBenefit {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  competence DateTime
+  categoria  String
+  valor      Float
+
+  @@unique([employeeId, competence, categoria])
   @@index([employeeId, competence])
   @@index([competence])
 }
