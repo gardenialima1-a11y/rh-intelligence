@@ -68,19 +68,18 @@ function previousCompetenceKey(key: string): string {
   return monthKey(d);
 }
 
-/** Último mês (YYYY-MM) com PayrollEntry lançado — ponto de partida padrão da análise. */
-async function getLatestPayrollCompetence(): Promise<string | null> {
-  const latest = await prisma.payrollEntry.findFirst({ orderBy: { competence: "desc" }, select: { competence: true } });
-  return latest ? monthKey(latest.competence) : null;
-}
-
-/** Todos os meses (YYYY-MM, mais recente primeiro) com algum dado de custo lançado — pros dois seletores de mês da tela de insights. */
+/** Todos os meses (YYYY-MM, mais recente primeiro) com algum dado de custo lançado — pros dois seletores de mês da tela de insights. Exclui o mês corrente (hoje) de propósito: a folha desse mês normalmente ainda não fechou, então comparar com ele dá uma leitura errada. */
 export async function getAvailableInsightsCompetences(): Promise<string[]> {
   const [payrollMonths, extraBenefitMonths] = await Promise.all([
     prisma.payrollEntry.findMany({ select: { competence: true }, distinct: ["competence"] }),
     prisma.extraBenefit.findMany({ select: { competence: true }, distinct: ["competence"] }),
   ]);
-  const keys = new Set([...payrollMonths, ...extraBenefitMonths].map((r) => monthKey(r.competence)));
+  const currentMonthKey = monthKey(new Date());
+  const keys = new Set(
+    [...payrollMonths, ...extraBenefitMonths]
+      .map((r) => monthKey(r.competence))
+      .filter((k) => k < currentMonthKey)
+  );
   return Array.from(keys).sort((a, b) => (a < b ? 1 : -1));
 }
 
@@ -100,7 +99,7 @@ export async function getCostInsights(
   competenceKeyInput?: string,
   compareCompetenceKeyInput?: string
 ): Promise<CostInsightsResult> {
-  const currentCompetence = competenceKeyInput ?? (await getLatestPayrollCompetence());
+  const currentCompetence = competenceKeyInput ?? (await getAvailableInsightsCompetences())[0] ?? null;
 
   if (!currentCompetence) {
     return {
