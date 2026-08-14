@@ -1,4 +1,3 @@
-ts
 import { prisma } from "@/lib/prisma";
 
 const STAGE_ORDER = [
