@@ -36,6 +36,22 @@ async function closeVacancyWithHire(vacancyId: string, candidateName: string, ne
   });
 }
 
+/**
+ * Registra a passagem de etapa de um candidato: fecha o registro em aberto
+ * (se houver) marcando exitedAt = agora, e cria um novo registro para a
+ * etapa atual com enteredAt = agora. É isso que alimenta a linha do tempo
+ * do módulo de recrutamento com o tempo médio gasto em cada etapa.
+ */
+async function recordStageEntry(candidateId: string, stage: string) {
+  await prisma.candidateStageHistory.updateMany({
+    where: { candidateId, exitedAt: null },
+    data: { exitedAt: new Date() },
+  });
+  await prisma.candidateStageHistory.create({
+    data: { candidateId, stage: stage as never, enteredAt: new Date() },
+  });
+}
+
 export async function createCandidate(raw: unknown): Promise<ActionResult> {
   try {
     await requireRecruiterAccess();
@@ -46,7 +62,7 @@ export async function createCandidate(raw: unknown): Promise<ActionResult> {
     const vacancy = await prisma.vacancy.findUnique({ where: { id: data.vacancyId } });
     if (!vacancy) return { success: false, error: "Vaga não encontrada." };
 
-    await prisma.candidate.create({
+    const created = await prisma.candidate.create({
       data: {
         name: data.name,
         vacancyId: data.vacancyId,
@@ -58,6 +74,8 @@ export async function createCandidate(raw: unknown): Promise<ActionResult> {
         rejectionReason: data.stage === "REPROVADO" ? data.rejectionReason : null,
       },
     });
+
+    await recordStageEntry(created.id, data.stage);
 
     if (data.stage === "CONTRATADO") {
       await closeVacancyWithHire(data.vacancyId, data.name, data.negotiationNotes ?? null);
@@ -94,6 +112,10 @@ export async function updateCandidate(candidateId: string, raw: unknown): Promis
         rejectionReason: data.stage === "REPROVADO" ? data.rejectionReason : null,
       },
     });
+
+    if (existing && existing.stage !== data.stage) {
+      await recordStageEntry(candidateId, data.stage);
+    }
 
     if (data.stage === "CONTRATADO") {
       await closeVacancyWithHire(data.vacancyId, data.name, data.negotiationNotes ?? null);
