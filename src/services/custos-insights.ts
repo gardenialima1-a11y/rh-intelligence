@@ -74,15 +74,32 @@ async function getLatestPayrollCompetence(): Promise<string | null> {
   return latest ? monthKey(latest.competence) : null;
 }
 
+/** Todos os meses (YYYY-MM, mais recente primeiro) com algum dado de custo lançado — pros dois seletores de mês da tela de insights. */
+export async function getAvailableInsightsCompetences(): Promise<string[]> {
+  const [payrollMonths, extraBenefitMonths] = await Promise.all([
+    prisma.payrollEntry.findMany({ select: { competence: true }, distinct: ["competence"] }),
+    prisma.extraBenefit.findMany({ select: { competence: true }, distinct: ["competence"] }),
+  ]);
+  const keys = new Set([...payrollMonths, ...extraBenefitMonths].map((r) => monthKey(r.competence)));
+  return Array.from(keys).sort((a, b) => (a < b ? 1 : -1));
+}
+
 /**
- * Compara o custo de pessoal do mês escolhido com o mês imediatamente
- * anterior e decompõe a diferença: quanto veio de admissão, de desligamento
- * (que agora vira rescisão, não folha), de reajuste salarial, de variação de
- * hora extra por centro de custo, de outros proventos e de benefícios pagos
- * fora da folha. Gera também uma lista de frases prontas (narrative) com o
- * resumo, da maior pra menor variação.
+ * Compara o custo de pessoal de dois meses quaisquer (não precisam ser
+ * consecutivos — ex.: janeiro vs abril) e decompõe a diferença: quanto veio
+ * de admissão, de desligamento (que agora vira rescisão, não folha), de
+ * reajuste salarial, de variação de hora extra por centro de custo, de
+ * outros proventos e de benefícios pagos fora da folha. Gera também uma
+ * lista de frases prontas (narrative) com o resumo, da maior pra menor
+ * variação.
+ *
+ * Quando `compareCompetenceKeyInput` não é informado, usa o mês
+ * imediatamente anterior ao mês atual (comportamento padrão de antes).
  */
-export async function getCostInsights(competenceKeyInput?: string): Promise<CostInsightsResult> {
+export async function getCostInsights(
+  competenceKeyInput?: string,
+  compareCompetenceKeyInput?: string
+): Promise<CostInsightsResult> {
   const currentCompetence = competenceKeyInput ?? (await getLatestPayrollCompetence());
 
   if (!currentCompetence) {
@@ -104,7 +121,7 @@ export async function getCostInsights(competenceKeyInput?: string): Promise<Cost
     };
   }
 
-  const previousCompetence = previousCompetenceKey(currentCompetence);
+  const previousCompetence = compareCompetenceKeyInput ?? previousCompetenceKey(currentCompetence);
   const current = competenceKeyToDate(currentCompetence);
   const previous = competenceKeyToDate(previousCompetence);
 
