@@ -16,6 +16,9 @@ export const FUNNEL_STAGE_LABEL: Record<string, string> = {
   PROPOSTA: "Proposta",
   CONTRATADO: "Contratado",
   REPROVADO: "Reprovado",
+  CADASTRO: "Cadastro",
+  ANALISE_CPF: "Análise de CPF",
+  ADMISSAO: "Admissão",
 };
 
 export const COMPLIANCE_TYPE_LABEL: Record<string, string> = {
