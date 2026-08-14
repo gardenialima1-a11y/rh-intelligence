@@ -1,5 +1,5 @@
 import { resolveScopedFilters } from "@/lib/scope";
-import { Wallet, TrendingUp, TrendingDown, Percent, Users, Scale, ArrowDownRight, UserPlus, UserMinus, ArrowUpCircle, Clock, Package, Gift, Sparkles } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, Percent, Users, Scale, ArrowDownRight, UserPlus, UserMinus, ArrowUpCircle, Clock, Package, Gift, Sparkles, Target } from "lucide-react";
 import { ModuleHeader } from "@/components/dashboard/module-header";
 import { ModuleViewTabs } from "@/components/dashboard/module-view-tabs";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -117,6 +117,51 @@ export default async function CustosPage({
 
           {insights.hasPreviousData && (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {insights.headcountBySector.length > 0 && (
+                <details className="rounded-lg border border-gold/40 p-2.5 sm:col-span-2 xl:col-span-3" open>
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
+                    <Target className="h-3.5 w-3.5" /> Admissões: substituição ou aumento de quadro? ({insights.headcountBySector.length} setor(es))
+                  </summary>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-muted-foreground">
+                          <th className="pb-1 pr-3 font-medium">Setor</th>
+                          <th className="pb-1 pr-3 font-medium">Admissões</th>
+                          <th className="pb-1 pr-3 font-medium">Saídas</th>
+                          <th className="pb-1 pr-3 font-medium">Diagnóstico</th>
+                          <th className="pb-1 font-medium">Quadro atual (real / ideal)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {insights.headcountBySector.map((s) => (
+                          <tr key={s.costCenterId} className="border-t border-border">
+                            <td className="py-1.5 pr-3">{s.costCenterName}</td>
+                            <td className="py-1.5 pr-3">{s.admissoesCount} ({formatCurrency(s.admissoesValor)})</td>
+                            <td className="py-1.5 pr-3">{s.saidasCount}</td>
+                            <td className="py-1.5 pr-3">
+                              {s.diagnostico === "substituicao" && <span className="text-muted-foreground">Substituição</span>}
+                              {s.diagnostico === "crescimento" && <span className="font-medium text-danger">Aumento de quadro (+{s.netChange})</span>}
+                              {s.diagnostico === "reducao" && <span className="text-success">Redução de quadro ({s.netChange})</span>}
+                            </td>
+                            <td className="py-1.5">
+                              {s.situacaoQuadro === "sem_meta" && <span className="text-muted-foreground">{s.realHeadcountAtual} (sem meta cadastrada)</span>}
+                              {s.situacaoQuadro === "no_ideal" && <span className="text-success">{s.realHeadcountAtual} / {s.idealHeadcount}</span>}
+                              {s.situacaoQuadro === "acima_do_ideal" && <span className="font-medium text-danger">{s.realHeadcountAtual} / {s.idealHeadcount} (acima)</span>}
+                              {s.situacaoQuadro === "abaixo_do_ideal" && <span className="text-warning-text">{s.realHeadcountAtual} / {s.idealHeadcount} (abaixo)</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Quadro ideal é o mesmo cadastrado no módulo Headcount, por centro de custo secundário. &quot;Sem meta
+                      cadastrada&quot; significa que ninguém definiu um número ideal pra esse setor ainda.
+                    </p>
+                  </div>
+                </details>
+              )}
+
               {insights.admissoes.length > 0 && (
                 <details className="rounded-lg border border-border p-2.5">
                   <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
@@ -143,7 +188,11 @@ export default async function CustosPage({
                       <div key={i} className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">
                           {s.employeeName}{s.costCenterName ? ` · ${s.costCenterName}` : ""}
-                          {s.virouRescisao ? " (rescisão)" : " (sem desligamento registrado)"}
+                          {s.virouRescisao
+                            ? " (rescisão)"
+                            : s.afastadoINSS
+                              ? " (afastado pelo INSS)"
+                              : " (sem desligamento ou afastamento registrado)"}
                         </span>
                         <span>{formatCurrency(s.valorAnterior)}</span>
                       </div>
