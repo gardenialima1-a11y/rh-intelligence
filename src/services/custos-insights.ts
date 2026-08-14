@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { MovementType } from "@prisma/client";
 import { monthKey } from "@/services/period";
 import { formatCurrency } from "@/lib/utils";
+import { activePresentEmployeeWhere } from "@/lib/employee-filters";
 
 const OVERTIME_VERBAS = new Set(["150", "200", "357"]);
 const BASE_SALARY_VERBAS = new Set(["1", "5"]); // SALARIO MENSAL, SALARIO JOVEM APRENDIZ
@@ -17,6 +18,8 @@ export interface CostInsightSaida {
   costCenterName: string | null;
   valorAnterior: number;
   virouRescisao: boolean;
+  /** Estava afastado pelo INSS durante o mês atual — explica a ausência na folha sem ser desligamento. */
+  afastadoINSS: boolean;
 }
 
 export interface CostInsightReajuste {
@@ -34,6 +37,25 @@ export interface CostInsightGroupDelta {
   delta: number;
 }
 
+/**
+ * Compara admissões x saídas por centro de custo (secundário — mesmo campo
+ * usado no "Quadro Ideal x Real" do módulo Headcount) com o quadro ideal
+ * cadastrado, pra dizer se as admissões daquele setor foram só reposição
+ * (substituição de quem saiu) ou aumento real de quadro.
+ */
+export interface CostInsightHeadcountSector {
+  costCenterId: string;
+  costCenterName: string;
+  admissoesCount: number;
+  admissoesValor: number;
+  saidasCount: number;
+  netChange: number; // admissoesCount - saidasCount no período
+  idealHeadcount: number | null;
+  realHeadcountAtual: number;
+  diagnostico: "substituicao" | "crescimento" | "reducao" | "sem_meta";
+  situacaoQuadro: "acima_do_ideal" | "abaixo_do_ideal" | "no_ideal" | "sem_meta";
+}
+
 export interface CostInsightsResult {
   currentCompetence: string | null;
   previousCompetence: string | null;
@@ -49,6 +71,7 @@ export interface CostInsightsResult {
   horasExtrasByCostCenter: CostInsightGroupDelta[];
   outrosProventos: CostInsightGroupDelta[];
   beneficiosExtra: CostInsightGroupDelta[];
+  headcountBySector: CostInsightHeadcountSector[];
 }
 
 function competenceKeyToDate(key: string): Date {
@@ -117,6 +140,7 @@ export async function getCostInsights(
       horasExtrasByCostCenter: [],
       outrosProventos: [],
       beneficiosExtra: [],
+      headcountBySector: [],
     };
   }
 
@@ -128,6 +152,7 @@ export async function getCostInsights(
     id: true,
     name: true,
     costCenter: { select: { name: true } },
+    secondaryCostCenter: { select: { id: true, name: true, targetHeadcount: true } },
   } as const;
 
   const [
@@ -138,6 +163,7 @@ export async function getCostInsights(
     currentExtraBenefits,
     previousExtraBenefits,
     currentTerminations,
+    currentInssLeaves,
   ] = await Promise.all([
     prisma.payrollEntry.findMany({ where: { competence: current }, select: { employeeId: true, baseSalary: true, totalCost: true, employee: { select: employeeSelect } } }),
     prisma.payrollEntry.findMany({ where: { competence: previous }, select: { employeeId: true, baseSalary: true, totalCost: true, employee: { select: employeeSelect } } }),
@@ -146,6 +172,15 @@ export async function getCostInsights(
     prisma.extraBenefit.findMany({ where: { competence: current }, select: { categoria: true, valor: true } }),
     prisma.extraBenefit.findMany({ where: { competence: previous }, select: { categoria: true, valor: true } }),
     prisma.movement.findMany({ where: { type: MovementType.DESLIGAMENTO, date: { gte: current, lt: new Date(current.getFullYear(), current.getMonth() + 1, 1) } }, select: { employeeId: true } }),
+    // Afastamento que estava em curso em algum momento do mês atual: começou antes do fim do mês
+    // e (ainda não voltou) ou (só voltou depois do início do mês).
+    prisma.inssLeave.findMany({
+      where: {
+        startDate: { lt: new Date(current.getFullYear(), current.getMonth() + 1, 1) },
+        OR: [{ actualReturnDate: null }, { actualReturnDate: { gte: current } }],
+      },
+      select: { employeeId: true },
+    }),
   ]);
 
   const hasPreviousData = previousEntries.length > 0;
@@ -178,6 +213,7 @@ export async function getCostInsights(
   admissoes.sort((a, b) => b.valor - a.valor);
 
   // --- Saídas (estavam na folha anterior, não estão na atual) ---
+  const employeesOnInssLeave = new Set(currentInssLeaves.map((l) => l.employeeId));
   const saidas: CostInsightSaida[] = [];
   for (const [id, entry] of previousById) {
     if (!currentById.has(id)) {
@@ -186,10 +222,95 @@ export async function getCostInsights(
         costCenterName: entry.employee.costCenter?.name ?? null,
         valorAnterior: entry.totalCost,
         virouRescisao: terminatedThisMonth.has(id),
+        afastadoINSS: employeesOnInssLeave.has(id),
       });
     }
   }
   saidas.sort((a, b) => b.valorAnterior - a.valorAnterior);
+
+  // --- Admissões x saídas por centro de custo, comparado com o quadro ideal ---
+  // Usa o centro de custo SECUNDÁRIO — é o mesmo campo que o módulo Headcount usa
+  // no "Quadro Ideal x Real", então a comparação fica consistente entre as duas telas.
+  interface SectorAgg {
+    costCenterId: string;
+    costCenterName: string;
+    admissoesCount: number;
+    admissoesValor: number;
+    saidasCount: number;
+    idealHeadcount: number | null;
+  }
+  const sectorMap = new Map<string, SectorAgg>();
+
+  for (const [id, entry] of currentById) {
+    if (previousById.has(id)) continue; // só quem é admissão nova
+    const sc = entry.employee.secondaryCostCenter;
+    if (!sc) continue; // sem centro de custo secundário cadastrado, não dá pra comparar com quadro ideal
+    const agg = sectorMap.get(sc.id) ?? {
+      costCenterId: sc.id,
+      costCenterName: sc.name,
+      admissoesCount: 0,
+      admissoesValor: 0,
+      saidasCount: 0,
+      idealHeadcount: sc.targetHeadcount,
+    };
+    agg.admissoesCount += 1;
+    agg.admissoesValor += entry.totalCost;
+    sectorMap.set(sc.id, agg);
+  }
+  for (const [id, entry] of previousById) {
+    if (currentById.has(id)) continue; // só quem saiu
+    const sc = entry.employee.secondaryCostCenter;
+    if (!sc) continue;
+    const agg = sectorMap.get(sc.id) ?? {
+      costCenterId: sc.id,
+      costCenterName: sc.name,
+      admissoesCount: 0,
+      admissoesValor: 0,
+      saidasCount: 0,
+      idealHeadcount: sc.targetHeadcount,
+    };
+    agg.saidasCount += 1;
+    sectorMap.set(sc.id, agg);
+  }
+
+  const sectorIds = Array.from(sectorMap.keys());
+  const realHeadcounts =
+    sectorIds.length > 0
+      ? await Promise.all(
+          sectorIds.map((id) => prisma.employee.count({ where: { secondaryCostCenterId: id, ...activePresentEmployeeWhere() } }))
+        )
+      : [];
+  const realHeadcountById = new Map(sectorIds.map((id, i) => [id, realHeadcounts[i]]));
+
+  const headcountBySector: CostInsightHeadcountSector[] = Array.from(sectorMap.values())
+    .filter((s) => s.admissoesCount > 0) // essa seção é sobre explicar admissões — setores só com saída não entram aqui
+    .map((s) => {
+      const netChange = s.admissoesCount - s.saidasCount;
+      const realHeadcountAtual = realHeadcountById.get(s.costCenterId) ?? 0;
+      const diagnostico: CostInsightHeadcountSector["diagnostico"] =
+        netChange === 0 ? "substituicao" : netChange > 0 ? "crescimento" : "reducao";
+      const situacaoQuadro: CostInsightHeadcountSector["situacaoQuadro"] =
+        s.idealHeadcount == null
+          ? "sem_meta"
+          : realHeadcountAtual > s.idealHeadcount
+            ? "acima_do_ideal"
+            : realHeadcountAtual < s.idealHeadcount
+              ? "abaixo_do_ideal"
+              : "no_ideal";
+      return {
+        costCenterId: s.costCenterId,
+        costCenterName: s.costCenterName,
+        admissoesCount: s.admissoesCount,
+        admissoesValor: Math.round(s.admissoesValor * 100) / 100,
+        saidasCount: s.saidasCount,
+        netChange,
+        idealHeadcount: s.idealHeadcount,
+        realHeadcountAtual,
+        diagnostico,
+        situacaoQuadro,
+      };
+    })
+    .sort((a, b) => b.admissoesCount - a.admissoesCount);
 
   // --- Reajustes salariais (colaboradores em ambos os meses, salário base mudou) ---
   const reajustes: CostInsightReajuste[] = [];
@@ -295,27 +416,49 @@ export async function getCostInsights(
 
     if (admissoes.length > 0) {
       const total = admissoes.reduce((s, a) => s + a.valor, 0);
-      const topCC = admissoes[0]?.costCenterName;
-      narrative.push(
-        `${admissoes.length} admissão(ões) nova(s) na folha adicionaram ${formatCurrency(total)}${
-          topCC ? `, com destaque pro centro de custo ${topCC}` : ""
-        }.`
-      );
+      narrative.push(`${admissoes.length} admissão(ões) nova(s) na folha adicionaram ${formatCurrency(total)}.`);
+
+      for (const s of headcountBySector) {
+        const diagText =
+          s.diagnostico === "substituicao"
+            ? `pura substituição (${s.saidasCount} saíram, ${s.admissoesCount} entraram — quadro não mudou de tamanho)`
+            : s.diagnostico === "crescimento"
+              ? `aumento de quadro (${s.netChange > 0 ? "+" : ""}${s.netChange} posição(ões) a mais que antes)`
+              : `redução de quadro, mesmo com admissão (${s.netChange} no total)`;
+        const situacaoText =
+          s.situacaoQuadro === "sem_meta"
+            ? "sem quadro ideal cadastrado pra esse setor"
+            : s.situacaoQuadro === "no_ideal"
+              ? `exatamente no quadro ideal (${s.realHeadcountAtual}/${s.idealHeadcount})`
+              : s.situacaoQuadro === "acima_do_ideal"
+                ? `acima do quadro ideal (${s.realHeadcountAtual} atual vs. ${s.idealHeadcount} ideal)`
+                : `ainda abaixo do quadro ideal (${s.realHeadcountAtual} atual vs. ${s.idealHeadcount} ideal)`;
+        narrative.push(
+          `${s.costCenterName}: ${s.admissoesCount} admissão(ões) (${formatCurrency(s.admissoesValor)}) — ${diagText}. Hoje está ${situacaoText}.`
+        );
+      }
     }
 
     if (saidas.length > 0) {
       const rescisoes = saidas.filter((s) => s.virouRescisao);
-      const outras = saidas.filter((s) => !s.virouRescisao);
+      const afastados = saidas.filter((s) => !s.virouRescisao && s.afastadoINSS);
+      const outras = saidas.filter((s) => !s.virouRescisao && !s.afastadoINSS);
       const totalRescisoes = rescisoes.reduce((s, a) => s + a.valorAnterior, 0);
+      const totalAfastados = afastados.reduce((s, a) => s + a.valorAnterior, 0);
       if (rescisoes.length > 0) {
         narrative.push(
           `${rescisoes.length} desligamento(s) tiraram ${formatCurrency(totalRescisoes)} da folha este mês — esse valor foi para o custo de rescisão, não aparece mais aqui.`
         );
       }
+      if (afastados.length > 0) {
+        narrative.push(
+          `${afastados.length} colaborador(es) estão afastados pelo INSS (${formatCurrency(totalAfastados)} que saíram da folha por causa disso, não por desligamento).`
+        );
+      }
       if (outras.length > 0) {
         const totalOutras = outras.reduce((s, a) => s + a.valorAnterior, 0);
         narrative.push(
-          `${outras.length} colaborador(es) que estavam na folha de ${prevLabel} não aparecem em ${currLabel} sem ter um desligamento registrado (${formatCurrency(totalOutras)}) — vale conferir se foi esquecido na importação ou se o desligamento ainda não foi lançado.`
+          `${outras.length} colaborador(es) que estavam na folha de ${prevLabel} não aparecem em ${currLabel} sem ter um desligamento ou afastamento pelo INSS registrado (${formatCurrency(totalOutras)}) — vale conferir se foi esquecido na importação ou se falta lançar o desligamento/afastamento.`
         );
       }
     }
@@ -367,5 +510,6 @@ export async function getCostInsights(
     horasExtrasByCostCenter,
     outrosProventos,
     beneficiosExtra,
+    headcountBySector,
   };
 }
