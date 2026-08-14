@@ -26,6 +26,13 @@ import {
   getRecrutamentoTable,
   getCostOfVacancy,
 } from "@/services/recrutamento";
+import {
+  getStageTimeline,
+  getSalaDeVagas,
+  getQualityOfHire,
+} from "@/services/recrutamento-timeline";
+import { SalaDeVagas } from "@/components/dashboard/sala-de-vagas";
+import { RecruitmentStageTimeline } from "@/components/dashboard/recruitment-stage-timeline";
 
 export default async function RecrutamentoPage({
   searchParams,
@@ -35,7 +42,22 @@ export default async function RecrutamentoPage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, funnel, bySource, byEfficiency, , vacancyCost, vacancies, positions, units, candidatesAdmin, closedVacancies] = await Promise.all([
+  const [
+    kpis,
+    funnel,
+    bySource,
+    byEfficiency,
+    ,
+    vacancyCost,
+    vacancies,
+    positions,
+    units,
+    candidatesAdmin,
+    closedVacancies,
+    stageTimeline,
+    salaDeVagas,
+    qualityOfHire,
+  ] = await Promise.all([
     getRecrutamentoKpis(filters),
     getFunnelByStage(filters),
     getCandidatesBySource(filters),
@@ -47,6 +69,9 @@ export default async function RecrutamentoPage({
     prisma.unit.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getCandidatesForAdmin(),
     getClosedVacanciesHistory(),
+    getStageTimeline(),
+    getSalaDeVagas(),
+    getQualityOfHire(),
   ]);
 
   const funnelData = funnel.map((f) => ({ name: FUNNEL_STAGE_LABEL[f.name as string] ?? f.name, value: f.value }));
@@ -55,13 +80,29 @@ export default async function RecrutamentoPage({
 
   const executive = (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
         <KpiCard label="Vagas abertas" value={formatNumber(kpis.openVacancies)} icon={Target} accent="navy" tooltip={"Total de vagas com status Aberta ou Em andamento, contado direto do cadastro de vagas (mesma fonte da aba Operacional)."} />
         <KpiCard label="Vagas críticas" value={formatNumber(kpis.criticalVacancies)} icon={AlertTriangle} accent="danger" tooltip={"Entre as vagas abertas/em andamento, quantas foram marcadas como Crítica no cadastro da vaga."} />
         <KpiCard label="Tempo médio de contratação" value={`${kpis.avgTimeToHire.toFixed(0)} dias`} icon={Timer} accent="gold" tooltip={"Média de dias entre a abertura do candidato no funil (openedAt) e a data em que foi marcado como Contratado (hiredAt), considerando os contratados no período."} />
         <KpiCard label="Custo por contratação" value={formatCurrency(kpis.avgCostToHire)} icon={Wallet} accent="gold" tooltip={"Média do campo Custo de Contratação preenchido nos candidatos marcados como Contratado no período (só considera quem tem esse valor preenchido)."} />
         <KpiCard label="Contratados no período" value={formatNumber(kpis.hiredCount)} icon={Users} accent="success" tooltip={"Total de candidatos com etapa do funil igual a Contratado e data de contratação dentro do período selecionado."} />
+        <KpiCard label="Qualidade da contratação" value={qualityOfHire !== null ? `${qualityOfHire}%` : "—"} icon={Users} accent="success" tooltip={"Média das notas de avaliação (0-100) preenchidas manualmente 90 dias após a contratação, no campo Nota de qualidade do candidato."} />
       </div>
+
+      <SalaDeVagas vagas={salaDeVagas} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Linha do tempo do processo seletivo</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Tempo médio gasto em cada etapa, do currículo até a admissão.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <RecruitmentStageTimeline data={stageTimeline} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Funil de recrutamento por etapa</CardTitle>
