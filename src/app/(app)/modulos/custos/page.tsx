@@ -14,7 +14,8 @@ import { formatCurrency, formatPercent } from "@/lib/utils";
 import { lastNMonthsKeys, monthLabelsPtBR } from "@/services/period";
 import { getCustosKpis, getCostTrend, getCostByCostCenter, getCostBySecondaryCostCenter, getAverageSalaryByPosition } from "@/services/custos";
 import { getAvailableDetailCompetences, getPayrollDetailReport, getPayrollDetailTotals } from "@/services/custos-detalhado";
-import { getCostInsights, formatMonthNamePtBR as monthLabelPtBR } from "@/services/custos-insights";
+import { getCostInsights, getAvailableInsightsCompetences, formatMonthNamePtBR as monthLabelPtBR } from "@/services/custos-insights";
+import { CostInsightsMonthFilters } from "@/components/dashboard/cost-insights-month-filters";
 import { getSalaryBenchmarkComparison, getBenchmarkSummary } from "@/services/salary-benchmark";
 import { getPositionsWithoutBenchmark } from "@/actions/salary-benchmark";
 import { PayrollImportDialog } from "@/components/admin/payroll-import-dialog";
@@ -25,7 +26,16 @@ import { prisma } from "@/lib/prisma";
 export default async function CustosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ unidade?: string; periodo?: string; setorPrincipal?: string; setorSecundario?: string; mes?: string; colaborador?: string }>;
+  searchParams: Promise<{
+    unidade?: string;
+    periodo?: string;
+    setorPrincipal?: string;
+    setorSecundario?: string;
+    mes?: string;
+    colaborador?: string;
+    insightsAtual?: string;
+    insightsComparar?: string;
+  }>;
 }) {
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
@@ -56,6 +66,8 @@ export default async function CustosPage({
     getAvailableDetailCompetences(),
   ]);
 
+  const insightsCompetences = await getAvailableInsightsCompetences();
+
   const { competenceKey: detailCompetenceKey, rows: detailRows } = await getPayrollDetailReport({
     competenceKey: params.mes,
     costCenterId: filters.costCenterId,
@@ -63,21 +75,27 @@ export default async function CustosPage({
     employeeId: params.colaborador,
   });
   const { proventoTotals, descontoTotals, extraBenefitTotals } = getPayrollDetailTotals(detailRows);
-  const insights = await getCostInsights(params.mes);
+  const insights = await getCostInsights(
+    params.insightsAtual ?? insightsCompetences[0],
+    params.insightsComparar
+  );
 
   const monthLabels = monthLabelsPtBR(lastNMonthsKeys(12));
 
   const executive = (
     <div className="flex flex-col gap-4">
-      <Card className="border-gold/40">
-        <CardHeader className="flex-row items-center gap-2 space-y-0">
-          <Sparkles className="h-4 w-4 text-gold-text" />
-          <CardTitle>
-            Insights estratégicos
-            {insights.currentCompetence && insights.previousCompetence
-              ? ` — ${monthLabelPtBR(insights.currentCompetence)} vs ${monthLabelPtBR(insights.previousCompetence)}`
-              : ""}
-          </CardTitle>
+      <Card className="border-gold/40" id="insights">
+        <CardHeader className="flex-col items-start gap-3 space-y-0 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-gold-text" />
+            <CardTitle>
+              Insights estratégicos
+              {insights.currentCompetence && insights.previousCompetence
+                ? ` — ${monthLabelPtBR(insights.currentCompetence)} vs ${monthLabelPtBR(insights.previousCompetence)}`
+                : ""}
+            </CardTitle>
+          </div>
+          {insightsCompetences.length > 0 && <CostInsightsMonthFilters competences={insightsCompetences} />}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
@@ -488,4 +506,3 @@ export default async function CustosPage({
     </div>
   );
 }
-
