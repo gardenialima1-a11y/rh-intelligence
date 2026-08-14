@@ -141,7 +141,8 @@ export default async function CustosPage({
                             <td className="py-1.5 pr-3">{s.saidasCount}</td>
                             <td className="py-1.5 pr-3">
                               {s.diagnostico === "substituicao" && <span className="text-muted-foreground">Substituição</span>}
-                              {s.diagnostico === "crescimento" && <span className="font-medium text-danger">Aumento de quadro (+{s.netChange})</span>}
+                              {s.diagnostico === "complemento_quadro" && <span className="text-warning-text">Complemento de quadro (estava abaixo do ideal)</span>}
+                              {s.diagnostico === "aumento_alem_do_ideal" && <span className="font-medium text-danger">Aumento além do ideal (+{s.netChange})</span>}
                               {s.diagnostico === "reducao" && <span className="text-success">Redução de quadro ({s.netChange})</span>}
                             </td>
                             <td className="py-1.5">
@@ -165,13 +166,34 @@ export default async function CustosPage({
               {insights.admissoes.length > 0 && (
                 <details className="rounded-lg border border-border p-2.5">
                   <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
-                    <UserPlus className="h-3.5 w-3.5" /> Admissões ({insights.admissoes.length})
+                    <UserPlus className="h-3.5 w-3.5" /> Admissões confirmadas ({insights.admissoes.length})
                   </summary>
                   <div className="mt-2 flex flex-col gap-1">
                     {insights.admissoes.map((a, i) => (
                       <div key={i} className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{a.employeeName}{a.costCenterName ? ` · ${a.costCenterName}` : ""}</span>
+                        <span className="text-muted-foreground">
+                          {a.employeeName}{a.costCenterName ? ` · ${a.costCenterName}` : ""} · admitido em {a.admissionDate}
+                        </span>
                         <span>{formatCurrency(a.valor)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {insights.reaparecimentos.length > 0 && (
+                <details className="rounded-lg border border-warning/40 p-2.5">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-navy dark:text-cream">
+                    <UserPlus className="h-3.5 w-3.5" /> Reapareceram (não são admissão nova) ({insights.reaparecimentos.length})
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {insights.reaparecimentos.map((r, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {r.employeeName}{r.costCenterName ? ` · ${r.costCenterName}` : ""} · admitido em {r.admissionDate}
+                          {r.provavelMotivo === "afastamento_inss_anterior" ? " (voltando de afastamento INSS)" : " (motivo não identificado — confira férias/importação)"}
+                        </span>
+                        <span>{formatCurrency(r.valor)}</span>
                       </div>
                     ))}
                   </div>
