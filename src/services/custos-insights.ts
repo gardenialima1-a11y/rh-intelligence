@@ -11,6 +11,15 @@ export interface CostInsightAdmissao {
   employeeName: string;
   costCenterName: string | null;
   valor: number;
+  admissionDate: string; // dd/mm/aaaa, pra mostrar a data real do cadastro
+}
+
+export interface CostInsightReaparecimento {
+  employeeName: string;
+  costCenterName: string | null;
+  valor: number;
+  admissionDate: string; // dd/mm/aaaa — mostra que é antiga, não é admissão nova
+  provavelMotivo: "afastamento_inss_anterior" | "indeterminado";
 }
 
 export interface CostInsightSaida {
@@ -52,7 +61,8 @@ export interface CostInsightHeadcountSector {
   netChange: number; // admissoesCount - saidasCount no período
   idealHeadcount: number | null;
   realHeadcountAtual: number;
-  diagnostico: "substituicao" | "crescimento" | "reducao" | "sem_meta";
+  /** "substituicao": entrou = saiu, quadro não mudou de tamanho. "complemento_quadro": quadro cresceu mas SEM passar do ideal (tava faltando gente, agora completou). "aumento_alem_do_ideal": quadro cresceu e passou do ideal (ou não tem meta pra confirmar). "reducao": quadro encolheu mesmo com admissão. */
+  diagnostico: "substituicao" | "complemento_quadro" | "aumento_alem_do_ideal" | "reducao";
   situacaoQuadro: "acima_do_ideal" | "abaixo_do_ideal" | "no_ideal" | "sem_meta";
 }
 
@@ -66,6 +76,7 @@ export interface CostInsightsResult {
   deltaPercent: number | null;
   narrative: string[];
   admissoes: CostInsightAdmissao[];
+  reaparecimentos: CostInsightReaparecimento[];
   saidas: CostInsightSaida[];
   reajustes: CostInsightReajuste[];
   horasExtrasByCostCenter: CostInsightGroupDelta[];
@@ -135,6 +146,7 @@ export async function getCostInsights(
       deltaPercent: null,
       narrative: ["Nenhum mês com folha importada ainda — os insights aparecem depois da primeira importação."],
       admissoes: [],
+      reaparecimentos: [],
       saidas: [],
       reajustes: [],
       horasExtrasByCostCenter: [],
@@ -151,6 +163,7 @@ export async function getCostInsights(
   const employeeSelect = {
     id: true,
     name: true,
+    admissionDate: true,
     costCenter: { select: { name: true } },
     secondaryCostCenter: { select: { id: true, name: true, targetHeadcount: true } },
   } as const;
@@ -164,6 +177,7 @@ export async function getCostInsights(
     previousExtraBenefits,
     currentTerminations,
     currentInssLeaves,
+    previousInssLeaves,
   ] = await Promise.all([
     prisma.payrollEntry.findMany({ where: { competence: current }, select: { employeeId: true, baseSalary: true, totalCost: true, employee: { select: employeeSelect } } }),
     prisma.payrollEntry.findMany({ where: { competence: previous }, select: { employeeId: true, baseSalary: true, totalCost: true, employee: { select: employeeSelect } } }),
@@ -178,6 +192,15 @@ export async function getCostInsights(
       where: {
         startDate: { lt: new Date(current.getFullYear(), current.getMonth() + 1, 1) },
         OR: [{ actualReturnDate: null }, { actualReturnDate: { gte: current } }],
+      },
+      select: { employeeId: true },
+    }),
+    // Mesma checagem, mas pro mês de comparação — usada pra saber se alguém que
+    // "reapareceu" na folha estava simplesmente voltando de um afastamento.
+    prisma.inssLeave.findMany({
+      where: {
+        startDate: { lt: new Date(previous.getFullYear(), previous.getMonth() + 1, 1) },
+        OR: [{ actualReturnDate: null }, { actualReturnDate: { gte: previous } }],
       },
       select: { employeeId: true },
     }),
@@ -199,18 +222,53 @@ export async function getCostInsights(
   const deltaPercent = totalPrevious > 0 ? delta / totalPrevious : null;
 
   // --- Admissões (na folha atual, não estavam na anterior) ---
+  // IMPORTANTE: nem todo "sumiu no mês anterior e reapareceu agora" é uma admissão de
+  // verdade — pode ser alguém que estava afastado, ou que simplesmente não entrou na
+  // planilha/PDF daquele mês por engano. Só conta como admissão de verdade quem tem
+  // Employee.admissionDate (a data real do cadastro) caindo dentro da janela dos dois
+  // meses comparados. Quem não bate essa checagem vai pra "reaparecimentos", separado,
+  // pra não distorcer a análise de quadro.
   const terminatedThisMonth = new Set(currentTerminations.map((t) => t.employeeId));
+  const employeesOnInssLeavePrevious = new Set(previousInssLeaves.map((l) => l.employeeId));
+
+  const earlierMonth = current.getTime() <= previous.getTime() ? current : previous;
+  const laterMonth = current.getTime() <= previous.getTime() ? previous : current;
+  const admissionWindowStart = earlierMonth;
+  const admissionWindowEndExclusive = new Date(laterMonth.getFullYear(), laterMonth.getMonth() + 1, 1);
+
+  function formatDateBR(d: Date): string {
+    return new Intl.DateTimeFormat("pt-BR").format(d);
+  }
+
   const admissoes: CostInsightAdmissao[] = [];
+  const reaparecimentos: CostInsightReaparecimento[] = [];
+  const genuineAdmissionIds = new Set<string>();
+
   for (const [id, entry] of currentById) {
-    if (!previousById.has(id)) {
+    if (previousById.has(id)) continue;
+    const admissionDate = entry.employee.admissionDate;
+    const isGenuineAdmission = admissionDate >= admissionWindowStart && admissionDate < admissionWindowEndExclusive;
+
+    if (isGenuineAdmission) {
+      genuineAdmissionIds.add(id);
       admissoes.push({
         employeeName: entry.employee.name,
         costCenterName: entry.employee.costCenter?.name ?? null,
         valor: entry.totalCost,
+        admissionDate: formatDateBR(admissionDate),
+      });
+    } else {
+      reaparecimentos.push({
+        employeeName: entry.employee.name,
+        costCenterName: entry.employee.costCenter?.name ?? null,
+        valor: entry.totalCost,
+        admissionDate: formatDateBR(admissionDate),
+        provavelMotivo: employeesOnInssLeavePrevious.has(id) ? "afastamento_inss_anterior" : "indeterminado",
       });
     }
   }
   admissoes.sort((a, b) => b.valor - a.valor);
+  reaparecimentos.sort((a, b) => b.valor - a.valor);
 
   // --- Saídas (estavam na folha anterior, não estão na atual) ---
   const employeesOnInssLeave = new Set(currentInssLeaves.map((l) => l.employeeId));
@@ -231,6 +289,8 @@ export async function getCostInsights(
   // --- Admissões x saídas por centro de custo, comparado com o quadro ideal ---
   // Usa o centro de custo SECUNDÁRIO — é o mesmo campo que o módulo Headcount usa
   // no "Quadro Ideal x Real", então a comparação fica consistente entre as duas telas.
+  // Só entram aqui admissões DE VERDADE (genuineAdmissionIds) — reaparecimentos não contam
+  // como crescimento de quadro, porque a pessoa já estava no quadro antes.
   interface SectorAgg {
     costCenterId: string;
     costCenterName: string;
@@ -242,7 +302,7 @@ export async function getCostInsights(
   const sectorMap = new Map<string, SectorAgg>();
 
   for (const [id, entry] of currentById) {
-    if (previousById.has(id)) continue; // só quem é admissão nova
+    if (!genuineAdmissionIds.has(id)) continue;
     const sc = entry.employee.secondaryCostCenter;
     if (!sc) continue; // sem centro de custo secundário cadastrado, não dá pra comparar com quadro ideal
     const agg = sectorMap.get(sc.id) ?? {
@@ -287,8 +347,20 @@ export async function getCostInsights(
     .map((s) => {
       const netChange = s.admissoesCount - s.saidasCount;
       const realHeadcountAtual = realHeadcountById.get(s.costCenterId) ?? 0;
-      const diagnostico: CostInsightHeadcountSector["diagnostico"] =
-        netChange === 0 ? "substituicao" : netChange > 0 ? "crescimento" : "reducao";
+
+      let diagnostico: CostInsightHeadcountSector["diagnostico"];
+      if (netChange === 0) {
+        diagnostico = "substituicao";
+      } else if (netChange < 0) {
+        diagnostico = "reducao";
+      } else {
+        // netChange > 0: só é "aumento além do ideal" se o quadro atual passou do ideal
+        // (ou não tem meta cadastrada pra confirmar). Se o quadro atual ainda está no
+        // ideal ou abaixo dele, é só reposição/complemento — não é crescimento de verdade.
+        diagnostico =
+          s.idealHeadcount == null || realHeadcountAtual > s.idealHeadcount ? "aumento_alem_do_ideal" : "complemento_quadro";
+      }
+
       const situacaoQuadro: CostInsightHeadcountSector["situacaoQuadro"] =
         s.idealHeadcount == null
           ? "sem_meta"
@@ -416,15 +488,17 @@ export async function getCostInsights(
 
     if (admissoes.length > 0) {
       const total = admissoes.reduce((s, a) => s + a.valor, 0);
-      narrative.push(`${admissoes.length} admissão(ões) nova(s) na folha adicionaram ${formatCurrency(total)}.`);
+      narrative.push(`${admissoes.length} admissão(ões) nova(s) de verdade (confirmadas pela data de admissão no cadastro) adicionaram ${formatCurrency(total)}.`);
 
       for (const s of headcountBySector) {
         const diagText =
           s.diagnostico === "substituicao"
             ? `pura substituição (${s.saidasCount} saíram, ${s.admissoesCount} entraram — quadro não mudou de tamanho)`
-            : s.diagnostico === "crescimento"
-              ? `aumento de quadro (${s.netChange > 0 ? "+" : ""}${s.netChange} posição(ões) a mais que antes)`
-              : `redução de quadro, mesmo com admissão (${s.netChange} no total)`;
+            : s.diagnostico === "complemento_quadro"
+              ? `complemento de quadro (estava abaixo do ideal, essas admissões preencheram vaga já aprovada — não é aumento além do planejado)`
+              : s.diagnostico === "aumento_alem_do_ideal"
+                ? `aumento de quadro além do ideal (${s.netChange > 0 ? "+" : ""}${s.netChange} posição(ões) a mais que antes)`
+                : `redução de quadro, mesmo com admissão (${s.netChange} no total)`;
         const situacaoText =
           s.situacaoQuadro === "sem_meta"
             ? "sem quadro ideal cadastrado pra esse setor"
@@ -437,6 +511,21 @@ export async function getCostInsights(
           `${s.costCenterName}: ${s.admissoesCount} admissão(ões) (${formatCurrency(s.admissoesValor)}) — ${diagText}. Hoje está ${situacaoText}.`
         );
       }
+    }
+
+    if (reaparecimentos.length > 0) {
+      const total = reaparecimentos.reduce((s, r) => s + r.valor, 0);
+      const afastados = reaparecimentos.filter((r) => r.provavelMotivo === "afastamento_inss_anterior");
+      const indeterminados = reaparecimentos.filter((r) => r.provavelMotivo === "indeterminado");
+      narrative.push(
+        `${reaparecimentos.length} colaborador(es) reapareceram na folha (${formatCurrency(total)}) mas NÃO são admissão nova — já estavam no cadastro há mais tempo, só não tinham lançamento em ${prevLabel}.${
+          afastados.length > 0 ? ` ${afastados.length} deles estavam voltando de afastamento pelo INSS.` : ""
+        }${
+          indeterminados.length > 0
+            ? ` ${indeterminados.length} sem explicação registrada — vale conferir se estavam de férias ou se a importação de ${prevLabel} não pegou esses nomes.`
+            : ""
+        }`
+      );
     }
 
     if (saidas.length > 0) {
@@ -505,6 +594,7 @@ export async function getCostInsights(
     deltaPercent,
     narrative,
     admissoes,
+    reaparecimentos,
     saidas,
     reajustes,
     horasExtrasByCostCenter,
