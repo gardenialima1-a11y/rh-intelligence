@@ -475,10 +475,13 @@ model TurnstileDailySummary {
 
 enum FunnelStage {
   TRIAGEM
+  CADASTRO
+  ANALISE_CPF
   ENTREVISTA_RH
   ENTREVISTA_GESTOR
   TESTE
   PROPOSTA
+  ADMISSAO
   CONTRATADO
   REPROVADO
 }
@@ -495,9 +498,23 @@ model Candidate {
   stage         FunnelStage @default(TRIAGEM)
   isCritical    Boolean    @default(false)
   costToHire    Float?
+  qualityScore  Float?
   rejectionReason String?  @db.Text
+  stageHistory  CandidateStageHistory[]
 
   @@index([vacancy])
+  @@index([stage])
+}
+
+model CandidateStageHistory {
+  id          String      @id @default(cuid())
+  candidateId String
+  candidate   Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  stage       FunnelStage
+  enteredAt   DateTime    @default(now())
+  exitedAt    DateTime?
+
+  @@index([candidateId])
   @@index([stage])
 }
 
