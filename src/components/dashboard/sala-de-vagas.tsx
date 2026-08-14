@@ -1,4 +1,3 @@
-tsx
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
