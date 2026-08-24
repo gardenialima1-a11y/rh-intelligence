@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
@@ -20,6 +20,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { AttachmentUploadField } from "@/components/admin/attachment-upload-field";
 import { COMPLIANCE_TYPE_LABEL } from "@/lib/labels";
 import { complianceFormSchema, COMPLIANCE_TYPES, type ComplianceFormValues } from "@/lib/validation/compliance";
 import { createComplianceEvent } from "@/actions/compliance";
@@ -40,6 +41,7 @@ export function ComplianceFormDialog({ employees }: { employees: OptionItem[] })
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ComplianceFormValues>({
     resolver: zodResolver(complianceFormSchema),
@@ -48,8 +50,13 @@ export function ComplianceFormDialog({ employees }: { employees: OptionItem[] })
       type: "ADVERTENCIA",
       motivo: "",
       estimatedCost: "",
+      attachmentUrl: null,
+      attachmentName: null,
     },
   });
+
+  const attachmentUrl = useWatch({ control, name: "attachmentUrl" });
+  const attachmentName = useWatch({ control, name: "attachmentName" });
 
   async function onSubmit(values: ComplianceFormValues) {
     setServerError(null);
@@ -133,6 +140,18 @@ export function ComplianceFormDialog({ employees }: { employees: OptionItem[] })
             <Label htmlFor="estimatedCost">Custo/passivo estimado (opcional)</Label>
             <Input id="estimatedCost" type="number" step="0.01" min="0" placeholder="R$" {...register("estimatedCost")} />
             {errors.estimatedCost && <p className="text-xs text-danger">{String(errors.estimatedCost.message)}</p>}
+          </div>
+
+          <div className="sm:col-span-2">
+            <AttachmentUploadField
+              label="Anexar documento (opcional)"
+              value={attachmentUrl}
+              fileName={attachmentName}
+              onChange={(dataUrl, name) => {
+                setValue("attachmentUrl", dataUrl);
+                setValue("attachmentName", name);
+              }}
+            />
           </div>
 
           {serverError && <p className="sm:col-span-2 text-sm text-danger">{serverError}</p>}

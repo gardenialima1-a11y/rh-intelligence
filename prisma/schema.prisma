@@ -681,6 +681,8 @@ model ComplianceEvent {
   reasonId    String?
   reason      Reason?  @relation(fields: [reasonId], references: [id])
   estimatedCost Float?
+  attachmentUrl  String? @db.Text
+  attachmentName String?
 
   @@index([date, type])
 }

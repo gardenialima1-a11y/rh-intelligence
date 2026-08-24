@@ -20,10 +20,12 @@ export function AttachmentUploadField({
   value,
   fileName,
   onChange,
+  label = "Anexar atestado (opcional)",
 }: {
   value: string | null | undefined;
   fileName: string | null | undefined;
   onChange: (dataUrl: string | null, fileName: string | null) => void;
+  label?: string;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [loading, setLoading] = React.useState(false);
@@ -57,7 +59,7 @@ export function AttachmentUploadField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label>Anexar atestado (opcional)</Label>
+      <Label>{label}</Label>
       {value ? (
         <div className="flex items-center gap-2 rounded-lg border border-border p-2 text-sm">
           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />

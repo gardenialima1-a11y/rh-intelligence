@@ -38,6 +38,8 @@ export async function createComplianceEvent(raw: unknown): Promise<ActionResult>
         date: new Date(data.date),
         reasonId: reason.id,
         estimatedCost: parseEstimatedCost(data.estimatedCost),
+        attachmentUrl: data.attachmentUrl || null,
+        attachmentName: data.attachmentName || null,
       },
     });
 

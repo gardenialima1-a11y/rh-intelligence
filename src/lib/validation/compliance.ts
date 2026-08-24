@@ -14,6 +14,8 @@ export const complianceFormSchema = z.object({
       (v) => v === null || v === undefined || v === "" || (!Number.isNaN(Number(v)) && Number(v) >= 0),
       "Informe um valor válido"
     ),
+  attachmentUrl: z.string().optional().nullable(),
+  attachmentName: z.string().optional().nullable(),
 });
 
 export type ComplianceFormValues = z.infer<typeof complianceFormSchema>;

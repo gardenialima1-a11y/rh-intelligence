@@ -1,13 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Clock3, FileBarChart } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Clock3, FileBarChart, Trash2, Loader2 } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { COMPLIANCE_TYPE_LABEL } from "@/lib/labels";
+import { deleteComplianceEvent } from "@/actions/compliance";
 import type { DisciplinaryRankingRow } from "@/services/compliance";
 
 const SUGGESTION_VARIANT: Record<string, "outline" | "warning" | "danger"> = {
@@ -26,6 +28,21 @@ const TYPE_VARIANT: Record<string, "warning" | "danger" | "outline"> = {
 
 export function DisciplinaryRankingTable({ rows }: { rows: DisciplinaryRankingRow[] }) {
   const [selected, setSelected] = React.useState<DisciplinaryRankingRow | null>(null);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleDeleteEntry(id: string) {
+    if (!confirm("Excluir esta ocorrência? Use isso para remover um registro duplicado — a ação não pode ser desfeita.")) return;
+    setDeletingId(id);
+    const result = await deleteComplianceEvent(id);
+    setDeletingId(null);
+    if (!result.success) {
+      alert(result.error ?? "Não foi possível excluir.");
+      return;
+    }
+    setSelected((prev) => (prev ? { ...prev, timeline: prev.timeline.filter((t) => t.id !== id) } : prev));
+    router.refresh();
+  }
 
   if (rows.length === 0) {
     return <p className="py-6 text-center text-sm text-muted-foreground">Nenhum colaborador com advertência, suspensão ou processo registrado.</p>;
@@ -93,6 +110,15 @@ export function DisciplinaryRankingTable({ rows }: { rows: DisciplinaryRankingRo
                   <div className="flex items-center gap-2">
                     <Badge variant={TYPE_VARIANT[t.type] ?? "outline"}>{COMPLIANCE_TYPE_LABEL[t.type] ?? t.type}</Badge>
                     <span className="text-xs text-muted-foreground">{formatDate(t.date)}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEntry(t.id)}
+                      disabled={deletingId === t.id}
+                      title="Excluir esta ocorrência (ex.: um registro duplicado)"
+                      className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-danger disabled:opacity-50"
+                    >
+                      {deletingId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    </button>
                   </div>
                   <p className="mt-0.5 text-sm">{t.reason ?? "Sem motivo detalhado"}</p>
                 </div>

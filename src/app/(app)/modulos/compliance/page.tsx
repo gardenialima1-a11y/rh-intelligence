@@ -107,6 +107,7 @@ export default async function CompliancePage({
               <TableHead>Tipo</TableHead>
               <TableHead>Motivo</TableHead>
               <TableHead>Custo estimado</TableHead>
+              <TableHead>Anexo</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -120,6 +121,19 @@ export default async function CompliancePage({
                 </TableCell>
                 <TableCell>{e.reason?.label ?? "—"}</TableCell>
                 <TableCell>{e.estimatedCost ? formatCurrency(e.estimatedCost) : "—"}</TableCell>
+                <TableCell>
+                  {e.attachmentUrl ? (
+                    <a
+                      href={e.attachmentUrl}
+                      download={e.attachmentName ?? "documento"}
+                      className="text-xs font-medium text-navy underline dark:text-cream"
+                    >
+                      {e.attachmentName ?? "Baixar"}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
