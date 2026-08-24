@@ -29,12 +29,17 @@ export default async function CompliancePage({
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
 
-  const [kpis, byReason, table, employees, ranking] = await Promise.all([
+  const [kpis, byReason, table, employees, ranking, activeUnit] = await Promise.all([
     getComplianceKpis(filters),
     getComplianceByReason(filters),
     getComplianceTable(filters),
-    prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.employee.findMany({
+      where: { isActive: true, ...(filters.unitId ? { unitId: filters.unitId } : {}) },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
     getDisciplinaryRanking(filters),
+    filters.unitId ? prisma.unit.findUnique({ where: { id: filters.unitId }, select: { name: true } }) : null,
   ]);
 
   const executive = (
@@ -80,7 +85,16 @@ export default async function CompliancePage({
   const operational = (
     <Card>
       <CardHeader className="flex-col items-start gap-3 space-y-0 md:flex-row md:items-center md:justify-between">
-        <CardTitle>Ocorrências de compliance</CardTitle>
+        <div className="flex flex-col gap-1">
+          <CardTitle>Ocorrências de compliance</CardTitle>
+          {activeUnit && (
+            <p className="text-xs text-muted-foreground">
+              Filtro de unidade ativo: <strong>{activeUnit.name}</strong>. Só é possível selecionar colaboradores dessa
+              unidade, e a tabela abaixo só mostra ocorrências dela. Para outras unidades, mude o filtro de Unidade no
+              topo da página.
+            </p>
+          )}
+        </div>
         <ComplianceFormDialog employees={employees} />
       </CardHeader>
       <CardContent>
