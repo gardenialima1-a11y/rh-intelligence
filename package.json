@@ -23,6 +23,14 @@
   "overrides": {
     "postcss": "^8.5.10"
   },
+  "allowScripts": {
+    "@prisma/client": true,
+    "@prisma/engines": true,
+    "prisma": true,
+    "esbuild": true,
+    "sharp": true,
+    "unrs-resolver": true
+  },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
     "@hookform/resolvers": "^5.4.0",
