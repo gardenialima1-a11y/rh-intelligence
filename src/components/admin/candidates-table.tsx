@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Search } from "lucide-react";
+import { Pencil, Trash2, Search, PhoneCall } from "lucide-react";
 import { CandidateFormDialog } from "@/components/admin/candidate-form-dialog";
+import { LogActivityDialog } from "@/components/admin/log-activity-dialog";
 import { deleteCandidate } from "@/actions/candidates";
 import { formatDate } from "@/lib/utils";
 
@@ -91,6 +92,15 @@ export function CandidatesTable({
               <TableCell>{formatDate(c.openedAt)}</TableCell>
               <TableCell>
                 <div className="flex gap-2">
+                  <LogActivityDialog
+                    candidateId={c.id}
+                    candidateName={c.name}
+                    trigger={
+                      <Button variant="outline" size="sm" title="Registrar ligação, entrevista ou outro contato">
+                        <PhoneCall className="h-3.5 w-3.5" />
+                      </Button>
+                    }
+                  />
                   <CandidateFormDialog
                     mode="edit"
                     candidateId={c.id}

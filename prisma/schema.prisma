@@ -501,6 +501,7 @@ model Candidate {
   qualityScore  Float?
   rejectionReason String?  @db.Text
   stageHistory  CandidateStageHistory[]
+  activities    CandidateActivity[]
 
   @@index([vacancy])
   @@index([stage])
@@ -516,6 +517,37 @@ model CandidateStageHistory {
 
   @@index([candidateId])
   @@index([stage])
+}
+
+enum ActivityType {
+  TRIAGEM_TELEFONICA
+  ENTREVISTA_RH
+  ENTREVISTA_GESTOR
+  TESTE_APLICADO
+  PROPOSTA_ENVIADA
+  EMAIL
+  MENSAGEM
+  OUTRO
+}
+
+// Registro manual de cada contato/interação com um candidato (ligação,
+// entrevista, e-mail, etc.), com data e observação — independente da etapa
+// do funil em que o candidato está. Existe separado de CandidateStageHistory
+// porque uma pessoa pode receber vários contatos dentro da MESMA etapa (ex.:
+// duas ligações de triagem antes de avançar), e cada um deve contar como um
+// evento próprio nos indicadores de atividade do recrutador (quantas
+// entrevistas foram feitas no mês, com quantas pessoas houve contato, etc.).
+model CandidateActivity {
+  id          String       @id @default(cuid())
+  candidateId String
+  candidate   Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  type        ActivityType
+  occurredAt  DateTime     @default(now())
+  notes       String?      @db.Text
+  createdAt   DateTime     @default(now())
+
+  @@index([candidateId])
+  @@index([type, occurredAt])
 }
 
 enum VacancyStatus {

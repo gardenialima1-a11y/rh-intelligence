@@ -37,14 +37,19 @@ import { SalaDeVagas } from "@/components/dashboard/sala-de-vagas";
 import { RecruitmentStageTimeline } from "@/components/dashboard/recruitment-stage-timeline";
 import { VacancyPipelineBoard } from "@/components/dashboard/vacancy-pipeline-board";
 import { LiveRefresher } from "@/components/dashboard/live-refresher";
+import { MonthlyReportPanel } from "@/components/dashboard/monthly-report-panel";
+import { RecentActivitiesFeed } from "@/components/dashboard/recent-activities-feed";
+import { getMonthlyRecruitmentReport } from "@/services/recruitment-monthly-report";
+import { getRecentActivities } from "@/actions/candidate-activities";
 
 export default async function RecrutamentoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ unidade?: string; periodo?: string }>;
+  searchParams: Promise<{ unidade?: string; periodo?: string; mes?: string }>;
 }) {
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
+  const monthParam = params.mes && /^\d{4}-\d{2}$/.test(params.mes) ? params.mes : new Date().toISOString().slice(0, 7);
 
   const [
     kpis,
@@ -62,6 +67,8 @@ export default async function RecrutamentoPage({
     salaDeVagas,
     qualityOfHire,
     vacancyPipelines,
+    monthlyReport,
+    recentActivities,
   ] = await Promise.all([
     getRecrutamentoKpis(filters),
     getFunnelByStage(filters),
@@ -78,6 +85,8 @@ export default async function RecrutamentoPage({
     getSalaDeVagas(),
     getQualityOfHire(),
     getVacancyPipelines(),
+    getMonthlyRecruitmentReport(monthParam),
+    getRecentActivities(15),
   ]);
 
   const funnelData = funnel.map((f) => ({ name: FUNNEL_STAGE_LABEL[f.name as string] ?? f.name, value: f.value }));
@@ -86,6 +95,8 @@ export default async function RecrutamentoPage({
 
   const executive = (
     <div className="flex flex-col gap-4">
+      <MonthlyReportPanel report={monthlyReport} monthParam={monthParam} />
+
       <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
         <KpiCard label="Vagas abertas" value={formatNumber(kpis.openVacancies)} icon={Target} accent="navy" tooltip={"Total de vagas com status Aberta ou Em andamento, contado direto do cadastro de vagas (mesma fonte da aba Operacional)."} />
         <KpiCard label="Vagas críticas" value={formatNumber(kpis.criticalVacancies)} icon={AlertTriangle} accent="danger" tooltip={"Entre as vagas abertas/em andamento, quantas foram marcadas como Crítica no cadastro da vaga."} />
@@ -204,6 +215,21 @@ export default async function RecrutamentoPage({
           ) : (
             <CandidatesTable candidates={candidatesAdmin} vacancies={vacancies.map((v) => ({ id: v.id, title: v.title }))} />
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-1">
+            <CardTitle>Atividades recentes</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Últimos contatos registrados (ligações, entrevistas, e-mails...) — use o botão de telefone na tabela de
+              candidatos para registrar um novo.
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <RecentActivitiesFeed activities={recentActivities} />
         </CardContent>
       </Card>
 
