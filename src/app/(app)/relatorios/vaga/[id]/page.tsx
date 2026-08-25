@@ -1,9 +1,11 @@
 import { notFound, redirect } from "next/navigation";
+import { Download } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getVacancyReportData } from "@/services/vacancy-report";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { FUNNEL_STAGE_LABEL } from "@/lib/labels";
 import { PrintButton } from "@/components/print-button";
+import { CompanyLogo } from "@/components/layout/company-logo";
 
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RH", "GESTOR", "DIRETORIA"];
 
@@ -33,15 +35,26 @@ export default async function VacancyReportPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-3xl bg-white px-8 py-10 text-navy-dark print:px-0 print:py-0">
-      <div className="mb-6 flex items-center justify-between print:hidden">
+      <div className="mb-6 flex items-center justify-between gap-2 print:hidden">
         <p className="text-sm text-muted-foreground">Relatório gerado pela plataforma de People Analytics &amp; RH BI.</p>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/reports/vaga/${vacancy.id}`}
+            className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-navy transition-colors hover:border-gold hover:text-gold-text dark:text-cream"
+          >
+            <Download className="h-4 w-4" /> Baixar PDF
+          </a>
+          <PrintButton />
+        </div>
       </div>
 
       <header className="mb-8 flex items-center justify-between border-b-2 border-navy pb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-navy">Relatório de Vaga — {vacancy.title}</h1>
-          <p className="text-sm text-muted-foreground">Gerado em {formatDate(now)} por {session.user.name ?? session.user.email}</p>
+        <div className="flex items-center gap-3">
+          <CompanyLogo />
+          <div>
+            <h1 className="text-2xl font-bold text-navy">Relatório de Vaga — {vacancy.title}</h1>
+            <p className="text-sm text-muted-foreground">Gerado em {formatDate(now)} por {session.user.name ?? session.user.email}</p>
+          </div>
         </div>
       </header>
 
