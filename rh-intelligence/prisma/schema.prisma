@@ -1,0 +1,744 @@
+// ============================================================================
+// PRISMA SCHEMA — Plataforma de People Analytics & RH BI
+// Modelo dimensional: dimensões compartilhadas + tabelas fato por processo
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// AUTENTICAÇÃO E CONTROLE DE ACESSO (RBAC)
+// ----------------------------------------------------------------------------
+
+enum Role {
+  ADMINISTRADOR
+  RH
+  DIRETORIA
+  GESTOR
+  SUPERVISOR
+  LIDER
+  USUARIO
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          Role      @default(USUARIO)
+  unitId        String?
+  unit          Unit?     @relation(fields: [unitId], references: [id])
+  managerOfId   String?   @unique // vincula este usuário como o "gestor" de dim_gestor, se aplicável
+  managerOf     Manager?  @relation("UserManager", fields: [managerOfId], references: [id])
+  accounts      Account[]
+  sessions      Session[]
+  favorites     Favorite[]
+  comments      Comment[]
+  accessLogs    AccessLog[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model AccessLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  path      String
+  action    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleKey String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, moduleKey])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  moduleKey  String
+  content    String   @db.Text
+  createdAt  DateTime @default(now())
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  moduleKey   String
+  title       String
+  description String   @db.Text
+  severity    Severity @default(ATENCAO)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+
+  @@index([moduleKey, isActive])
+}
+
+model Goal {
+  id         String   @id @default(cuid())
+  moduleKey  String
+  indicator  String
+  targetValue Float
+  comparator  Comparator @default(LTE)
+  periodYear  Int
+  periodMonth Int?
+  createdAt   DateTime @default(now())
+
+  @@unique([moduleKey, indicator, periodYear, periodMonth])
+}
+
+enum Severity {
+  OK
+  ATENCAO
+  CRITICO
+}
+
+enum Comparator {
+  LTE
+  GTE
+  EQ
+}
+
+// ----------------------------------------------------------------------------
+// DIMENSÕES COMPARTILHADAS
+// ----------------------------------------------------------------------------
+
+model Company {
+  id    String @id @default(cuid())
+  name  String @unique
+  units Unit[]
+}
+
+enum UnitType {
+  MATRIZ
+  FILIAL
+}
+
+model Unit {
+  id        String   @id @default(cuid())
+  name      String
+  type      UnitType @default(FILIAL)
+  city      String
+  state     String
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  employees Employee[]
+  users     User[]
+  vacancies Vacancy[]
+
+  @@unique([companyId, name])
+}
+
+model CostCenter {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  area      String
+  targetHeadcount    Int?
+  employees          Employee[] @relation("PrimaryCostCenter")
+  secondaryEmployees Employee[] @relation("SecondaryCostCenter")
+}
+
+model Position {
+  id           String     @id @default(cuid())
+  name         String     @unique
+  level        String?
+  salaryFloor  Float?
+  salaryCeil   Float?
+  employees    Employee[]
+  benchmark    SalaryBenchmark?
+  vacancies    Vacancy[]
+}
+
+model Manager {
+  id           String     @id @default(cuid())
+  name         String
+  area         String
+  level        String?
+  reportsToId  String?
+  reportsTo    Manager?   @relation("ManagerHierarchy", fields: [reportsToId], references: [id])
+  directReports Manager[] @relation("ManagerHierarchy")
+  user         User?      @relation("UserManager")
+  employees    Employee[]
+
+  @@index([reportsToId])
+}
+
+enum ContractType {
+  CLT
+  PJ
+  APRENDIZ
+  ESTAGIO
+  TEMPORARIO
+}
+
+enum Gender {
+  MASCULINO
+  FEMININO
+  NAO_INFORMADO
+}
+
+model Employee {
+  id             String        @id @default(cuid())
+  registration   String        @unique
+  name           String
+  positionId     String?
+  position       Position?     @relation(fields: [positionId], references: [id])
+  costCenterId   String?
+  costCenter     CostCenter?   @relation("PrimaryCostCenter", fields: [costCenterId], references: [id])
+  secondaryCostCenterId String?
+  secondaryCostCenter   CostCenter? @relation("SecondaryCostCenter", fields: [secondaryCostCenterId], references: [id])
+  managerId      String?
+  manager        Manager?      @relation(fields: [managerId], references: [id])
+  unitId         String
+  unit           Unit          @relation(fields: [unitId], references: [id])
+  gender         Gender        @default(NAO_INFORMADO)
+  phone          String?
+  email          String?
+  photoUrl       String?
+  birthDate      DateTime?
+  admissionDate  DateTime
+  terminationDate DateTime?
+  contractType   ContractType  @default(CLT)
+  contractEndDate DateTime?
+  isTrustPosition Boolean       @default(false)
+  isExemptFromCatraca Boolean   @default(false)
+  isPCD          Boolean       @default(false)
+  isActive       Boolean       @default(true)
+
+  headcountDaily     HeadcountDaily[]
+  movements          Movement[]
+  timeEntries        TimeEntry[]
+  absences           Absence[]
+  turnstileEvents    TurnstileEvent[]
+  turnstileDailySummaries TurnstileDailySummary[]
+  inssLeaves         InssLeave[]
+  attendanceRecords  AttendanceRecord[]
+  probationTracking  ProbationTracking?
+  trainings          TrainingRecord[]
+  reviews            PerformanceReview[]
+  safetyIncidents    SafetyIncident[]
+  payrolls           PayrollEntry[]
+  payrollLineItems   PayrollLineItem[]
+  extraBenefits      ExtraBenefit[]
+  complianceEvents   ComplianceEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([unitId, isActive])
+  @@index([managerId])
+  @@index([costCenterId])
+}
+
+model Reason {
+  id       String @id @default(cuid())
+  category String // TURNOVER | AFASTAMENTO | ADVERTENCIA
+  label    String
+
+  movements        Movement[]
+  absences         Absence[]
+  complianceEvents ComplianceEvent[]
+
+  @@unique([category, label])
+}
+
+// ----------------------------------------------------------------------------
+// TABELAS FATO
+// ----------------------------------------------------------------------------
+
+model HeadcountDaily {
+  id         String   @id @default(cuid())
+  date       DateTime
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  status     String   // ATIVO | AFASTADO | FERIAS
+
+  @@unique([date, employeeId])
+  @@index([date])
+}
+
+enum MovementType {
+  ADMISSAO
+  DESLIGAMENTO
+  PROMOCAO
+  TRANSFERENCIA
+}
+
+model Movement {
+  id          String       @id @default(cuid())
+  date        DateTime
+  employeeId  String
+  employee    Employee     @relation(fields: [employeeId], references: [id])
+  type        MovementType
+  reasonId    String?
+  reason      Reason?      @relation(fields: [reasonId], references: [id])
+  voluntary   Boolean?
+  costValue   Float?
+  notes       String?      @db.Text
+
+  @@index([date, type])
+  @@index([employeeId])
+}
+
+model TimeEntry {
+  id             String   @id @default(cuid())
+  date           DateTime
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  scheduledHours Float
+  workedHours    Float
+  overtimeHours  Float    @default(0)
+  overtimeCost   Float    @default(0)
+  bankHoursDelta Float    @default(0)
+
+  @@unique([date, employeeId])
+  @@index([date])
+  @@index([employeeId, date])
+}
+
+// Afastamento pelo INSS (licença médica de longa duração) — diferente de
+// Absence (que é falta pontual, dia a dia). Aqui é um período contínuo, com
+enum ProbationStatus {
+  EM_AVALIACAO
+  APROVADO
+  REPROVADO
+}
+
+// Acompanhamento do período de experiência (30 + 60 dias). As datas dos
+// checkpoints são calculadas a partir de Employee.admissionDate (dado real,
+// não duplicado aqui) — só a decisão de cada avaliação e as observações
+// ficam guardadas nesta tabela, uma linha por colaborador.
+model ProbationTracking {
+  id             String          @id @default(cuid())
+  employeeId     String          @unique
+  employee       Employee        @relation(fields: [employeeId], references: [id])
+  avaliador      String?
+  status30       ProbationStatus @default(EM_AVALIACAO)
+  status60       ProbationStatus @default(EM_AVALIACAO)
+  foraDoPrazo30  Boolean         @default(false)
+  foraDoPrazo60  Boolean         @default(false)
+  notes          String?         @db.Text
+  updatedAt      DateTime        @updatedAt
+}
+
+enum AttendanceStatus {
+  PRESENTE
+  FALTOU
+  FERIAS
+  FOLGA
+  FERIADO
+  SEM_JORNADA
+  DISPENSADO
+  LICENCA
+  ATESTADO
+  DECLARACAO
+  ABONO
+  CURSO_APRENDIZAGEM
+  CARGO_CONFIANCA
+  OUTRO
+}
+
+// Um registro por colaborador por dia, vindo da importação do relatório de
+// ponto. "rawRotina" guarda o texto original da coluna "Rotina Esperada" pra
+// você conferir depois, caso o sistema tenha classificado como OUTRO.
+model AttendanceRecord {
+  id           String           @id @default(cuid())
+  employeeId   String
+  employee     Employee         @relation(fields: [employeeId], references: [id])
+  date         DateTime
+  status       AttendanceStatus
+  rawRotina    String?
+  setorNoDia   String?
+  atrasoMinutos Int?
+  createdAt    DateTime         @default(now())
+
+  @@unique([employeeId, date])
+  @@index([date])
+}
+
+// CID, data de início, retorno (quando houver) e observações que vão sendo
+// atualizadas ao longo do afastamento.
+model InssLeave {
+  id                 String    @id @default(cuid())
+  employeeId         String
+  employee           Employee  @relation(fields: [employeeId], references: [id])
+  cid                String
+  startDate          DateTime
+  expectedReturnDate DateTime?
+  actualReturnDate   DateTime?
+  notes              String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([employeeId])
+}
+
+model Absence {
+  id           String   @id @default(cuid())
+  date         DateTime
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  reasonId     String?
+  reason       Reason?  @relation(fields: [reasonId], references: [id])
+  cid          String?
+  hoursLost    Float
+  hasCertificate Boolean @default(false)
+  absenceType    String?   // ALGUMAS_HORAS | DIA_PARCIAL | UM_DIA_OU_MAIS | INDETERMINADO
+  returnDate     DateTime?
+  attachmentUrl  String?   @db.Text
+  attachmentName String?
+
+  @@index([date])
+  @@index([employeeId, date])
+}
+model TurnstileEvent {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  timestamp   DateTime
+  direction   String   // ENTRADA | SAIDA
+  location    String?
+
+  @@index([employeeId, timestamp])
+}
+
+// Resumo diário de tempo fora do posto por colaborador, para importar
+// históricos que já vêm agregados por dia (ex.: relatórios anteriores),
+// em vez de eventos brutos de entrada/saída. employeeId fica nulo quando
+// o nome do relatório não bateu com nenhum colaborador cadastrado — o
+// registro ainda fica salvo, só não aparece nos indicadores por colaborador.
+model TurnstileDailySummary {
+  id           String    @id @default(cuid())
+  date         DateTime
+  employeeName String
+  employeeId   String?
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  minutesAway  Int
+  accessCount  Int
+
+  @@index([date])
+  @@index([employeeId])
+}
+
+enum FunnelStage {
+  TRIAGEM
+  CADASTRO
+  ANALISE_CPF
+  ENTREVISTA_RH
+  ENTREVISTA_GESTOR
+  TESTE
+  PROPOSTA
+  ADMISSAO
+  CONTRATADO
+  REPROVADO
+}
+
+model Candidate {
+  id            String     @id @default(cuid())
+  name          String
+  source        String
+  vacancy       String
+  vacancyId     String?
+  vacancyRef    Vacancy?   @relation(fields: [vacancyId], references: [id])
+  openedAt      DateTime
+  hiredAt       DateTime?
+  stage         FunnelStage @default(TRIAGEM)
+  isCritical    Boolean    @default(false)
+  costToHire    Float?
+  qualityScore  Float?
+  rejectionReason String?  @db.Text
+  stageHistory  CandidateStageHistory[]
+  activities    CandidateActivity[]
+
+  @@index([vacancy])
+  @@index([stage])
+}
+
+model CandidateStageHistory {
+  id          String      @id @default(cuid())
+  candidateId String
+  candidate   Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  stage       FunnelStage
+  enteredAt   DateTime    @default(now())
+  exitedAt    DateTime?
+
+  @@index([candidateId])
+  @@index([stage])
+}
+
+enum ActivityType {
+  TRIAGEM_TELEFONICA
+  ENTREVISTA_RH
+  ENTREVISTA_GESTOR
+  TESTE_APLICADO
+  PROPOSTA_ENVIADA
+  EMAIL
+  MENSAGEM
+  OUTRO
+}
+
+// Registro manual de cada contato/interação com um candidato (ligação,
+// entrevista, e-mail, etc.), com data e observação — independente da etapa
+// do funil em que o candidato está. Existe separado de CandidateStageHistory
+// porque uma pessoa pode receber vários contatos dentro da MESMA etapa (ex.:
+// duas ligações de triagem antes de avançar), e cada um deve contar como um
+// evento próprio nos indicadores de atividade do recrutador (quantas
+// entrevistas foram feitas no mês, com quantas pessoas houve contato, etc.).
+model CandidateActivity {
+  id          String       @id @default(cuid())
+  candidateId String
+  candidate   Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  type        ActivityType
+  occurredAt  DateTime     @default(now())
+  notes       String?      @db.Text
+  createdAt   DateTime     @default(now())
+
+  @@index([candidateId])
+  @@index([type, occurredAt])
+}
+
+enum VacancyStatus {
+  ABERTA
+  EM_ANDAMENTO
+  PREENCHIDA
+  CANCELADA
+  EM_PAUSA
+}
+
+// Cadastro de vagas com status e meta de SLA (dias). Independente da tabela
+// Candidate (que já existe e alimenta os indicadores de funil/tempo de
+// contratação) — aqui é a gestão da vaga em si, não do candidato.
+model Vacancy {
+  id          String        @id @default(cuid())
+  title       String
+  positionId  String?
+  position    Position?     @relation(fields: [positionId], references: [id])
+  unitId      String?
+  unit        Unit?         @relation(fields: [unitId], references: [id])
+  status      VacancyStatus @default(ABERTA)
+  isCritical  Boolean       @default(false)
+  targetDays  Int           @default(30)
+  openedAt    DateTime      @default(now())
+  closedAt    DateTime?
+  notes       String?       @db.Text
+  hiredCandidateName String? @db.Text
+  negotiationNotes   String? @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  candidates  Candidate[]
+
+  @@index([status])
+}
+
+model TrainingRecord {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  title        String
+  hours        Float
+  cost         Float    @default(0)
+  isMandatory  Boolean  @default(false)
+  completedAt  DateTime?
+  expiresAt    DateTime?
+  effectivenessScore Float?
+
+  @@index([employeeId])
+}
+
+model PerformanceReview {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  cycle       String
+  score       Float
+  boxLabel    String?  // matriz 9-box
+  pdiStatus   String?  // PENDENTE | EM_ANDAMENTO | CONCLUIDO
+  reviewedAt  DateTime
+
+  @@index([employeeId, cycle])
+}
+
+model ClimateSurveyResponse {
+  id         String   @id @default(cuid())
+  cycle      String
+  dimension  String
+  question   String
+  score      Int
+  area       String?
+  unitId     String?
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([cycle, dimension])
+}
+
+// Metadados por ciclo de pesquisa (não por resposta): quantas pessoas foram
+// convidadas e quantas de fato responderam. ClimateSurveyResponse guarda uma
+// linha por PERGUNTA respondida (não por pessoa), então esse é o único lugar
+// onde dá pra saber "quantas pessoas" participaram de cada ciclo.
+model SurveyCycleMeta {
+  id                String @id @default(cuid())
+  cycle             String @unique
+  totalInvited      Int
+  totalRespondents  Int
+}
+
+model SafetyIncident {
+  id          String   @id @default(cuid())
+  employeeId  String?
+  employee    Employee? @relation(fields: [employeeId], references: [id])
+  date        DateTime
+  type        String   // ACIDENTE | NEAR_MISS | INCIDENTE_DESVIO
+  hasCAT      Boolean  @default(false)
+  daysLost    Int      @default(0)
+  // Data em que a pessoa voltou ao trabalho — usada pra calcular o fim da estabilidade acidentária (12 meses a partir do retorno). Se não informada, o sistema estima como data + dias afastado.
+  returnDate  DateTime?
+  description String?  @db.Text
+
+  @@index([date])
+}
+
+model PayrollEntry {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  competence    DateTime
+  baseSalary    Float
+  benefitsCost  Float    @default(0)
+  chargesCost   Float    @default(0)
+  /// FGTS real do mês, quando lido diretamente do PDF da folha (fica null quando o lançamento veio de outra fonte, ex. planilha, sem essa informação).
+  fgtsValue     Float?
+  totalCost     Float
+
+  @@unique([employeeId, competence])
+  @@index([competence])
+}
+
+// Detalhamento linha a linha da folha (todos os proventos e descontos de cada
+// colaborador, verba por verba) — usado pelo relatório detalhado de custos
+// (periculosidade, insalubridade, encargos, descontos, etc). Alimentado pela
+// importação de PDF da folha; re-importar o mesmo mês substitui as linhas
+// antigas daquele colaborador.
+model PayrollLineItem {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  competence DateTime
+  tipo       String // "PROVENTO" ou "DESCONTO"
+  verba      String
+  descricao  String
+  valor      Float
+
+  @@index([employeeId, competence])
+  @@index([competence])
+}
+
+// Benefícios pagos por fora da folha de pagamento (não aparecem no PDF da
+// folha) — ex.: auxílio combustível, ajuda de custo, cesta básica, vale
+// alimentação, premiação comercial/frota, salário 2 (gratificação), vale
+// transporte. Importados manualmente mês a mês via planilha; somam-se ao
+// custo total do colaborador junto com o que vem da folha.
+model ExtraBenefit {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  competence DateTime
+  categoria  String
+  valor      Float
+
+  @@unique([employeeId, competence, categoria])
+  @@index([employeeId, competence])
+  @@index([competence])
+}
+
+model ComplianceEvent {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  date        DateTime
+  type        String   // ADVERTENCIA | SUSPENSAO | PROCESSO
+  reasonId    String?
+  reason      Reason?  @relation(fields: [reasonId], references: [id])
+  estimatedCost Float?
+  attachmentUrl  String? @db.Text
+  attachmentName String?
+
+  @@index([date, type])
+}
+
+model RevenueEntry {
+  id         String   @id @default(cuid())
+  competence DateTime @unique
+  amount     Float
+}
+
+// Referência de mercado salarial por cargo (benchmarking). NÃO é uma integração
+// ao vivo — os valores são inseridos/atualizados manualmente a partir de pesquisas
+// de mercado (ex.: Glassdoor, Indeed, Catho, Mercer), sempre com fonte e data
+// de referência visíveis para o usuário.
+model SalaryBenchmark {
+  id             String   @id @default(cuid())
+  positionId     String   @unique
+  position       Position @relation(fields: [positionId], references: [id])
+  region         String   @default("Fortaleza, CE")
+  industry       String   @default("Indústria de Alimentos")
+  marketMinSalary Float
+  marketAvgSalary Float
+  marketMaxSalary Float
+  source         String
+  referenceDate  DateTime
+  updatedAt      DateTime @updatedAt
+}
