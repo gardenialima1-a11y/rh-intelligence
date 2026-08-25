@@ -2,9 +2,8 @@
 
 import {
   FileSearch,
-  ClipboardList,
-  FileCheck2,
   Users,
+  UserCog,
   PenLine,
   FileSignature,
   BadgeCheck,
@@ -14,22 +13,20 @@ type StageDatum = { stage: string; avgDays: number; count: number };
 
 const STAGE_META: Record<string, { label: string; icon: typeof FileSearch }> = {
   TRIAGEM: { label: "Triagem", icon: FileSearch },
-  CADASTRO: { label: "Cadastro", icon: ClipboardList },
-  ANALISE_CPF: { label: "Análise CPF", icon: FileCheck2 },
-  ENTREVISTA_RH: { label: "Entrevista", icon: Users },
+  ENTREVISTA_RH: { label: "Entrevista RH", icon: Users },
+  ENTREVISTA_GESTOR: { label: "Entrevista Gestor", icon: UserCog },
   TESTE: { label: "Testes", icon: PenLine },
   PROPOSTA: { label: "Proposta", icon: FileSignature },
-  ADMISSAO: { label: "Admissão", icon: BadgeCheck },
+  CONTRATADO: { label: "Contratado", icon: BadgeCheck },
 };
 
 const ORDER = [
   "TRIAGEM",
-  "CADASTRO",
-  "ANALISE_CPF",
   "ENTREVISTA_RH",
+  "ENTREVISTA_GESTOR",
   "TESTE",
   "PROPOSTA",
-  "ADMISSAO",
+  "CONTRATADO",
 ];
 
 export function RecruitmentStageTimeline({ data }: { data: StageDatum[] }) {

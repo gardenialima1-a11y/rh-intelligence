@@ -26,7 +26,14 @@ async function getHistoricalAvgDaysToFill(positionId: string | null): Promise<nu
 export async function getVacancyReportData(vacancyId: string) {
   const vacancy = await prisma.vacancy.findUnique({
     where: { id: vacancyId },
-    include: { position: true, unit: true, candidates: { orderBy: { openedAt: "desc" } } },
+    include: {
+      position: true,
+      unit: true,
+      candidates: {
+        orderBy: { openedAt: "desc" },
+        include: { stageHistory: { orderBy: { enteredAt: "asc" } } },
+      },
+    },
   });
   if (!vacancy) return null;
 

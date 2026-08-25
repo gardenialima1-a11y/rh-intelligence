@@ -1,5 +1,5 @@
 import { resolveScopedFilters } from "@/lib/scope";
-import { Target, Timer, Wallet, AlertTriangle, Users } from "lucide-react";
+import { Target, Timer, Wallet, AlertTriangle, Users, FileDown } from "lucide-react";
 import { ModuleHeader } from "@/components/dashboard/module-header";
 import { ModuleViewTabs } from "@/components/dashboard/module-view-tabs";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -7,6 +7,7 @@ import { RankingBarChart } from "@/components/dashboard/ranking-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { FUNNEL_STAGE_LABEL } from "@/lib/labels";
 import { VacancyFormDialog } from "@/components/admin/vacancy-form-dialog";
@@ -30,9 +31,12 @@ import {
   getStageTimeline,
   getSalaDeVagas,
   getQualityOfHire,
+  getVacancyPipelines,
 } from "@/services/recrutamento-timeline";
 import { SalaDeVagas } from "@/components/dashboard/sala-de-vagas";
 import { RecruitmentStageTimeline } from "@/components/dashboard/recruitment-stage-timeline";
+import { VacancyPipelineBoard } from "@/components/dashboard/vacancy-pipeline-board";
+import { LiveRefresher } from "@/components/dashboard/live-refresher";
 
 export default async function RecrutamentoPage({
   searchParams,
@@ -57,6 +61,7 @@ export default async function RecrutamentoPage({
     stageTimeline,
     salaDeVagas,
     qualityOfHire,
+    vacancyPipelines,
   ] = await Promise.all([
     getRecrutamentoKpis(filters),
     getFunnelByStage(filters),
@@ -72,6 +77,7 @@ export default async function RecrutamentoPage({
     getStageTimeline(),
     getSalaDeVagas(),
     getQualityOfHire(),
+    getVacancyPipelines(),
   ]);
 
   const funnelData = funnel.map((f) => ({ name: FUNNEL_STAGE_LABEL[f.name as string] ?? f.name, value: f.value }));
@@ -89,13 +95,30 @@ export default async function RecrutamentoPage({
         <KpiCard label="Qualidade da contratação" value={qualityOfHire !== null ? `${qualityOfHire}%` : "—"} icon={Users} accent="success" tooltip={"Média das notas de avaliação (0-100) preenchidas manualmente 90 dias após a contratação, no campo Nota de qualidade do candidato."} />
       </div>
 
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <div className="flex flex-col gap-1">
+            <CardTitle>Pipeline de vagas — status ao vivo</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Em qual etapa cada candidato está agora, vaga por vaga: Triagem → Entrevista RH → Entrevista Gestor →
+              Teste → Proposta → Contratado.
+            </p>
+          </div>
+          <LiveRefresher intervalSeconds={25} />
+        </CardHeader>
+        <CardContent>
+          <VacancyPipelineBoard vagas={vacancyPipelines} />
+        </CardContent>
+      </Card>
+
       <SalaDeVagas vagas={salaDeVagas} />
 
       <Card>
         <CardHeader>
-          <CardTitle>Linha do tempo do processo seletivo</CardTitle>
+          <CardTitle>Tempo médio por etapa (histórico)</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Tempo médio gasto em cada etapa, do currículo até a admissão.
+            Tempo médio gasto em cada etapa, do currículo até a contratação — considerando todos os candidatos já
+            cadastrados.
           </p>
         </CardHeader>
         <CardContent>
@@ -145,7 +168,14 @@ export default async function RecrutamentoPage({
               {openVacanciesManaged} vaga(s) em aberto/andamento cadastradas nesta tela.
             </p>
           </div>
-          <VacancyFormDialog positions={positions} units={units} mode="create" />
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/reports/recrutamento" title="Baixar PDF com o status atual de todas as vagas">
+                <FileDown className="h-3.5 w-3.5" /> Relatório PDF (todas as vagas)
+              </a>
+            </Button>
+            <VacancyFormDialog positions={positions} units={units} mode="create" />
+          </div>
         </CardHeader>
         <CardContent>
           {vacancies.length === 0 ? (

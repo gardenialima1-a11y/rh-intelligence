@@ -1,4 +1,4 @@
-import { FileBarChart } from "lucide-react";
+import { FileBarChart, FileDown } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
@@ -40,9 +40,14 @@ export function ClosedVacanciesTable({ rows }: { rows: ClosedVacancyRow[] }) {
               {v.negotiationNotes ?? "—"}
             </TableCell>
             <TableCell>
-              <a href={"/relatorios/vaga/" + v.id} target="_blank" rel="noopener noreferrer" title="Emitir relatorio da vaga" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-gold hover:text-gold-text">
-                <FileBarChart className="h-3.5 w-3.5" />
-              </a>
+              <div className="flex gap-2">
+                <a href={"/relatorios/vaga/" + v.id} target="_blank" rel="noopener noreferrer" title="Ver relatório da vaga" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-gold hover:text-gold-text">
+                  <FileBarChart className="h-3.5 w-3.5" />
+                </a>
+                <a href={"/api/reports/vaga/" + v.id} title="Baixar PDF da vaga" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-gold hover:text-gold-text">
+                  <FileDown className="h-3.5 w-3.5" />
+                </a>
+              </div>
             </TableCell>
           </TableRow>
         ))}
