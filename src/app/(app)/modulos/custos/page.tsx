@@ -1,5 +1,5 @@
 import { resolveScopedFilters } from "@/lib/scope";
-import { Wallet, TrendingUp, TrendingDown, Percent, Users, Scale, ArrowDownRight, UserPlus, UserMinus, ArrowUpCircle, Clock, Package, Gift, Sparkles, Target } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, Percent, Users, Scale, ArrowDownRight, UserPlus, UserMinus, ArrowUpCircle, Clock, Package, Gift, Sparkles, Target, Stethoscope, ShieldCheck } from "lucide-react";
 import { ModuleHeader } from "@/components/dashboard/module-header";
 import { ModuleViewTabs } from "@/components/dashboard/module-view-tabs";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -22,6 +22,7 @@ import { PayrollImportDialog } from "@/components/admin/payroll-import-dialog";
 import { PayrollPdfImportDialog } from "@/components/admin/payroll-pdf-import-dialog";
 import { ExtraBenefitsImportDialog } from "@/components/admin/extra-benefits-import-dialog";
 import { prisma } from "@/lib/prisma";
+import { getCustoRealAtestados, getFaltasInjustificadasCruzadas } from "@/services/absenteismo-custo-real";
 
 export default async function CustosPage({
   searchParams,
@@ -65,6 +66,30 @@ export default async function CustosPage({
     prisma.costCenter.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getAvailableDetailCompetences(),
   ]);
+
+  // Cruzamento com o módulo de Absenteísmo: quanto os atestados médicos custaram de
+  // verdade (salário real da folha) e quais faltas injustificadas realmente tiveram
+  // desconto correspondente naquele mês (as demais podem ter sido acordadas com o
+  // gestor, e por isso não entram como custo/penalização).
+  const [custoAtestadoRows, faltaCruzadaRows] = await Promise.all([
+    getCustoRealAtestados(filters),
+    getFaltasInjustificadasCruzadas(filters),
+  ]);
+  const custoAtestadoTotal = custoAtestadoRows.reduce((s, r) => s + r.cost, 0);
+  const faltaCruzadaTotais = faltaCruzadaRows.reduce(
+    (acc, r) => {
+      if (r.status === "CONFIRMADA") {
+        acc.confirmadas += r.ocorrencias;
+        acc.custoConfirmado += r.valorDescontado ?? 0;
+      } else if (r.status === "ABONADA") {
+        acc.abonadas += r.ocorrencias;
+      } else {
+        acc.indeterminadas += r.ocorrencias;
+      }
+      return acc;
+    },
+    { confirmadas: 0, abonadas: 0, indeterminadas: 0, custoConfirmado: 0 }
+  );
 
   const insightsCompetences = await getAvailableInsightsCompetences();
 
@@ -296,6 +321,40 @@ export default async function CustosPage({
               )}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-danger/30" id="custo-afastamentos">
+        <CardHeader>
+          <CardTitle>Custo de afastamentos (cruzado com Absenteísmo)</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <KpiCard
+              label="Custo real de atestados"
+              value={formatCurrency(custoAtestadoTotal)}
+              icon={Stethoscope}
+              accent="danger"
+              tooltip="Quanto a empresa pagou de salário durante os dias de atestado médico no período, usando o salário real da folha do mês (quando disponível) em vez de uma estimativa por faixa de cargo. Ver detalhamento por colaborador e por setor no módulo Absenteísmo."
+            />
+            <KpiCard
+              label="Faltas injustificadas confirmadas"
+              value={formatCurrency(faltaCruzadaTotais.custoConfirmado)}
+              icon={ShieldCheck}
+              accent="danger"
+              tooltip={`${formatCurrency(faltaCruzadaTotais.custoConfirmado)} em desconto na folha, referentes a ${faltaCruzadaTotais.confirmadas} falta(s) com desconto confirmado. Não inclui as ${faltaCruzadaTotais.abonadas} falta(s) sem desconto (provavelmente acordadas com o gestor) nem as ${faltaCruzadaTotais.indeterminadas} sem folha detalhada pra confirmar.`}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Esses valores cruzam o relatório de ponto com a folha de pagamento importada: uma falta só conta como
+            injustificada de verdade quando existe desconto correspondente na folha daquele mês — sem desconto, pode
+            ter sido negociada com o gestor e não entra aqui. Veja o detalhamento por colaborador, por setor e por mês
+            na aba Operacional do módulo{" "}
+            <a href="/modulos/absenteismo#custo-atestados" className="font-medium text-navy underline dark:text-cream">
+              Absenteísmo
+            </a>
+            .
+          </p>
         </CardContent>
       </Card>
 
