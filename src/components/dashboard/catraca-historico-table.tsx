@@ -85,12 +85,16 @@ export function CatracaHistoricoTable({ data }: { data: HistoricoResult }) {
   const columns = buildDisplayColumns(data.dates);
   const hasGrouped = columns.some((c) => c.isGrouped);
 
+  // Coluna "Colaborador" fixa (sticky) na rolagem horizontal, e altura
+  // limitada com rolagem própria: assim a barra de rolagem horizontal fica
+  // sempre visível logo abaixo das linhas, em vez de só aparecer lá embaixo
+  // no final da página quando a tabela tem muitas linhas.
   return (
     <div className="flex flex-col gap-2">
-      <Table>
+      <Table containerClassName="max-h-[480px]">
         <TableHeader>
           <TableRow>
-            <TableHead>Colaborador</TableHead>
+            <TableHead className="sticky left-0 z-20 bg-muted">Colaborador</TableHead>
             {columns.map((c) => (
               <TableHead key={c.key} className={c.isGrouped ? "capitalize" : ""}>
                 {c.label}
@@ -103,7 +107,7 @@ export function CatracaHistoricoTable({ data }: { data: HistoricoResult }) {
         <TableBody>
           {data.rows.map((row) => (
             <TableRow key={row.employeeName}>
-              <TableCell className="whitespace-normal">
+              <TableCell className="sticky left-0 z-10 whitespace-normal bg-card">
                 {row.employeeName}
                 {!row.employeeId && (
                   <span className="ml-1.5 text-[10px] text-muted-foreground">(não cadastrado)</span>
