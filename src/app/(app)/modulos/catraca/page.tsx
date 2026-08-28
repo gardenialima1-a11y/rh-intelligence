@@ -4,6 +4,7 @@ import { ModuleHeader } from "@/components/dashboard/module-header";
 import { ModuleViewTabs } from "@/components/dashboard/module-view-tabs";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RankingBarChart } from "@/components/dashboard/ranking-bar-chart";
+import { RankingPieChart } from "@/components/dashboard/ranking-pie-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,7 @@ export default async function CatracaPage({
           <CardTitle>Tempo fora do posto por setor secundário (minutos)</CardTitle>
         </CardHeader>
         <CardContent>
-          {bySecondarySector.length > 0 ? <RankingBarChart data={bySecondarySector} color="#B8935A" /> : <p className="text-sm text-muted-foreground">Sem ocorrências no período.</p>}
+          {bySecondarySector.length > 0 ? <RankingPieChart data={bySecondarySector} /> : <p className="text-sm text-muted-foreground">Sem ocorrências no período.</p>}
         </CardContent>
       </Card>
     </div>
