@@ -1,5 +1,5 @@
 import { resolveScopedFilters } from "@/lib/scope";
-import { ScanFace, Clock3, AlertOctagon, ListChecks, FileDown } from "lucide-react";
+import { ScanFace, Clock3, AlertOctagon, ListChecks } from "lucide-react";
 import { ModuleHeader } from "@/components/dashboard/module-header";
 import { ModuleViewTabs } from "@/components/dashboard/module-view-tabs";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -8,12 +8,12 @@ import { RankingPieChart } from "@/components/dashboard/ranking-pie-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
 import { TurnstileImportDialog } from "@/components/admin/turnstile-import-dialog";
 import { CatracaDayDetailDialog } from "@/components/admin/catraca-day-detail-dialog";
 import { CatracaHistoricoTable } from "@/components/dashboard/catraca-historico-table";
 import { AttentionPointsCard } from "@/components/dashboard/attention-points-card";
+import { CatracaReportExportDialog } from "@/components/dashboard/catraca-report-export-dialog";
 import { buildCatracaAttentionPoints } from "@/lib/analytics/catraca-insight";
 import { getCatracaKpis, getCatracaRanking, getCatracaByUnit, getCatracaBySecondarySector, getCatracaTable } from "@/services/catraca";
 import { getCatracaHistorico } from "@/services/catraca-historico";
@@ -25,11 +25,6 @@ export default async function CatracaPage({
 }) {
   const params = await searchParams;
   const filters = await resolveScopedFilters(params);
-
-  const reportQuery = new URLSearchParams();
-  if (params.unidade) reportQuery.set("unidade", params.unidade);
-  if (params.periodo) reportQuery.set("periodo", params.periodo);
-  const reportHref = `/api/reports/catraca${reportQuery.size > 0 ? `?${reportQuery.toString()}` : ""}`;
 
   const [kpis, ranking, byUnit, bySecondarySector, table, historico] = await Promise.all([
     getCatracaKpis(filters),
@@ -151,13 +146,7 @@ export default async function CatracaPage({
         title="Catraca e Permanência Fora do Posto"
         description="Monitoramento do tempo fora do posto de trabalho a partir dos dados de catraca."
         moduleKey="catraca"
-        actions={
-          <Button asChild variant="outline" size="sm">
-            <a href={reportHref} title="Baixar relatório gerencial em PDF">
-              <FileDown className="h-3.5 w-3.5" /> Exportar relatório (PDF)
-            </a>
-          </Button>
-        }
+        actions={<CatracaReportExportDialog unitId={filters.unitId} />}
       />
       <ModuleViewTabs executive={executive} managerial={managerial} operational={operational} analytical={analytical} />
     </div>

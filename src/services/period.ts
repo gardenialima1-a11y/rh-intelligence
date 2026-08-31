@@ -17,7 +17,32 @@ const EARLIEST_DATA_YEAR = 2000;
 export const OVERTIME_TRACKING_START_PERIOD = "desde-jan-2026";
 const OVERTIME_TRACKING_START_DATE = new Date(2026, 0, 1, 0, 0, 0, 0);
 
+/**
+ * Período customizado escolhido manualmente pelo usuário (ex.: ao exportar um
+ * relatório), codificado como "custom:AAAA-MM-DD:AAAA-MM-DD". Mantém o
+ * `resolvePeriod` recebendo sempre uma única string, sem precisar alterar a
+ * assinatura de `ExecutiveFilters` nem dos ~50 pontos que já chamam essa
+ * função só com `filters.period`.
+ */
+const CUSTOM_RANGE_PATTERN = /^custom:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/;
+
 export function resolvePeriod(period: string | undefined): DateRange {
+  if (period) {
+    const customMatch = period.match(CUSTOM_RANGE_PATTERN);
+    if (customMatch) {
+      const [, startStr, endStr] = customMatch;
+      const [sy, sm, sd] = startStr.split("-").map(Number);
+      const [ey, em, ed] = endStr.split("-").map(Number);
+      const customStart = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+      const customEnd = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+      const months = Math.max(
+        1,
+        (customEnd.getFullYear() - customStart.getFullYear()) * 12 + (customEnd.getMonth() - customStart.getMonth()) + 1
+      );
+      return { start: customStart, end: customEnd, months };
+    }
+  }
+
   const end = new Date();
   end.setHours(23, 59, 59, 999);
   const start = new Date(end);
