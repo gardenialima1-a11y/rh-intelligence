@@ -173,3 +173,60 @@ export function pairTurnstileGaps(events: TurnstileEventLike[]): Map<string, { m
 
   return totals;
 }
+
+export interface CountedPairDetail {
+  employeeId: string;
+  /** Dia (meia-noite) a que o par pertence — mesmo dia da "Entrada" que abriu o par. */
+  date: Date;
+  /** Horário em que o colaborador saiu do posto (início da pausa contada). */
+  entrada: Date;
+  /** Horário em que o colaborador voltou ao posto. */
+  saida: Date;
+  minutesOut: number;
+}
+
+/**
+ * Mesma regra de pareamento de pairTurnstileGaps/pairTurnstileGapsByDay, mas
+ * devolve uma linha por ocorrência efetivamente contada (par Entrada→Saída
+ * válido, fora da janela de almoço, acima do limiar de 70min) em vez de só o
+ * total agregado — usado para localizar EM QUE HORÁRIO do dia e EM QUE MÊS
+ * essas ocorrências se concentram (ex.: relatório gerencial da Catraca).
+ */
+export function pairTurnstileGapsDetailed(events: TurnstileEventLike[]): CountedPairDetail[] {
+  const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+  const byEmployeeDay = new Map<string, TurnstileEventLike[]>();
+  for (const ev of events) {
+    const key = `${ev.employeeId}__${dayKey(ev.timestamp)}`;
+    const list = byEmployeeDay.get(key) ?? [];
+    list.push(ev);
+    byEmployeeDay.set(key, list);
+  }
+
+  const details: CountedPairDetail[] = [];
+  for (const [key, list] of byEmployeeDay) {
+    const employeeId = key.split("__")[0];
+    const sorted = [...list].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i].direction === "ENTRADA" && sorted[i + 1].direction === "SAIDA") {
+        const entrada = sorted[i].timestamp;
+        const saida = sorted[i + 1].timestamp;
+        if (isReturnDuringLunch(saida)) continue;
+
+        const diffMin = (saida.getTime() - entrada.getTime()) / 60000;
+        if (diffMin > 70) {
+          details.push({
+            employeeId,
+            date: new Date(entrada.getFullYear(), entrada.getMonth(), entrada.getDate()),
+            entrada,
+            saida,
+            minutesOut: Math.round(diffMin - 60),
+          });
+        }
+      }
+    }
+  }
+
+  return details;
+}
