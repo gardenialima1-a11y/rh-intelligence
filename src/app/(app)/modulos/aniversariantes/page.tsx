@@ -21,8 +21,8 @@ function AniversarianteTable({ rows, suffix }: { rows: AniversarianteRow[]; suff
           <TableHead>Dia</TableHead>
           <TableHead>Nome</TableHead>
           <TableHead>Cargo</TableHead>
-          <TableHead>Setor</TableHead>
-          <TableHead>Unidade</TableHead>
+          <TableHead>Setor principal</TableHead>
+          <TableHead>Setor secundário</TableHead>
           <TableHead>{suffix}</TableHead>
         </TableRow>
       </TableHeader>
@@ -35,7 +35,7 @@ function AniversarianteTable({ rows, suffix }: { rows: AniversarianteRow[]; suff
             <TableCell>{r.name}</TableCell>
             <TableCell>{r.position ?? "—"}</TableCell>
             <TableCell>{r.costCenter ?? "—"}</TableCell>
-            <TableCell>{r.unit}</TableCell>
+            <TableCell>{r.secondaryCostCenter ?? "—"}</TableCell>
             <TableCell>{r.years} {suffix.toLowerCase()}</TableCell>
           </TableRow>
         ))}
@@ -98,7 +98,7 @@ export default async function AniversariantesPage({
             matricula: r.registration,
             cargo: r.position ?? "",
             setor: r.costCenter ?? "",
-            unidade: r.unit,
+            setor_secundario: r.secondaryCostCenter ?? "",
             idade: r.years,
           }))}
           columns={[
@@ -106,8 +106,8 @@ export default async function AniversariantesPage({
             { key: "nome", label: "Nome" },
             { key: "matricula", label: "Matrícula" },
             { key: "cargo", label: "Cargo" },
-            { key: "setor", label: "Setor" },
-            { key: "unidade", label: "Unidade" },
+            { key: "setor", label: "Setor principal" },
+            { key: "setor_secundario", label: "Setor secundário" },
             { key: "idade", label: "Idade" },
           ]}
         />
@@ -126,7 +126,7 @@ export default async function AniversariantesPage({
             matricula: r.registration,
             cargo: r.position ?? "",
             setor: r.costCenter ?? "",
-            unidade: r.unit,
+            setor_secundario: r.secondaryCostCenter ?? "",
             anos_de_casa: r.years,
           }))}
           columns={[
@@ -134,8 +134,8 @@ export default async function AniversariantesPage({
             { key: "nome", label: "Nome" },
             { key: "matricula", label: "Matrícula" },
             { key: "cargo", label: "Cargo" },
-            { key: "setor", label: "Setor" },
-            { key: "unidade", label: "Unidade" },
+            { key: "setor", label: "Setor principal" },
+            { key: "setor_secundario", label: "Setor secundário" },
             { key: "anos_de_casa", label: "Anos de casa" },
           ]}
         />
