@@ -6,6 +6,7 @@ export interface AniversarianteRow {
   registration: string;
   position: string | null;
   costCenter: string | null;
+  secondaryCostCenter: string | null;
   unit: string;
   date: Date;
   day: number;
@@ -23,6 +24,7 @@ async function fetchActiveWithDates() {
       admissionDate: true,
       position: { select: { name: true } },
       costCenter: { select: { name: true } },
+      secondaryCostCenter: { select: { name: true } },
       unit: { select: { name: true } },
     },
   });
@@ -41,6 +43,7 @@ export async function getBirthdaysThisMonth(month?: number): Promise<Aniversaria
       registration: e.registration,
       position: e.position?.name ?? null,
       costCenter: e.costCenter?.name ?? null,
+      secondaryCostCenter: e.secondaryCostCenter?.name ?? null,
       unit: e.unit.name,
       date: e.birthDate!,
       day: e.birthDate!.getDate(),
@@ -128,6 +131,7 @@ export async function getWorkAnniversariesThisMonth(month?: number): Promise<Ani
       registration: e.registration,
       position: e.position?.name ?? null,
       costCenter: e.costCenter?.name ?? null,
+      secondaryCostCenter: e.secondaryCostCenter?.name ?? null,
       unit: e.unit.name,
       date: e.admissionDate,
       day: e.admissionDate.getDate(),
