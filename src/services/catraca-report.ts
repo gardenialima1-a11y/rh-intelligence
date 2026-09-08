@@ -75,13 +75,31 @@ export interface CatracaReportData {
 export async function getCatracaReportData(filters: ExecutiveFilters): Promise<CatracaReportData> {
   const range = resolvePeriod(filters.period);
 
+  // Antes, cada evento vinha com os dados completos do funcionário (via
+  // `include`) — um funcionário com centenas de batidas no período trazia
+  // os mesmos dados de nome/unidade/centro de custo repetidos centenas de
+  // vezes, inflando muito o volume trafegado do banco (principal causa do
+  // consumo de network transfer do plano). Agora buscamos só os campos
+  // escalares do evento e, à parte, os dados de cada funcionário uma única
+  // vez por pessoa.
   const events = await prisma.turnstileEvent.findMany({
     where: {
       timestamp: { gte: range.start, lte: range.end },
       ...(filters.unitId ? { employee: { unitId: filters.unitId } } : {}),
     },
-    include: {
-      employee: {
+    select: {
+      employeeId: true,
+      timestamp: true,
+      direction: true,
+    },
+    orderBy: { timestamp: "asc" },
+  });
+
+  const employeeIds = Array.from(new Set(events.map((e) => e.employeeId)));
+
+  const employees = employeeIds.length
+    ? await prisma.employee.findMany({
+        where: { id: { in: employeeIds } },
         select: {
           id: true,
           name: true,
@@ -89,28 +107,24 @@ export async function getCatracaReportData(filters: ExecutiveFilters): Promise<C
           costCenter: { select: { area: true, name: true } },
           secondaryCostCenter: { select: { name: true } },
         },
-      },
-    },
-    orderBy: { timestamp: "asc" },
-  });
+      })
+    : [];
 
   const employeeInfo = new Map<
     string,
     { name: string; unit: string; area: string | null; sector: string | null; secondarySector: string | null }
   >();
-  for (const ev of events) {
-    if (!employeeInfo.has(ev.employeeId)) {
-      employeeInfo.set(ev.employeeId, {
-        name: ev.employee.name,
-        unit: ev.employee.unit.name,
-        area: ev.employee.costCenter?.area ?? null,
-        sector: ev.employee.costCenter?.name ?? null,
-        secondarySector: ev.employee.secondaryCostCenter?.name ?? null,
-      });
-    }
+  for (const emp of employees) {
+    employeeInfo.set(emp.id, {
+      name: emp.name,
+      unit: emp.unit.name,
+      area: emp.costCenter?.area ?? null,
+      sector: emp.costCenter?.name ?? null,
+      secondarySector: emp.secondaryCostCenter?.name ?? null,
+    });
   }
 
-  const eventLikes = events.map((e: (typeof events)[number]) => ({
+  const eventLikes = events.map((e) => ({
     employeeId: e.employeeId,
     timestamp: e.timestamp,
     direction: e.direction,
