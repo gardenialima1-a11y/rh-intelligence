@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getFavoriteModuleKeys } from "@/actions/favorites";
+import { shouldLogAccess } from "@/lib/access-log-throttle";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
@@ -12,11 +13,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session?.user) redirect("/login");
 
   const pathname = (await headers()).get("x-pathname") ?? "/";
-  prisma.accessLog
-    .create({ data: { userId: session.user.id, path: pathname, action: "VIEW" } })
-    .catch(() => {
-      // log de acesso é best-effort; nunca deve quebrar a navegação
-    });
+  // Throttlado: sem isso, cada navegação escrevia no banco e mantinha o
+  // compute do Neon sempre acordado, consumindo a cota mensal do plano
+  // free bem mais rápido do que o uso real justificaria.
+  if (shouldLogAccess(session.user.id)) {
+    prisma.accessLog
+      .create({ data: { userId: session.user.id, path: pathname, action: "VIEW" } })
+      .catch(() => {
+        // log de acesso é best-effort; nunca deve quebrar a navegação
+      });
+  }
 
   const favoriteKeys = await getFavoriteModuleKeys();
 
