@@ -7,7 +7,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Pencil, User, Search } from "lucide-react";
+import { Pencil, User, Search, FileBarChart } from "lucide-react";
 import { EmployeeFormDialog, type EmployeeFormOptions } from "@/components/admin/employee-form-dialog";
 import { TerminationDialog } from "@/components/admin/termination-dialog";
 import { formatDate } from "@/lib/utils";
@@ -203,6 +203,15 @@ export function EmployeesTable({
               </TableCell>
               <TableCell>
                 <div className="flex gap-2">
+                  <a
+                    href={"/relatorios/colaborador/" + e.id}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Ver relatório completo do colaborador (atrasos, faltas, atestados, advertências)"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-gold hover:text-gold-text"
+                  >
+                    <FileBarChart className="h-3.5 w-3.5" />
+                  </a>
                   <EmployeeFormDialog
                     mode="edit"
                     employeeId={e.id}
