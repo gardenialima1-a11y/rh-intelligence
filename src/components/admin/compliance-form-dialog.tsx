@@ -61,15 +61,24 @@ export function ComplianceFormDialog({ employees }: { employees: OptionItem[] })
   async function onSubmit(values: ComplianceFormValues) {
     setServerError(null);
     setLoading(true);
-    const result = await createComplianceEvent(values);
-    setLoading(false);
-    if (!result.success) {
-      setServerError(result.error ?? "Não foi possível salvar.");
-      return;
+    try {
+      const result = await createComplianceEvent(values);
+      if (!result.success) {
+        setServerError(result.error ?? "Não foi possível salvar.");
+        return;
+      }
+      setOpen(false);
+      reset();
+      router.refresh();
+    } catch {
+      // Mesmo problema do formulário de atestado: sem isso, uma falha no
+      // envio deixava o botão girando pra sempre sem avisar o usuário.
+      setServerError(
+        "Não foi possível enviar o registro. Se anexou um documento, tente um PDF/JPG menor (até 3MB) e envie novamente."
+      );
+    } finally {
+      setLoading(false);
     }
-    setOpen(false);
-    reset();
-    router.refresh();
   }
 
   return (

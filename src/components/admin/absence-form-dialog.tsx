@@ -110,15 +110,25 @@ export function AbsenceFormDialog({ employees, reasons, mode, absenceId, default
   async function onSubmit(values: AbsenceFormValues) {
     setServerError(null);
     setLoading(true);
-    const result = mode === "create" ? await createAbsence(values) : await updateAbsence(absenceId!, values);
-    setLoading(false);
-    if (!result.success) {
-      setServerError(result.error ?? "Não foi possível salvar.");
-      return;
+    try {
+      const result = mode === "create" ? await createAbsence(values) : await updateAbsence(absenceId!, values);
+      if (!result.success) {
+        setServerError(result.error ?? "Não foi possível salvar.");
+        return;
+      }
+      setOpen(false);
+      reset();
+      router.refresh();
+    } catch {
+      // Sem isso, uma falha no envio (por exemplo, um anexo grande sendo
+      // rejeitado pelo servidor) deixava o botão "Cadastrar" girando pra
+      // sempre, sem nenhuma mensagem — parecia que o app tinha travado.
+      setServerError(
+        "Não foi possível enviar o atestado. Se anexou um arquivo, tente um PDF/JPG menor (até 3MB) e envie novamente."
+      );
+    } finally {
+      setLoading(false);
     }
-    setOpen(false);
-    reset();
-    router.refresh();
   }
 
   return (

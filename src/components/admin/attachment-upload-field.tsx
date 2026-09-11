@@ -4,7 +4,14 @@ import * as React from "react";
 import { Paperclip, Loader2, X, FileText } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
-const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+// O anexo é convertido para base64 e enviado dentro do corpo da Server Action.
+// Base64 infla o tamanho em ~33%, e a Vercel limita o corpo de requisições de
+// Serverless Function a 4.5MB independente do `bodySizeLimit` do Next.js — um
+// arquivo de 5MB virava ~6.7MB codificado e a requisição era rejeitada pela
+// plataforma antes de chegar no código (e, como a falha não era tratada, o
+// botão "Cadastrar" ficava girando pra sempre sem mostrar erro nenhum).
+// 3MB deixa margem suficiente para não bater nesse limite.
+const MAX_SIZE_BYTES = 3 * 1024 * 1024; // 3MB
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/jpg"];
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -41,7 +48,7 @@ export function AttachmentUploadField({
       return;
     }
     if (file.size > MAX_SIZE_BYTES) {
-      setError("Arquivo muito grande. O limite é 5MB.");
+      setError("Arquivo muito grande. O limite é 3MB (arquivos maiores falham no envio).");
       return;
     }
 

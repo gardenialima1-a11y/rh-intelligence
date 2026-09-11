@@ -14,7 +14,8 @@ export const complianceFormSchema = z.object({
       (v) => v === null || v === undefined || v === "" || (!Number.isNaN(Number(v)) && Number(v) >= 0),
       "Informe um valor válido"
     ),
-  attachmentUrl: z.string().optional().nullable(),
+  // Ver comentário equivalente em src/lib/validation/absence.ts.
+  attachmentUrl: z.string().max(4_500_000, "Arquivo muito grande para anexar.").optional().nullable(),
   attachmentName: z.string().optional().nullable(),
 });
 

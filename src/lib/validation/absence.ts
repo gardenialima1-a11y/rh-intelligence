@@ -27,7 +27,12 @@ export const absenceFormSchema = z.object({
     .union([z.string(), z.number()])
     .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0 && Number(v) <= 2000, "Informe um número de horas válido"),
   hasCertificate: z.boolean(),
-  attachmentUrl: z.string().optional().nullable(),
+  // ~4.5M caracteres cobre um arquivo de até ~3MB já em base64 (o limite
+  // aplicado no campo de upload). Isso é defesa em profundidade: o principal
+  // limite fica no client (attachment-upload-field.tsx), mas essa validação
+  // garante um erro claro em vez de um payload gigante estourando o limite
+  // de corpo de requisição da Vercel (4.5MB) sem explicação.
+  attachmentUrl: z.string().max(4_500_000, "Arquivo muito grande para anexar.").optional().nullable(),
   attachmentName: z.string().optional().nullable(),
 });
 
