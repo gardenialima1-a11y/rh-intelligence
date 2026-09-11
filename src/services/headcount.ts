@@ -112,6 +112,10 @@ export interface IdealVsRealArea {
   ideal: number;
   real: number;
   diff: number;
+  /** Quantos setores da área ainda não têm quadro ideal cadastrado. */
+  sectorsWithoutTarget: number;
+  /** Quantas pessoas (dentro de "real") estão em setores sem meta cadastrada — não entram no cálculo de "diff". */
+  realWithoutTarget: number;
   sectors: IdealVsRealSector[];
 }
 
@@ -121,6 +125,16 @@ export interface IdealVsRealArea {
  * usa o setor SECUNDÁRIO do colaborador, que é o campo que de fato está
  * preenchido no cadastro hoje (o setor principal ainda está vazio para a
  * maior parte dos colaboradores).
+ *
+ * IMPORTANTE: setores sem "quadro ideal" cadastrado (targetHeadcount null)
+ * NÃO entram no cálculo de "diff" da área. Se entrassem contando como meta
+ * 0, todo colaborador desses setores apareceria como "excedente" na área,
+ * mesmo sem existir de fato uma meta pra comparar (foi exatamente esse o bug
+ * relatado: o quadro da área aparecia sempre com sobra, porque setores sem
+ * meta cadastrada eram somados no "real" mas contribuíam 0 pro "ideal"). O
+ * "real" total da área continua somando todo mundo, só o "diff" é que ignora
+ * a parcela de setores sem meta — e isso fica exposto em
+ * sectorsWithoutTarget/realWithoutTarget pra UI avisar o usuário.
  */
 export async function getIdealVsRealHeadcount(): Promise<IdealVsRealArea[]> {
   const presentFilter = activePresentEmployeeWhere();
@@ -139,11 +153,17 @@ export async function getIdealVsRealHeadcount(): Promise<IdealVsRealArea[]> {
 
   const byArea = new Map<string, IdealVsRealArea>();
   for (const c of costCenters) {
-    const entry = byArea.get(c.area) ?? { area: c.area, ideal: 0, real: 0, diff: 0, sectors: [] as IdealVsRealSector[] };
-    const ideal = c.targetHeadcount ?? 0;
+    const entry =
+      byArea.get(c.area) ??
+      ({ area: c.area, ideal: 0, real: 0, diff: 0, sectorsWithoutTarget: 0, realWithoutTarget: 0, sectors: [] as IdealVsRealSector[] } as IdealVsRealArea);
     const real = c._count.secondaryEmployees;
-    entry.ideal += ideal;
     entry.real += real;
+    if (c.targetHeadcount !== null) {
+      entry.ideal += c.targetHeadcount;
+    } else {
+      entry.sectorsWithoutTarget += 1;
+      entry.realWithoutTarget += real;
+    }
     entry.sectors.push({
       id: c.id,
       name: c.name,
@@ -155,7 +175,12 @@ export async function getIdealVsRealHeadcount(): Promise<IdealVsRealArea[]> {
   }
 
   return Array.from(byArea.values())
-    .map((a) => ({ ...a, diff: a.real - a.ideal, sectors: a.sectors.sort((s1, s2) => s2.real - s1.real) }))
+    .map((a) => ({
+      ...a,
+      // Diferença considera só a parcela de "real" que pertence a setores com meta cadastrada.
+      diff: a.real - a.realWithoutTarget - a.ideal,
+      sectors: a.sectors.sort((s1, s2) => s2.real - s1.real),
+    }))
     .sort((a, b) => b.ideal - a.ideal);
 }
 
