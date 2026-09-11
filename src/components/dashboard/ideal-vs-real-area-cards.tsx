@@ -60,6 +60,12 @@ function AreaCard({ area }: { area: IdealVsRealArea }) {
             <span className="text-[12px] text-muted-foreground">
               Ideal {area.ideal} · Real {area.real}
             </span>
+            {area.sectorsWithoutTarget > 0 && (
+              <span className="text-[11px] text-muted-foreground/80">
+                {area.sectorsWithoutTarget} setor{area.sectorsWithoutTarget > 1 ? "es" : ""} sem meta cadastrada ·{" "}
+                {area.realWithoutTarget} pessoa{area.realWithoutTarget !== 1 ? "s" : ""} fora da comparação
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
