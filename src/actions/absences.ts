@@ -137,10 +137,17 @@ export async function getAtestadosRanking(): Promise<AtestadoRankingRow[]> {
 }
 
 export async function getCertificatedAbsences() {
+  // Sem `take` — a lista completa de atestados vai pro client (que filtra por
+  // colaborador/CID/setor secundário) porque a tabela precisava mostrar todos
+  // os registros, não só os 200 mais recentes.
   return prisma.absence.findMany({
     where: { hasCertificate: true },
-    include: { employee: { select: { id: true, name: true } }, reason: true },
+    include: {
+      employee: {
+        select: { id: true, name: true, secondaryCostCenter: { select: { id: true, name: true } } },
+      },
+      reason: true,
+    },
     orderBy: { date: "desc" },
-    take: 200,
   });
 }

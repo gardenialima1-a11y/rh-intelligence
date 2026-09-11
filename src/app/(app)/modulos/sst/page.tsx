@@ -49,6 +49,7 @@ export default async function SstPage({
     atestados,
     employees,
     reasons,
+    costCenters,
     atestadosRanking,
     absenteeismInsights,
     accidentStability,
@@ -61,6 +62,7 @@ export default async function SstPage({
     getCertificatedAbsences(),
     prisma.employee.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.reason.findMany({ where: { category: "AFASTAMENTO" }, select: { id: true, label: true }, orderBy: { label: "asc" } }),
+    prisma.costCenter.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getAtestadosRanking(),
     getAbsenteeismInsights(filters),
     getAccidentStability(filters),
@@ -165,7 +167,7 @@ export default async function SstPage({
               Nenhum atestado registrado ainda. Clique em &quot;Novo atestado&quot; para começar.
             </p>
           ) : (
-            <AtestadosTable absences={atestados} employees={employees} reasons={reasons} />
+            <AtestadosTable absences={atestados} employees={employees} reasons={reasons} costCenters={costCenters} />
           )}
         </CardContent>
       </Card>
