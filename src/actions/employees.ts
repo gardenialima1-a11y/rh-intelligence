@@ -105,13 +105,29 @@ export async function updateEmployee(employeeId: string, raw: unknown): Promise<
       return { success: false, error: "Já existe outro colaborador com essa matrícula." };
     }
 
+    // Estado ANTES da edição — precisamos disso para comparar com os dados
+    // novos e detectar transferência de setor e/ou promoção de cargo. Sem
+    // isso, a edição só atualizava o cadastro e nunca gerava um registro em
+    // Movement, então a Taxa de Mobilidade Interna (tela de Liderança) nunca
+    // saía do zero com dados reais.
+    const before = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: { costCenter: true, position: true },
+    });
+    if (!before) {
+      return { success: false, error: "Colaborador não encontrado." };
+    }
+
+    const newCostCenterId = data.costCenterId || null;
+    const newPositionId = data.positionId || null;
+
     await prisma.employee.update({
       where: { id: employeeId },
       data: {
         registration: data.registration,
         name: data.name,
-        positionId: data.positionId || null,
-        costCenterId: data.costCenterId || null,
+        positionId: newPositionId,
+        costCenterId: newCostCenterId,
         secondaryCostCenterId: data.secondaryCostCenterId || null,
         managerId: data.managerId || null,
         unitId: data.unitId,
@@ -128,6 +144,41 @@ export async function updateEmployee(employeeId: string, raw: unknown): Promise<
         isExemptFromCatraca: data.isExemptFromCatraca,
       },
     });
+
+    // Gera o(s) registro(s) de movimentação (transferência de setor e/ou
+    // promoção de cargo) só quando o dado realmente mudou nesta edição.
+    // Se você informou a "data da mudança" no formulário, usamos ela; senão,
+    // usamos a data de hoje (o dia em que a edição foi salva).
+    const movementDate = data.movementDate ? new Date(data.movementDate) : new Date();
+    const movementsToCreate: { date: Date; employeeId: string; type: MovementType; notes: string }[] = [];
+
+    if (newCostCenterId !== before.costCenterId) {
+      const newCostCenter = newCostCenterId
+        ? await prisma.costCenter.findUnique({ where: { id: newCostCenterId } })
+        : null;
+      movementsToCreate.push({
+        date: movementDate,
+        employeeId,
+        type: MovementType.TRANSFERENCIA,
+        notes: `Setor: ${before.costCenter?.name ?? "sem setor"} → ${newCostCenter?.name ?? "sem setor"}`,
+      });
+    }
+
+    if (newPositionId !== before.positionId) {
+      const newPosition = newPositionId
+        ? await prisma.position.findUnique({ where: { id: newPositionId } })
+        : null;
+      movementsToCreate.push({
+        date: movementDate,
+        employeeId,
+        type: MovementType.PROMOCAO,
+        notes: `Cargo: ${before.position?.name ?? "sem cargo"} → ${newPosition?.name ?? "sem cargo"}`,
+      });
+    }
+
+    if (movementsToCreate.length > 0) {
+      await prisma.movement.createMany({ data: movementsToCreate });
+    }
 
     // Se um salário foi informado na edição, grava/atualiza o custo do mês
     // atual para esse colaborador — sem isso, o campo de salário na edição
@@ -147,6 +198,7 @@ export async function updateEmployee(employeeId: string, raw: unknown): Promise<
     revalidatePath("/modulos/colaboradores");
     revalidatePath("/modulos/headcount");
     revalidatePath("/modulos/custos");
+    revalidatePath("/modulos/lideranca");
     revalidatePath("/");
     return { success: true };
   } catch (err) {
