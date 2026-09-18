@@ -25,6 +25,10 @@ export const employeeFormSchema = z
     admissionDate: z.string().min(1, "Informe a data de admissão"),
     contractType: z.enum(CONTRACT_TYPE_OPTIONS),
     contractEndDate: z.string().optional().nullable(),
+    // Data real da transferência de setor / promoção de cargo, usada só na
+    // edição. Se ficar em branco, o sistema grava a movimentação com a data
+    // de hoje (o dia em que a edição foi salva).
+    movementDate: z.string().optional().nullable(),
     isPCD: z.boolean(),
     isTrustPosition: z.boolean(),
     isExemptFromCatraca: z.boolean(),
