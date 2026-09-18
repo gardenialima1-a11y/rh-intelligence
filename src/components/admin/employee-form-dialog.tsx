@@ -235,6 +235,17 @@ export function EmployeeFormDialog({ options, mode, employeeId, defaultValues, t
             </p>
           </div>
 
+          {mode === "edit" && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="movementDate">Data da mudança de setor/cargo (opcional)</Label>
+              <Input id="movementDate" type="date" {...register("movementDate")} />
+              <p className="text-[11px] text-muted-foreground">
+                Preencha só se você está mudando o setor ou o cargo nesta edição e quiser registrar a data real em que
+                isso aconteceu. Em branco, o sistema usa a data de hoje.
+              </p>
+            </div>
+          )}
+
         <div className="flex flex-col gap-1.5">
             <Label>Gestor</Label>
             <div className="flex gap-2">
