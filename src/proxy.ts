@@ -8,7 +8,10 @@ export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
   const isLoginPage = nextUrl.pathname.startsWith("/login");
-  const isPublicAsset = nextUrl.pathname.startsWith("/_next") || nextUrl.pathname.startsWith("/api/auth");
+  const isPublicAsset =
+    nextUrl.pathname.startsWith("/_next") ||
+    nextUrl.pathname.startsWith("/api/auth") ||
+    nextUrl.pathname.startsWith("/api/integracoes/colaboradores-saida");
 
   if (isPublicAsset) return NextResponse.next();
 
